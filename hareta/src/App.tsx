@@ -1,13 +1,12 @@
-import Features from "./components/featureCard/feature";
-import Hero from "./pages/hero/hero";
-import Navbar from "./components/navbar";
+import { Toaster } from "sonner";
+import { Suspense } from "react";
 
 function App() {
   return (
     <>
-      <Navbar />
-      <Hero />
-      <Features />
+      <Suspense fallback={<div>Loading…</div>}>
+        <Toaster />
+      </Suspense>
     </>
   );
 }

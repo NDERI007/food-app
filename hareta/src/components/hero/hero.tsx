@@ -1,4 +1,3 @@
-// HeroStickyHeadline.tsx
 import { useEffect, useRef, useState } from "react";
 
 // Helper functions remain the same
@@ -93,7 +92,7 @@ export default function HeroStickyHeadline() {
 
   return (
     // This parent container's height (300vh) determines the scroll duration of the animation.
-    <section ref={heroRef} className="relative h-[300vh] bg-[]">
+    <section ref={heroRef} className="relative h-[300vh]">
       {/* This is the sticky "stage" where all animations happen. */}
       <div className="sticky top-0 flex h-screen items-center justify-center overflow-hidden">
         {/* Headline Container */}
