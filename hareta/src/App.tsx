@@ -1,5 +1,5 @@
-import Features from "./components/feature";
-import Hero from "./components/hero";
+import Features from "./components/featureCard/feature";
+import Hero from "./pages/hero/hero";
 import Navbar from "./components/navbar";
 
 function App() {
