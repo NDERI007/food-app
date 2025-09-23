@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
+import { usePlacesSearch, type Place } from '../../utils/hooks/placeSearch';
 
-// Helper functions remain the same
+// --- COLOR HELPERS ---
 const clamp = (v: number, a = 0, b = 1) => Math.max(a, Math.min(b, v));
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
-// --- COLOR HELPERS ---
 const hexToRgb = (hex: string) => {
   const bigint = parseInt(hex.replace('#', ''), 16);
   return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255];
@@ -24,33 +24,37 @@ const lerpColor = (a: string, b: string, t: number) => {
 };
 
 interface HeroSearchBarProps {
-  onSubmit?: (place: { place_id: string; description: string }) => void;
+  onSubmit?: (place: Place) => void;
 }
 
 export default function HeroStickyHeadline({ onSubmit }: HeroSearchBarProps) {
   const heroRef = useRef<HTMLDivElement | null>(null);
   const [progress, setProgress] = useState(0);
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState<any[]>([]);
-  const [isOpen, setIsOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [selectedPlace, setSelectedPlace] = useState<any>(null);
 
-  const imgDarkness = lerp(0, 0.4, progress);
-  const DEBOUNCE_MS = 220; // adjust if you want faster/slower
-  const MIN_CHARS = 1; // start calling as soon as user types
-  const debounceRef = useRef<number | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
+  // Use the Places hook
+  const {
+    query,
+    results,
+    loading,
+    isOpen,
+    selectedPlace,
+    highlightedIndex,
+    onChange: handleChange,
+    onFocus: handleFocus,
+    onBlur: handleBlur,
+    handleKeyDown,
+    selectPlace,
+  } = usePlacesSearch({
+    onSubmit,
+  });
+
+  // Scroll progress for animations
   useEffect(() => {
     const onScroll = () => {
       if (!heroRef.current) return;
       const rect = heroRef.current.getBoundingClientRect();
       const vh = window.innerHeight;
-
-      // Calculate scroll progress from 0 to 1 based on how much of the
-      // 300vh container has been scrolled through.
       const scrollProgress = -rect.top / (rect.height - vh);
-
       setProgress(clamp(scrollProgress));
     };
 
@@ -64,146 +68,74 @@ export default function HeroStickyHeadline({ onSubmit }: HeroSearchBarProps) {
     };
   }, []);
 
-  // fetch places (debounced) whenever query changes
-  useEffect(() => {
-    // clear previous debounce
-    if (debounceRef.current) window.clearTimeout(debounceRef.current);
-
-    // if query too short, clear results and don't call
-    if (!query || query.trim().length < MIN_CHARS) {
-      setResults([]);
-      setIsOpen(false);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    // schedule the request
-    debounceRef.current = window.setTimeout(() => {
-      // abort previous in-flight request
-      if (abortRef.current) abortRef.current.abort();
-      const controller = new AbortController();
-      abortRef.current = controller;
-
-      fetch(`/api/places?q=${encodeURIComponent(query.trim())}&limit=6`, {
-        signal: controller.signal,
-      })
-        .then((res) => {
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          return res.json();
-        })
-        .then((data) => {
-          setResults(data || []);
-          setIsOpen(true);
-        })
-        .catch((err) => {
-          if (err.name === 'AbortError') return;
-          console.error('places fetch error', err);
-          setResults([]);
-          setIsOpen(false);
-        })
-        .finally(() => {
-          setLoading(false);
-        });
-    }, DEBOUNCE_MS);
-
-    return () => {
-      if (debounceRef.current) window.clearTimeout(debounceRef.current);
-    };
-  }, [query]);
-
   // --- ANIMATION VALUES ---
-
-  // 1. Text Animation: Moves down from the top-center of the screen
-  // It starts 15vh above the center and moves down to the center.
+  const imgDarkness = lerp(0, 0.4, progress);
   const textTranslateY = lerp(-15, 0, progress);
-
-  // 2. Image Container Animation: Moves up, expands, and becomes square.
-  // The container starts 20vh below the center and moves up to the center.
   const imgContainerTranslateY = lerp(40, 0, progress);
-  // It starts narrower and expands to full width.
-  const imgContainerWidth = lerp(75, 100, progress); // in %
-  // It starts shorter and expands to full height.
-  const imgContainerHeight = lerp(60, 100, progress); // in vh
-  // It starts rounded and becomes a sharp rectangle.
+  const imgContainerWidth = lerp(75, 100, progress);
+  const imgContainerHeight = lerp(60, 100, progress);
   const imgContainerRadius = lerp(32, 0, progress);
-
-  // 3. Inner Image Animation: A subtle zoom effect for parallax (Ken Burns)
   const innerImgScale = lerp(1.2, 1, progress);
 
-  // --- STEPWISE COLOR TRANSITION ---
-  const baseColor = '#195908'; // dark green
-  const midColor = '#3f704d'; // light green
-  const endColor = '#faf7ef'; // cream
-
+  // --- COLOR TRANSITION ---
+  const baseColor = '#195908';
+  const midColor = '#3f704d';
+  const endColor = '#faf7ef';
   let headlineColor = baseColor;
 
-  if (progress < 0.2) {
-    headlineColor = baseColor;
-  } else if (progress >= 0.2 && progress < 0.3) {
+  if (progress >= 0.2 && progress < 0.3) {
     const t = (progress - 0.2) / 0.1;
     headlineColor = lerpColor(baseColor, midColor, t);
   } else if (progress >= 0.3 && progress < 0.4) {
     const t = (progress - 0.3) / 0.1;
     headlineColor = lerpColor(midColor, endColor, t);
-  } else {
+  } else if (progress >= 0.4) {
     headlineColor = endColor;
   }
 
   return (
-    // This parent container's height (300vh) determines the scroll duration of the animation.
     <section ref={heroRef} className='relative h-[300vh]'>
-      {/* This is the sticky "stage" where all animations happen. */}
       <div className='sticky top-0 flex h-screen items-center justify-center overflow-hidden'>
-        {/* Headline Container */}
+        {/* Headline */}
         <div
-          style={{
-            transform: `translateY(${textTranslateY}vh)`,
-          }}
+          style={{ transform: `translateY(${textTranslateY}vh)` }}
           className='relative z-10 mx-auto text-center'
         >
-          {/* Gradient headline */}
           <h1
             className='mb-4 text-4xl leading-tight md:text-6xl lg:text-7xl'
-            style={{
-              color: headlineColor,
-            }}
+            style={{ color: headlineColor }}
           >
             The Easy meals for busy days
           </h1>
 
           {/* Search bar */}
-          <div className='flex flex-col items-stretch gap-2 overflow-hidden rounded-xl bg-white shadow-md md:flex-row md:gap-0'>
+          <div className='flex flex-col items-stretch gap-2 overflow-visible rounded-xl bg-white shadow-md md:flex-row md:gap-0'>
             <div className='relative flex-1'>
               <input
                 type='text'
                 value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  setSelectedPlace(null);
-                }}
-                onFocus={() => {
-                  if (results.length) setIsOpen(true);
-                }}
+                onChange={(e) => handleChange(e.target.value)}
+                onFocus={handleFocus}
+                onBlur={handleBlur}
+                onKeyDown={handleKeyDown}
                 placeholder='Enter delivery address'
                 className='w-full px-4 py-3 focus:outline-none'
                 aria-label='Enter delivery address'
               />
-              {/* suggestions */}
+
+              {/* Suggestions dropdown */}
               {isOpen && results.length > 0 && (
                 <ul className='absolute top-full right-0 left-0 z-20 max-h-60 overflow-auto bg-white shadow-md'>
                   {results.map((r, i) => (
                     <li
                       key={r.place_id ?? i}
                       onMouseDown={(ev) => {
-                        // mouseDown to prevent blur before click
                         ev.preventDefault();
-                        setSelectedPlace(r);
-                        setQuery(r.description || r.main_text || r.name || '');
-                        setResults([]);
-                        setIsOpen(false);
+                        selectPlace(r);
                       }}
-                      className='cursor-pointer px-4 py-2 text-left hover:bg-gray-100'
+                      className={`cursor-pointer px-4 py-2 text-left ${
+                        highlightedIndex === i ? 'bg-gray-100' : ''
+                      }`}
                     >
                       <div className='font-medium'>{r.main_text ?? r.name}</div>
                       {r.secondary_text && (
@@ -226,9 +158,7 @@ export default function HeroStickyHeadline({ onSubmit }: HeroSearchBarProps) {
             <button
               className='rounded-full bg-amber-400 px-6 py-3 font-semibold text-black shadow-md hover:bg-amber-500'
               onClick={() => {
-                if (selectedPlace) {
-                  onSubmit?.(selectedPlace); // <-- here
-                }
+                if (selectedPlace) onSubmit?.(selectedPlace);
               }}
             >
               Find Food
@@ -236,7 +166,7 @@ export default function HeroStickyHeadline({ onSubmit }: HeroSearchBarProps) {
           </div>
         </div>
 
-        {/*  Image Container */}
+        {/* Image container */}
         <div
           style={{
             position: 'absolute',
@@ -262,7 +192,6 @@ export default function HeroStickyHeadline({ onSubmit }: HeroSearchBarProps) {
             }}
           />
 
-          {/* Darkening overlay */}
           <div
             style={{
               position: 'absolute',
