@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from 'react';
 import { usePlacesSearch, type Place } from '../../utils/hooks/placeSearch';
+import { useNavigate } from 'react-router-dom';
 
 // --- COLOR HELPERS ---
 const clamp = (v: number, a = 0, b = 1) => Math.max(a, Math.min(b, v));
@@ -31,6 +32,7 @@ export default function HeroStickyHeadline({ onSubmit }: HeroSearchBarProps) {
   const heroRef = useRef<HTMLDivElement | null>(null);
   const [progress, setProgress] = useState(0);
 
+  const navigate = useNavigate();
   // Use the Places hook
   const {
     query,
@@ -132,6 +134,7 @@ export default function HeroStickyHeadline({ onSubmit }: HeroSearchBarProps) {
                       onMouseDown={(ev) => {
                         ev.preventDefault();
                         selectPlace(r);
+                        navigate('/login', { state: { place: r } }); // redirect to /menu
                       }}
                       className={`cursor-pointer px-4 py-2 text-left ${
                         highlightedIndex === i ? 'bg-gray-100' : ''
@@ -154,9 +157,8 @@ export default function HeroStickyHeadline({ onSubmit }: HeroSearchBarProps) {
                 </div>
               )}
             </div>
-
             <button
-              className='rounded-full bg-amber-400 px-6 py-3 font-semibold text-black shadow-md hover:bg-amber-500'
+              className='rounded-md bg-amber-400 px-6 py-3 font-semibold text-black shadow-md hover:bg-amber-500'
               onClick={() => {
                 if (selectedPlace) onSubmit?.(selectedPlace);
               }}

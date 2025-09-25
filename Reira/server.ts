@@ -166,13 +166,15 @@ async function dbSearch(q: string, limit = 10) {
 }
 
 /* ---------------- Google autocomplete (always campus-biased) ---------------- */
-type GoogleOpts = {
+
+interface GoogleOpts {
   sessionToken?: string;
-};
+}
 
 async function googleAutocomplete(input: string, opts: GoogleOpts = {}) {
   if (!GOOGLE_KEY) return [];
 
+  // Build a cache key so repeated queries are faster
   const biasPart =
     TOWN_LAT && TOWN_LNG && TOWN_RADIUS_METERS
       ? `|campus:${TOWN_LAT},${TOWN_LNG},${TOWN_RADIUS_METERS}`
@@ -182,48 +184,72 @@ async function googleAutocomplete(input: string, opts: GoogleOpts = {}) {
   const cached = await cacheGet(cacheKey);
   if (cached) return cached;
 
-  const base = "https://maps.googleapis.com/maps/api/place/autocomplete/json";
-  const params = new URLSearchParams({
-    key: GOOGLE_KEY,
+  const url = "https://places.googleapis.com/v1/places:autocomplete";
+
+  // Build request body for new API
+  const body: any = {
     input,
-  });
+    sessionToken: opts.sessionToken,
+    languageCode: "en-KE", // optional but good for Kenya
+  };
 
-  if (COUNTRY) params.set("components", `country:${COUNTRY}`);
-
-  // ALWAYS bias to campus center from env (no client override)
-  if (TOWN_LAT && TOWN_LNG) {
-    params.set("location", `${TOWN_LAT},${TOWN_LNG}`);
-  }
-  if (TOWN_RADIUS_METERS) {
-    params.set("radius", String(TOWN_RADIUS_METERS));
+  if (COUNTRY) {
+    body.includedRegionCodes = [COUNTRY]; // e.g. ["KE"]
   }
 
-  if (opts.sessionToken) {
-    params.set("sessiontoken", opts.sessionToken);
+  // Restrict strictly to campus radius if defined
+  if (TOWN_LAT && TOWN_LNG && TOWN_RADIUS_METERS) {
+    body.locationRestriction = {
+      circle: {
+        center: {
+          latitude: Number(TOWN_LAT),
+          longitude: Number(TOWN_LNG),
+        },
+        radius: Number(TOWN_RADIUS_METERS),
+      },
+    };
   }
-
-  const url = `${base}?${params.toString()}`;
 
   try {
-    const res = await fetch(url);
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": GOOGLE_KEY,
+      },
+      body: JSON.stringify(body),
+    });
+
     const json = (await res.json()) as any;
 
-    if (json.status !== "OK" && json.status !== "ZERO_RESULTS") {
-      console.error(
-        "Google Autocomplete error",
-        json.status,
-        json.error_message
-      );
+    if (json.error) {
+      console.error("Google Autocomplete error", json.error);
       return [];
     }
 
-    const preds = (json.predictions || []).map((p: any) => ({
-      source: "google",
-      place_id: p.place_id,
-      main_text: p.structured_formatting?.main_text || p.description,
-      secondary_text: p.structured_formatting?.secondary_text || null,
-      description: p.description,
-    }));
+    // Map new API response predictions
+    const preds = (json.suggestions || [])
+      .map((s: any) => {
+        if (s.placePrediction) {
+          // ✅ Exact place with a valid placeId
+          return {
+            source: "google",
+            place_id: s.placePrediction.placeId,
+            name: s.placePrediction.text?.text || "",
+            type: "place", // you can tag this to distinguish later
+          };
+        } else if (s.queryPrediction) {
+          // ⚠️ No placeId → fallback, let frontend handle details
+          return {
+            source: "google",
+            place_id: null,
+            name: s.queryPrediction.text?.text || "",
+            type: "query", // tag as query
+          };
+        }
+        return null;
+      })
+      .filter(Boolean);
 
     await cacheSet(cacheKey, preds, 60 * 30); // 30 min TTL
     return preds;
