@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from 'react';
 import { usePlacesSearch, type Place } from '../../utils/hooks/placeSearch';
 import { useNavigate } from 'react-router-dom';
+import FallbackModal from '../modal';
 
 // --- COLOR HELPERS ---
 const clamp = (v: number, a = 0, b = 1) => Math.max(a, Math.min(b, v));
@@ -31,6 +32,7 @@ interface HeroSearchBarProps {
 export default function HeroStickyHeadline({ onSubmit }: HeroSearchBarProps) {
   const heroRef = useRef<HTMLDivElement | null>(null);
   const [progress, setProgress] = useState(0);
+  const [fallbackOpen, setFallbackOpen] = useState(false);
 
   const navigate = useNavigate();
   // Use the Places hook
@@ -126,28 +128,42 @@ export default function HeroStickyHeadline({ onSubmit }: HeroSearchBarProps) {
               />
 
               {/* Suggestions dropdown */}
-              {isOpen && results.length > 0 && (
+              {isOpen && (
                 <ul className='absolute top-full right-0 left-0 z-20 max-h-60 overflow-auto bg-white shadow-md'>
-                  {results.map((r, i) => (
-                    <li
-                      key={r.place_id ?? i}
-                      onMouseDown={(ev) => {
-                        ev.preventDefault();
-                        selectPlace(r);
-                        navigate('/login', { state: { place: r } }); // redirect to /menu
-                      }}
-                      className={`cursor-pointer px-4 py-2 text-left ${
-                        highlightedIndex === i ? 'bg-gray-100' : ''
-                      }`}
-                    >
-                      <div className='font-medium'>{r.main_text ?? r.name}</div>
-                      {r.secondary_text && (
-                        <div className='text-xs text-gray-500'>
-                          {r.secondary_text}
+                  {results.length > 0 ? (
+                    results.map((r, i) => (
+                      <li
+                        key={r.place_id ?? i}
+                        onMouseDown={(ev) => {
+                          ev.preventDefault();
+                          selectPlace(r);
+                          navigate('/dashboard', { state: { place: r } }); // redirect to /menu
+                        }}
+                        className={`cursor-pointer px-4 py-2 text-left ${
+                          highlightedIndex === i ? 'bg-gray-100' : ''
+                        }`}
+                      >
+                        <div className='font-medium'>
+                          {r.main_text ?? r.name}
                         </div>
-                      )}
+                        {r.secondary_text && (
+                          <div className='text-xs text-gray-500'>
+                            {r.secondary_text}
+                          </div>
+                        )}
+                      </li>
+                    ))
+                  ) : (
+                    <li
+                      className='cursor-pointer px-4 py-2 text-gray-500 hover:bg-gray-100'
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setFallbackOpen(true);
+                      }}
+                    >
+                      Can’t find tha place? Click to specify
                     </li>
-                  ))}
+                  )}
                 </ul>
               )}
 
@@ -204,6 +220,21 @@ export default function HeroStickyHeadline({ onSubmit }: HeroSearchBarProps) {
           />
         </div>
       </div>
+      {/* Fallback modal */}
+      <FallbackModal
+        open={fallbackOpen}
+        onClose={() => setFallbackOpen(false)}
+        onSubmit={(data) => {
+          const fakePlace = {
+            place_id: null,
+            name: data.name,
+            room: data.room,
+            source: 'manual',
+          };
+          onSubmit?.(fakePlace);
+          navigate('/login', { state: { place: fakePlace } });
+        }}
+      />
     </section>
   );
 }

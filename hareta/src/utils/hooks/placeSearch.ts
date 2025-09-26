@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 
 export interface Place {
-  place_id: string;
-  description: string;
+  place_id: string | null;
+  description?: string;
   main_text?: string;
   secondary_text?: string;
   [key: string]: any;

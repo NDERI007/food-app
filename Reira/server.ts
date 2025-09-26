@@ -16,14 +16,14 @@ const PORT = parseInt(process.env.PORT || "8787", 10);
 const SUPABASE_URL = process.env.SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || "";
 const GOOGLE_KEY = process.env.GOOGLE_CLOUD_KEY || "";
-const COUNTRY = process.env.COUNTRY || "";
+const COUNTRY = "KE";
 const REDIS_URL = process.env.REDIS_URL || "";
 const CORS_ORIGINS = process.env.CORS_ORIGINS || "";
 
 // Campus bias (required for autocomplete bias)
-const TOWN_LAT = process.env.TOWN_LAT || "";
-const TOWN_LNG = process.env.TOWN_LNG || "";
-const TOWN_RADIUS_METERS = process.env.TOWN_RADIUS_METERS || ""; // meters, e.g. "1500"
+const CAMPUS_LAT = -0.565981;
+const CAMPUS_LNG = 37.320272;
+const CAMPUS_RADIUS_METERS = 5000.0;
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error("Please set SUPABASE_URL and SUPABASE_ANON_KEY in .env");
@@ -176,8 +176,8 @@ async function googleAutocomplete(input: string, opts: GoogleOpts = {}) {
 
   // Build a cache key so repeated queries are faster
   const biasPart =
-    TOWN_LAT && TOWN_LNG && TOWN_RADIUS_METERS
-      ? `|campus:${TOWN_LAT},${TOWN_LNG},${TOWN_RADIUS_METERS}`
+    CAMPUS_LAT && CAMPUS_LNG && CAMPUS_RADIUS_METERS
+      ? `|campus:${CAMPUS_LAT},${CAMPUS_LNG},${CAMPUS_RADIUS_METERS}`
       : "|campus:none";
   const cacheKey = `google:${input.toLowerCase()}${biasPart}`;
 
@@ -198,14 +198,14 @@ async function googleAutocomplete(input: string, opts: GoogleOpts = {}) {
   }
 
   // Restrict strictly to campus radius if defined
-  if (TOWN_LAT && TOWN_LNG && TOWN_RADIUS_METERS) {
-    body.locationRestriction = {
+  if (CAMPUS_LAT && CAMPUS_LNG && CAMPUS_RADIUS_METERS) {
+    body.locationBias = {
       circle: {
         center: {
-          latitude: Number(TOWN_LAT),
-          longitude: Number(TOWN_LNG),
+          latitude: Number(CAMPUS_LAT),
+          longitude: Number(CAMPUS_LNG),
         },
-        radius: Number(TOWN_RADIUS_METERS),
+        radius: Number(CAMPUS_RADIUS_METERS),
       },
     };
   }
