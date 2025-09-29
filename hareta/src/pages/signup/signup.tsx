@@ -3,9 +3,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { supabase } from '../../utils/supabase/Client';
 import { loginSchema, type LoginSchemaType } from '../../utils/schemas/auth';
-import { useState } from 'react';
 
-export default function Login() {
+export default function Signup() {
   const {
     register,
     handleSubmit,
@@ -13,7 +12,6 @@ export default function Login() {
   } = useForm<LoginSchemaType>({
     resolver: zodResolver(loginSchema),
   });
-  const [disabled, setDisabled] = useState(false);
 
   const onSubmit = async (data: LoginSchemaType) => {
     try {
@@ -26,9 +24,6 @@ export default function Login() {
 
       if (error) throw error;
       toast.success('Check your inbox for the login link!');
-      // ✅ disable button for 30 seconds after successful request
-      setDisabled(true);
-      setTimeout(() => setDisabled(false), 30_000);
     } catch (error: any) {
       toast.error(error.message || 'Something went wrong');
     }
@@ -60,14 +55,9 @@ export default function Login() {
 
         <button
           type='submit'
-          disabled={disabled}
-          className={`w-full rounded-md px-4 py-2 text-white transition-all duration-150 ${
-            disabled
-              ? 'cursor-not-allowed bg-gray-400 shadow-none'
-              : 'bg-green-900 shadow-md hover:bg-green-800 hover:shadow-lg active:scale-95 active:bg-green-950 active:shadow-inner'
-          }`}
+          className='w-full rounded-md bg-green-900 px-4 py-2 text-white transition-colors hover:bg-green-800'
         >
-          {disabled ? 'Please wait...' : 'Continue'}
+          Continue
         </button>
       </form>
     </div>

@@ -2,6 +2,7 @@ import { useRef, useState, useEffect } from 'react';
 import { usePlacesSearch, type Place } from '../../utils/hooks/placeSearch';
 import { useNavigate } from 'react-router-dom';
 import FallbackModal from '../modal';
+import { MapPin } from 'lucide-react';
 
 // --- COLOR HELPERS ---
 const clamp = (v: number, a = 0, b = 1) => Math.max(a, Math.min(b, v));
@@ -115,6 +116,10 @@ export default function HeroStickyHeadline({ onSubmit }: HeroSearchBarProps) {
           {/* Search bar */}
           <div className='flex flex-col items-stretch gap-2 overflow-visible rounded-xl bg-white shadow-md md:flex-row md:gap-0'>
             <div className='relative flex-1'>
+              <MapPin
+                size={20}
+                className='absolute top-1/2 left-3 -translate-y-1/2 text-gray-400'
+              />
               <input
                 type='text'
                 value={query}
@@ -123,7 +128,7 @@ export default function HeroStickyHeadline({ onSubmit }: HeroSearchBarProps) {
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
                 placeholder='Enter delivery address'
-                className='w-full px-4 py-3 focus:outline-none'
+                className='w-full px-10 py-3 focus:outline-none'
                 aria-label='Enter delivery address'
               />
 
@@ -173,14 +178,6 @@ export default function HeroStickyHeadline({ onSubmit }: HeroSearchBarProps) {
                 </div>
               )}
             </div>
-            <button
-              className='rounded-md bg-amber-400 px-6 py-3 font-semibold text-black shadow-md hover:bg-amber-500'
-              onClick={() => {
-                if (selectedPlace) onSubmit?.(selectedPlace);
-              }}
-            >
-              Find Food
-            </button>
           </div>
         </div>
 

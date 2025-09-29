@@ -13,7 +13,7 @@ export default function Navbar({
   isSignedIn,
 }: NavbarProps) {
   return (
-    <header className='flex items-center justify-between bg-white px-6 py-3 shadow'>
+    <header className='sticky top-0 z-50 flex items-center justify-between bg-[#fefaef] px-6 py-3 shadow'>
       {/* Left: Logo + Hamburger */}
       <div className='flex items-center gap-3'>
         <button onClick={onToggleSidebar}>

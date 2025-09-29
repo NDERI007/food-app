@@ -73,23 +73,23 @@ export default function ProductCard({
   return (
     <>
       <div
-        className='group relative flex cursor-pointer flex-col rounded-xl bg-white p-4 shadow transition hover:shadow-lg'
+        className='group relative flex cursor-pointer flex-col rounded-xl bg-white p-3 shadow transition hover:shadow-lg sm:p-4'
         onClick={openModal}
       >
         {/* Image only on the card (no description) */}
         <img
           src={product.image}
           alt={product.name}
-          className='h-40 w-full rounded-xl object-cover'
+          className='h-32 w-full rounded-xl object-cover sm:h-36 md:h-40 lg:h-44'
         />
 
         {/* Name */}
         <div className='mt-3 flex-1'>
-          <h3 className='text-lg font-semibold'>{product.name}</h3>
+          <h3 className='text-base font-semibold sm:text-lg'>{product.name}</h3>
         </div>
 
         {/* Price + Action */}
-        <div className='mt-4 flex items-center justify-between'>
+        <div className='mt-3 flex items-center justify-between'>
           <div>
             {product.discount ? (
               <span className='mr-2 text-sm text-red-500'>
@@ -98,7 +98,9 @@ export default function ProductCard({
             ) : (
               <span className='mr-2 text-sm text-gray-400'>&nbsp;</span>
             )}
-            <span className='font-bold text-green-600'>{displayPrice}</span>
+            <span className='text-sm font-bold text-green-600 sm:text-base'>
+              {displayPrice}
+            </span>
           </div>
 
           {/* Keep Add button but stop propagation so clicking Add doesn't open modal */}
@@ -107,7 +109,7 @@ export default function ProductCard({
               e.stopPropagation();
               onAddToCart(product);
             }}
-            className='rounded-lg bg-green-600 px-3 py-1 text-white'
+            className='rounded-lg bg-green-600 px-2 py-1 text-xs text-white sm:px-3 sm:py-1.5 sm:text-sm'
           >
             Add
           </button>
@@ -137,21 +139,24 @@ export default function ProductCard({
               </button>
             </div>
 
-            <div className='mt-4 grid grid-cols-1 gap-4 md:grid-cols-3'>
-              <img
-                src={product.image}
-                alt={product.name}
-                className='col-span-1 max-h-48 w-full rounded-lg object-cover'
-              />
+            <div className='mt-4 grid gap-6 md:grid-cols-3'>
+              {/* Image */}
+              <div className='flex justify-center md:block'>
+                <img
+                  src={product.image}
+                  alt={product.name}
+                  className='h-40 w-40 rounded-lg object-cover md:h-48 md:w-full'
+                />
+              </div>
 
-              <div className='col-span-2'>
+              <div className='flex flex-col gap-4 md:col-span-2'>
                 <p className='text-sm text-gray-700'>
                   {product.description ?? 'No description available.'}
                 </p>
 
                 {/* Options */}
                 {(product.options ?? []).length > 0 && (
-                  <div className='mt-4 space-y-4'>
+                  <div className='space-y-4'>
                     {(product.options ?? []).map((opt) => (
                       <div key={opt.id} className='space-y-2'>
                         <div className='text-sm font-medium'>{opt.name}</div>
@@ -181,7 +186,7 @@ export default function ProductCard({
                 )}
 
                 {/* Quantity + Price summary */}
-                <div className='mt-6 flex items-center justify-between'>
+                <div className='flex items-center justify-between border-t pt-4'>
                   <div className='flex items-center gap-2'>
                     <label className='text-sm'>Quantity</label>
                     <div className='flex items-center gap-1'>
@@ -210,7 +215,7 @@ export default function ProductCard({
                 </div>
 
                 {/* Actions */}
-                <div className='mt-6 flex gap-3'>
+                <div className='flex gap-3'>
                   <button
                     onClick={handleAddFromModal}
                     className='flex-1 rounded-lg bg-green-600 px-4 py-2 text-white'
