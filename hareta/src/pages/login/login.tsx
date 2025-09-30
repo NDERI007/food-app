@@ -1,8 +1,8 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { supabase } from '../../utils/supabase/Client';
-import { loginSchema, type LoginSchemaType } from '../../utils/schemas/auth';
+import { supabase } from '@utils/supabase/Client';
+import { loginSchema, type LoginSchemaType } from '@utils/schemas/auth';
 import { useState } from 'react';
 
 export default function Login() {

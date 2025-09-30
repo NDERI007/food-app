@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import Navbar from '../../components/dashC/dashNav';
-import Sidebar from '../../components/dashC/sideBar';
-import CartDrawer from '../../components/dashC/cartDrawer';
-import CategoryFilter from '../../components/dashC/category';
-import ProductCard, { type Product } from '../../components/dashC/productCard';
-import FriesIcon from '../../assets/french_fries.svg?react';
-import BrekoIcon from '../../assets/breakfast.svg?react';
-import TradIcon from '../../assets/trad.svg?react';
+import Navbar from './components/dashNav';
+import Sidebar from './components/sideBar';
+import CartDrawer from './components/cartDrawer';
+import CategoryFilter from './components/category';
+import ProductCard, { type Product } from './components/productCard';
+import FriesIcon from '@assets/french_fries.svg?react';
+import BrekoIcon from '@assets/breakfast.svg?react';
+import TradIcon from '@assets/trad.svg?react';
 const categories = [
   { id: 'all', label: 'All', icon: <span>🍽️</span> },
   {

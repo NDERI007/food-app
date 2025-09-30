@@ -1,6 +1,8 @@
 import Redis from "ioredis";
 import { createClient as createRedisClient } from "redis";
 import { LRUCache } from "lru-cache";
+import dotenv from "dotenv";
+dotenv.config();
 
 const redis = new Redis(process.env.REDIS_URL!);
 

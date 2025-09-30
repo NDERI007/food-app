@@ -1,8 +1,8 @@
 import { lazy } from 'react';
 import type { RouteObject } from 'react-router-dom';
-import Dashboard from '../../../pages/dashboard/dashboard';
+import Dashboard from '@pages/dashboard/dashboard';
 
-const Home = lazy(() => import('../../../pages/home/homepage'));
+const Home = lazy(() => import('@pages/home/homepage'));
 
 export const homeRoutes: RouteObject[] = [
   { index: true, element: <Home /> },
