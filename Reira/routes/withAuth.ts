@@ -1,13 +1,14 @@
 import express from "express";
 import crypto from "crypto";
 import redis from "@config/redis";
-import { sendEmail } from "@utils/resend";
-import { getUserByEmail } from "@utils/getUser";
+import { sendOtpEmail } from "@utils/resend";
+import { v4 as uuidv4 } from "uuid";
 
 const router = express.Router();
 
 const OTP_TTL = 300; // 5 minutes
 const RESEND_COOLDOWN = 30; // seconds
+const SESSION_TTL = 60 * 60 * 24 * 7; // 7 days
 
 // Send OTP
 router.post("/send-otp", async (req, res) => {
@@ -32,7 +33,7 @@ router.post("/send-otp", async (req, res) => {
   );
 
   try {
-    await sendEmail(email, code);
+    await sendOtpEmail(email, code);
     res.json({ message: "OTP sent!" });
   } catch (err) {
     console.error(err);
@@ -43,23 +44,40 @@ router.post("/send-otp", async (req, res) => {
 // Verify OTP
 router.post("/verify-otp", async (req, res) => {
   const { email, code } = req.body;
+  if (!email || !code) {
+    return res.status(400).json({ error: "Email and OTP required" });
+  }
+
   const storedCode = await redis.get(`otp:${email}`);
-
-  if (!storedCode)
-    return res.status(400).json({ error: "OTP expired or not found" });
-
+  if (!storedCode) return res.status(400).json({ error: "OTP expired" });
   if (storedCode !== code)
     return res.status(400).json({ error: "Invalid OTP" });
 
-  await redis.del(`otp:${email}`); // invalidate OTP
+  // OTP valid → clean up
+  await redis.del(`otp:${email}`);
 
-  const user = await getUserByEmail(email);
+  // just trust the trigger will handle user creation
+  const sessionId = uuidv4();
+  await redis.set(`session:${sessionId}`, email, "EX", SESSION_TTL);
 
-  if (!user) {
-    return res.status(404).json({ error: "User not found in system" });
+  res.cookie("sessionId", sessionId, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    maxAge: SESSION_TTL * 1000,
+  });
+
+  res.json({ message: "Authenticated!", email });
+});
+
+// --- LOGOUT ---
+router.post("/logout", async (req, res) => {
+  const sessionId = req.cookies.sessionId;
+  if (sessionId) {
+    await redis.del(`session:${sessionId}`);
+    res.clearCookie("sessionId");
   }
-
-  res.json({ message: "Logged in!" });
+  res.json({ message: "Logged out!" });
 });
 
 export default router;

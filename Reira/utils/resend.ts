@@ -1,31 +1,80 @@
 import nodemailer from "nodemailer";
+import dotenv from "dotenv";
+import path from "path";
+import ejs from "ejs";
+import fs from "fs";
+import { fileURLToPath } from "url";
 
-export async function sendEmail(to: string, code: string) {
+dotenv.config();
+
+// Equivalent of __filename and __dirname in ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+// Generic email sender
+export async function sendEmail(
+  to: string,
+  subject: string,
+  html: string,
+  text: string
+) {
   const transporter = nodemailer.createTransport({
     host: "smtp.resend.com",
     port: 587,
-    auth: { user: "apikey", pass: process.env.RESEND_API_KEY },
+    auth: { user: "resend", pass: process.env.RESEND_KEY! },
   });
 
-  await transporter.sendMail({
-    from: "no-reply@qualitechlabs.org",
+  const info = await transporter.sendMail({
+    from: "noreply@qualitechlabs.org",
     to,
-    subject: "Your Login Code",
-    html: `
-      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background-color: #f9f9f9; padding: 30px; border-radius: 10px; max-width: 400px; margin: auto;">
-  <h2 style="color: #333;">Hello there!</h2>
-  <p style="font-size: 16px; color: #555;">Here's your login code to access your account:</p>
-  <p style="font-size: 28px; font-weight: bold; color: #1a73e8; margin: 20px 0;">${code}</p>
-  <p style="font-size: 14px; color: #999;">This code will expire in 5 minutes. Please use it soon.</p>
-  <p style="font-size: 14px; color: #e53935; font-weight: bold; margin-top: 10px;">
-    ⚠️ Do not share this code with anyone. We will never ask for it.
-  </p>
-  <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
-  <p style="font-size: 12px; color: #999;">
-    If you did not request this code, please ignore this email. No action is needed.
-  </p>
-</div>
-
-    `,
+    subject,
+    html,
+    text,
   });
+
+  console.log("✅ Email sent:", info.messageId);
+}
+
+// Render EJS template with layout
+async function renderEmail(template: string, data: any) {
+  const templatePath = path.join(process.cwd(), "emails/templates", template);
+  const content = await ejs.renderFile(templatePath, data);
+
+  const layoutPath = path.join(process.cwd(), "emails/templates/layout.ejs");
+  const html = await ejs.renderFile(layoutPath, {
+    ...data,
+    body: content,
+  });
+
+  return html;
+}
+
+// Helper: generate a friendly name from email
+function getNameFromEmail(email?: string) {
+  if (!email) return "User"; // fallback if email is missing
+  const namePart = email.split("@")[0] || "there";
+  const displayName = namePart.replace(/[._]/g, " ");
+  return displayName
+    .split(" ")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+// Send OTP email
+export async function sendOtpEmail(to: string, code: string) {
+  const userName = getNameFromEmail(to);
+
+  const html = (await renderEmail("otp.ejs", {
+    code,
+    companyName: "Iurafoods",
+    supportEmail: "support@myapp.com",
+    subject: "Your Iurafoods account verification code",
+    userName,
+  })) as string;
+
+  await sendEmail(
+    to,
+    "Your Iurafoods account verification code",
+    html,
+    `Hello ${userName}, your login code is ${code}. It will expire in 5 minutes. If you didn’t request it, ignore this email.`
+  );
 }

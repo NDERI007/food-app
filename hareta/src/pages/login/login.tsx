@@ -1,75 +1,178 @@
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import axios from 'axios';
 import { toast } from 'sonner';
-import { supabase } from '@utils/supabase/Client';
-import { loginSchema, type LoginSchemaType } from '@utils/schemas/auth';
-import { useState } from 'react';
+import {
+  emailSchema,
+  otpSchema,
+  type emailSchemaType,
+  type OtpSchemaType,
+} from '@utils/schemas/auth';
 
 export default function Login() {
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<LoginSchemaType>({
-    resolver: zodResolver(loginSchema),
-  });
+  const [step, setStep] = useState<1 | 2>(1);
+  const [email, setEmail] = useState('');
   const [disabled, setDisabled] = useState(false);
 
-  const onSubmit = async (data: LoginSchemaType) => {
-    try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email: data.email,
-        options: {
-          emailRedirectTo: 'http://localhost:5173/dashboard', // or your production URL
-        },
-      });
+  // Step 1 form (email)
+  const {
+    register: registerEmail,
+    handleSubmit: handleSubmitEmail,
+    formState: { errors: emailErrors },
+    reset: resetEmail,
+  } = useForm<emailSchemaType>({
+    resolver: zodResolver(emailSchema),
+  });
 
-      if (error) throw error;
-      toast.success('Check your inbox for the login link!');
-      // ✅ disable button for 30 seconds after successful request
+  // Step 2 form (otp)
+  const {
+    register: registerOtp,
+    handleSubmit: handleSubmitOtp,
+    formState: { errors: otpErrors },
+    reset: resetOtp,
+  } = useForm<OtpSchemaType>({
+    resolver: zodResolver(otpSchema),
+  });
+
+  // Handlers
+  const handleSendOtp = async (data: emailSchemaType) => {
+    try {
+      await axios.post(
+        '/auth/send-otp',
+        { email: data.email },
+        { withCredentials: true },
+      );
+
+      toast.success('OTP sent! Check your inbox.');
+      setEmail(data.email);
+      setStep(2);
+
+      resetEmail(); // clear email form
       setDisabled(true);
       setTimeout(() => setDisabled(false), 30_000);
-    } catch (error: any) {
-      toast.error(error.message || 'Something went wrong');
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        const backendMsg = (err.response?.data as { error?: string })?.error;
+        toast.error(backendMsg || 'Failed to send OTP');
+      } else {
+        toast.error('Unexpected error occurred');
+      }
     }
   };
 
+  const handleVerifyOtp = async (data: OtpSchemaType) => {
+    try {
+      await axios.post(
+        '/auth/verify-otp',
+        { email, code: data.otp },
+        { withCredentials: true },
+      );
+
+      toast.success('Logged in successfully!');
+      resetOtp();
+      setStep(1);
+      setEmail('');
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        const backendMsg = (err.response?.data as { error?: string })?.error;
+        toast.error(backendMsg || 'Failed to verify OTP');
+      } else {
+        toast.error('Unexpected error occurred');
+      }
+    }
+  };
+
+  // Render
   return (
     <div className='flex min-h-screen items-center justify-center bg-green-50'>
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className='w-full max-w-md rounded-xl bg-white p-8 shadow-lg'
-      >
-        <h2 className='mb-6 text-center text-2xl font-bold text-green-900'>
-          What's yor email?
-        </h2>
+      <div className='w-full max-w-md rounded-xl bg-white p-8 shadow-lg'>
+        {step === 1 && (
+          <form onSubmit={handleSubmitEmail(handleSendOtp)}>
+            <h2 className='mb-6 text-center text-2xl font-bold text-green-900'>
+              What’s your email?
+            </h2>
 
-        <div className='mb-4 flex flex-col'>
-          <input
-            type='email'
-            placeholder='Enter your email'
-            {...register('email')}
-            className={`rounded-md border p-2 focus:outline-none ${
-              errors.email ? 'border-red-500' : 'border-gray-300'
-            }`}
-          />
-          {errors.email && (
-            <p className='mt-1 text-sm text-red-500'>{errors.email.message}</p>
-          )}
-        </div>
+            <div className='mb-4 flex flex-col'>
+              <input
+                type='email'
+                placeholder='Enter your email'
+                {...registerEmail('email')}
+                className={`rounded-md border p-2 focus:outline-none ${
+                  emailErrors.email ? 'border-red-500' : 'border-gray-300'
+                }`}
+              />
+              {emailErrors.email && (
+                <p className='mt-1 text-sm text-red-500'>
+                  {emailErrors.email.message}
+                </p>
+              )}
+            </div>
 
-        <button
-          type='submit'
-          disabled={disabled}
-          className={`w-full rounded-md px-4 py-2 text-white transition-all duration-150 ${
-            disabled
-              ? 'cursor-not-allowed bg-gray-400 shadow-none'
-              : 'bg-green-900 shadow-md hover:bg-green-800 hover:shadow-lg active:scale-95 active:bg-green-950 active:shadow-inner'
-          }`}
-        >
-          {disabled ? 'Please wait...' : 'Continue'}
-        </button>
-      </form>
+            <button
+              type='submit'
+              disabled={disabled}
+              className={`w-full rounded-md px-4 py-2 text-white transition-all duration-150 ${
+                disabled
+                  ? 'cursor-not-allowed bg-gray-400 shadow-none'
+                  : 'bg-green-900 shadow-md hover:bg-green-800 hover:shadow-lg active:scale-95 active:bg-green-950 active:shadow-inner'
+              }`}
+            >
+              {disabled ? 'Please wait...' : 'Continue'}
+            </button>
+          </form>
+        )}
+
+        {step === 2 && (
+          <form onSubmit={handleSubmitOtp(handleVerifyOtp)}>
+            <h2 className='mb-6 text-center text-2xl font-bold text-green-900'>
+              Enter OTP
+            </h2>
+            <p className='mb-4 text-center text-sm text-gray-600'>
+              Code sent to <span className='font-semibold'>{email}</span>
+            </p>
+
+            <div className='mb-4 flex flex-col'>
+              <input
+                type='text'
+                placeholder='Enter 6-digit code'
+                {...registerOtp('otp')}
+                className={`rounded-md border p-2 focus:outline-none ${
+                  otpErrors.otp ? 'border-red-500' : 'border-gray-300'
+                }`}
+              />
+              {otpErrors.otp && (
+                <p className='mt-1 text-sm text-red-500'>
+                  {otpErrors.otp.message}
+                </p>
+              )}
+            </div>
+
+            <div className='flex items-center justify-between gap-3'>
+              {/* Back button */}
+              <button
+                type='button'
+                onClick={() => {
+                  resetOtp();
+                  setStep(1);
+                  setEmail(''); // optional: clear email when going back
+                }}
+                className='w-1/3 rounded-md bg-gray-200 px-4 py-2 text-gray-700 shadow-sm hover:bg-gray-300 active:scale-95'
+              >
+                Back
+              </button>
+
+              {/* Verify button */}
+              <button
+                type='submit'
+                className='flex-1 rounded-md bg-green-900 px-4 py-2 text-white shadow-md hover:bg-green-800 hover:shadow-lg active:scale-95 active:bg-green-950 active:shadow-inner'
+              >
+                Verify
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
     </div>
   );
 }

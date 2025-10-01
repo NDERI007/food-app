@@ -1,0 +1,37 @@
+<h2 style="margin: 0 0 20px; font-size: 15px">Hi, <%= userName %></h2>
+<p style="margin: 0 0 20px; font-size: 15px; color: #475569">
+  To finish logging in to your account, enter this verification code. It expires
+  in <strong>15 minutes</strong>.
+</p>
+
+<div style="text-align: center; margin: 20px 0">
+  <div
+    style="
+      display: inline-block;
+      font-family: 'Roboto Mono', monospace;
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: 6px;
+      color: #333333;
+      background: #f1f9ff;
+      border: 1px solid #e6f0ff;
+      border-radius: 8px;
+      padding: 16px 22px;
+    "
+  >
+    <%= code %>
+  </div>
+</div>
+
+<p style="margin: 14px 0 0; font-size: 13px; font-weight: 800; color: #333333">
+  Keep this code private — we will never ask for it.
+</p>
+
+<p style="margin: 16px 0 0; font-size: 13px; color: #64748b">
+  If you didn’t request this code, ignore this email or contact
+  <a
+    href="mailto:<%= supportEmail %>"
+    style="color: #0b5cff; text-decoration: none"
+    ><%= supportEmail %></a
+  >.
+</p>
