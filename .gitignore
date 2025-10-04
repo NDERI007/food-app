@@ -12,6 +12,7 @@ dist
 dist-ssr
 *.local
 
+
 #img (till further notice)
 *.jpg
 *.avif

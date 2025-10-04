@@ -9,12 +9,14 @@ import {
   type emailSchemaType,
   type OtpSchemaType,
 } from '@utils/schemas/auth';
+import { useNavigate } from 'react-router-dom';
 
 export default function Login() {
   const [step, setStep] = useState<1 | 2>(1);
   const [email, setEmail] = useState('');
   const [disabled, setDisabled] = useState(false);
 
+  const navigate = useNavigate();
   // Step 1 form (email)
   const {
     register: registerEmail,
@@ -70,9 +72,8 @@ export default function Login() {
       );
 
       toast.success('Logged in successfully!');
-      resetOtp();
-      setStep(1);
-      setEmail('');
+      // no need to reset forms here — redirect will unmount this component
+      navigate('/dashboard');
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
         const backendMsg = (err.response?.data as { error?: string })?.error;

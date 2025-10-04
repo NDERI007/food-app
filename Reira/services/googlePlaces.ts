@@ -1,5 +1,5 @@
 import fetch from "node-fetch";
-import { cacheGet, cacheSet } from "./cache";
+import cache from "@config/cache";
 
 const GOOGLE_KEY = process.env.GOOGLE_CLOUD_KEY || "";
 const COUNTRY = "KE";
@@ -13,7 +13,7 @@ export async function googleAutocomplete(input: string, sessionToken?: string) {
   const biasPart = `|campus:${CAMPUS_LAT},${CAMPUS_LNG},${CAMPUS_RADIUS_METERS}`;
   const cacheKey = `google:${input.toLowerCase()}${biasPart}`;
 
-  const cached = await cacheGet(cacheKey);
+  const cached = await cache.get(cacheKey);
   if (cached) return cached;
 
   const body: any = {
@@ -70,7 +70,7 @@ export async function googleAutocomplete(input: string, sessionToken?: string) {
       })
       .filter(Boolean);
 
-    await cacheSet(cacheKey, preds, 60 * 30);
+    await cache.set(cacheKey, preds, 60 * 30);
     return preds;
   } catch (err) {
     console.error("Google fetch failed:", err);

@@ -1,6 +1,6 @@
 import express from "express";
 import crypto from "crypto";
-import redis from "@config/redis";
+import cache from "@config/cache";
 import { sendOtpEmail } from "@utils/resend";
 import { v4 as uuidv4 } from "uuid";
 
@@ -16,7 +16,7 @@ router.post("/send-otp", async (req, res) => {
   if (!email) return res.status(400).json({ error: "Email required" });
 
   // cooldown check
-  const lastSent = await redis.get(`otp_cooldown:${email}`);
+  const lastSent = await cache.get(`otp_cooldown:${email}`);
   if (lastSent) {
     return res
       .status(429)
@@ -24,11 +24,10 @@ router.post("/send-otp", async (req, res) => {
   }
 
   const code = crypto.randomBytes(3).toString("hex");
-  await redis.set(`otp:${email}`, code, "EX", OTP_TTL);
-  await redis.set(
+  await cache.set(`otp:${email}`, code, OTP_TTL);
+  await cache.set(
     `otp_cooldown:${email}`,
-    RESEND_COOLDOWN,
-    "EX",
+    RESEND_COOLDOWN.toString(),
     RESEND_COOLDOWN
   );
 
@@ -48,17 +47,17 @@ router.post("/verify-otp", async (req, res) => {
     return res.status(400).json({ error: "Email and OTP required" });
   }
 
-  const storedCode = await redis.get(`otp:${email}`);
+  const storedCode = await cache.get(`otp:${email}`);
   if (!storedCode) return res.status(400).json({ error: "OTP expired" });
   if (storedCode !== code)
     return res.status(400).json({ error: "Invalid OTP" });
 
   // OTP valid → clean up
-  await redis.del(`otp:${email}`);
+  await cache.del(`otp:${email}`);
 
   // just trust the trigger will handle user creation
   const sessionId = uuidv4();
-  await redis.set(`session:${sessionId}`, email, "EX", SESSION_TTL);
+  await cache.set(`session:${sessionId}`, email, SESSION_TTL);
 
   res.cookie("sessionId", sessionId, {
     httpOnly: true,
@@ -74,7 +73,7 @@ router.post("/verify-otp", async (req, res) => {
 router.post("/logout", async (req, res) => {
   const sessionId = req.cookies.sessionId;
   if (sessionId) {
-    await redis.del(`session:${sessionId}`);
+    await cache.del(`session:${sessionId}`);
     res.clearCookie("sessionId");
   }
   res.json({ message: "Logged out!" });

@@ -1,29 +1,20 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import dotenv from "dotenv";
 import path from "path";
 import ejs from "ejs";
-import fs from "fs";
-import { fileURLToPath } from "url";
 
 dotenv.config();
 
-// Equivalent of __filename and __dirname in ESM
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-// Generic email sender
+const resend = new Resend(process.env.RESEND_KEY);
+
+// Generic email sender - updated to use HTTP API
 export async function sendEmail(
   to: string,
   subject: string,
   html: string,
   text: string
 ) {
-  const transporter = nodemailer.createTransport({
-    host: "smtp.resend.com",
-    port: 587,
-    auth: { user: "resend", pass: process.env.RESEND_KEY! },
-  });
-
-  const info = await transporter.sendMail({
+  const { data, error } = await resend.emails.send({
     from: "noreply@qualitechlabs.org",
     to,
     subject,
@@ -31,10 +22,16 @@ export async function sendEmail(
     text,
   });
 
-  console.log("✅ Email sent:", info.messageId);
+  if (error) {
+    console.error("❌ Email error:", error);
+    throw error;
+  }
+
+  console.log("✅ Email sent:", data?.id);
+  return data;
 }
 
-// Render EJS template with layout
+// Render EJS template with layout - NO CHANGES
 async function renderEmail(template: string, data: any) {
   const templatePath = path.join(process.cwd(), "emails/templates", template);
   const content = await ejs.renderFile(templatePath, data);
@@ -48,9 +45,9 @@ async function renderEmail(template: string, data: any) {
   return html;
 }
 
-// Helper: generate a friendly name from email
+// Helper: generate a friendly name from email - NO CHANGES
 function getNameFromEmail(email?: string) {
-  if (!email) return "User"; // fallback if email is missing
+  if (!email) return "User";
   const namePart = email.split("@")[0] || "there";
   const displayName = namePart.replace(/[._]/g, " ");
   return displayName
@@ -59,7 +56,7 @@ function getNameFromEmail(email?: string) {
     .join(" ");
 }
 
-// Send OTP email
+// Send OTP email - NO CHANGES
 export async function sendOtpEmail(to: string, code: string) {
   const userName = getNameFromEmail(to);
 
@@ -75,6 +72,6 @@ export async function sendOtpEmail(to: string, code: string) {
     to,
     "Your Iurafoods account verification code",
     html,
-    `Hello ${userName}, your login code is ${code}. It will expire in 5 minutes. If you didn’t request it, ignore this email.`
+    `Hello ${userName}, your login code is ${code}. It will expire in 5 minutes. If you didn't request it, ignore this email.`
   );
 }
