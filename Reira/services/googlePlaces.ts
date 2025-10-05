@@ -38,11 +38,11 @@ export async function googleAutocomplete(input: string, sessionToken?: string) {
           "Content-Type": "application/json",
           "X-Goog-Api-Key": GOOGLE_KEY,
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify(body), //Stringify for HTTP request (network transmission)  ← Converts JS object → JSON string for HTTP
       }
     );
 
-    const json = (await res.json()) as any;
+    const json = (await res.json()) as any; //← Parses JSON string → JS object
 
     if (json.error) {
       console.error("Google error:", json.error);
@@ -69,8 +69,8 @@ export async function googleAutocomplete(input: string, sessionToken?: string) {
         return null;
       })
       .filter(Boolean);
-
-    await cache.set(cacheKey, preds, 60 * 30);
+    // 5. Store in Redis (needs stringifying again for Redis storage)
+    await cache.set(cacheKey, JSON.stringify(preds), 60 * 30);
     return preds;
   } catch (err) {
     console.error("Google fetch failed:", err);

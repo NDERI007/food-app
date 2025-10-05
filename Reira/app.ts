@@ -2,11 +2,13 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import cookieParser from "cookie-parser";
 import placesRoutes from "./routes/places";
 import authRoutes from "./routes/withAuth";
 
 const app = express();
 
+app.use(cookieParser());
 app.use(helmet());
 app.use(cors());
 

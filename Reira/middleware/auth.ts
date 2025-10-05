@@ -1,22 +1,62 @@
 import type { Request, Response, NextFunction } from "express";
-import redis from "@config/cache";
+import cache from "@config/cache";
 
+// Extend Express Request type to include user
+declare global {
+  namespace Express {
+    interface Request {
+      user?: {
+        email: string;
+        sessionId: string;
+      };
+    }
+  }
+}
+
+// Middleware to check if user is authenticated
 export async function requireAuth(
   req: Request,
   res: Response,
   next: NextFunction
 ) {
-  const sessionId = req.cookies?.sessionId;
+  const sessionId = req.cookies.sessionId;
+
   if (!sessionId) {
-    return res.status(401).json({ error: "Not authenticated" });
+    return res.status(401).json({
+      error: "Authentication required",
+      authenticated: false,
+    });
   }
 
-  const email = await redis.get(`session:${sessionId}`);
+  const email = await cache.get(`session:${sessionId}`);
+
   if (!email) {
-    return res.status(401).json({ error: "Invalid or expired session" });
+    res.clearCookie("sessionId");
+    return res.status(401).json({
+      error: "Session expired",
+      authenticated: false,
+    });
   }
 
-  // attach user info to request
-  (req as any).user = { email };
+  // Attach user info to request
+  req.user = { email, sessionId };
+  next();
+}
+
+// Optional auth - doesn't block, just attaches user if available
+export async function optionalAuth(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  const sessionId = req.cookies.sessionId;
+
+  if (sessionId) {
+    const email = await cache.get(`session:${sessionId}`);
+    if (email) {
+      req.user = { email, sessionId };
+    }
+  }
+
   next();
 }

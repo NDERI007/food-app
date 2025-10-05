@@ -69,6 +69,26 @@ router.post("/verify-otp", async (req, res) => {
   res.json({ message: "Authenticated!", email });
 });
 
+//---CONTEXT-VERIFICATION ---
+router.get("/context-verif", async (req, res) => {
+  // 🔑 Express automatically parses cookies via cookie-parser middleware
+  const sessionId = req.cookies.sessionId; // Cookie is already here!
+
+  if (!sessionId) {
+    return res.json({ authenticated: false, user: null });
+  }
+
+  // Lookup session in Redis
+  const email = await cache.get(`session:${sessionId}`);
+
+  if (!email) {
+    res.clearCookie("sessionId");
+    return res.json({ authenticated: false, user: null });
+  }
+
+  res.json({ authenticated: true, user: { email } });
+});
+
 // --- LOGOUT ---
 router.post("/logout", async (req, res) => {
   const sessionId = req.cookies.sessionId;

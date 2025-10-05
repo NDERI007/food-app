@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Navbar from './components/dashNav';
 import Sidebar from './components/sideBar';
 import CartDrawer from './components/cartDrawer';
@@ -7,6 +7,7 @@ import ProductCard, { type Product } from './components/productCard';
 import FriesIcon from '@assets/french_fries.svg?react';
 import BrekoIcon from '@assets/breakfast.svg?react';
 import TradIcon from '@assets/trad.svg?react';
+import { useCartStore } from '@utils/hooks/useCrt';
 const categories = [
   { id: 'all', label: 'All', icon: <span>🍽️</span> },
   {
@@ -154,58 +155,44 @@ const products: Product[] = [
   },
 ];
 
-function App() {
+function Dashboard() {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
-  const [isCartOpen, setCartOpen] = useState(false);
   const [isSignedIn, setSignedIn] = useState(false);
   const [activeCategory, setActiveCategory] = useState('all');
-  const [cart, setCart] = useState<typeof products>([]);
-
-  const filteredProducts =
-    activeCategory === 'all'
-      ? products
-      : products.filter((p) => p.category === activeCategory);
-
-  const handleAddToCart = (product: (typeof products)[0]) => {
-    setCart((prev) => [...prev, product]);
-    setCartOpen(true);
-  };
+  // Get cart state and actions from Zustand
+  const toggleCart = useCartStore((state) => state.toggleCart);
+  const totalItems = useCartStore((state) => state.totalItems());
+  console.log('Dashboard rendered');
+  const filteredProducts = useMemo(() => {
+    if (activeCategory === 'all') return products;
+    return products.filter((p) => p.category === activeCategory);
+  }, [activeCategory]);
 
   return (
     <div className='flex min-h-screen flex-col'>
-      {/* Navbar */}
       <Navbar
         onToggleSidebar={() => setSidebarOpen(!isSidebarOpen)}
-        onToggleCart={() => setCartOpen(!isCartOpen)}
-        isSignedIn={isSignedIn}
+        onToggleCart={toggleCart}
+        cartItemCount={totalItems} // Optional: show badge
       />
 
-      {/* Sidebar */}
-      <Sidebar
-        open={isSidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        isSignedIn={isSignedIn}
-      />
+      <Sidebar open={isSidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      {/* Cart Drawer */}
-      <CartDrawer open={isCartOpen} onClose={() => setCartOpen(false)} />
+      <CartDrawer />
 
-      {/* Main Content */}
       <main className='flex-1 p-6'>
-        {/* Categories */}
         <CategoryFilter
           categories={categories}
           activeCategory={activeCategory}
           onSelect={setActiveCategory}
         />
 
-        {/* Product Grid */}
         <div className='mt-6 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4'>
           {filteredProducts.map((product) => (
             <ProductCard
               key={product.id}
               product={product}
-              onAddToCart={handleAddToCart}
+              // No need to pass onAddToCart anymore!
             />
           ))}
         </div>
@@ -214,4 +201,4 @@ function App() {
   );
 }
 
-export default App;
+export default Dashboard;

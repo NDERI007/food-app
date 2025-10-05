@@ -4,14 +4,10 @@ import { Link } from 'react-router-dom';
 type NavbarProps = {
   onToggleSidebar: () => void;
   onToggleCart: () => void;
-  isSignedIn: boolean;
+  cartItemCount?: number;
 };
 
-export default function Navbar({
-  onToggleSidebar,
-  onToggleCart,
-  isSignedIn,
-}: NavbarProps) {
+export default function Navbar({ onToggleSidebar, onToggleCart }: NavbarProps) {
   return (
     <header className='sticky top-0 z-50 flex items-center justify-between bg-[#fefaef] px-6 py-3 shadow'>
       {/* Left: Logo + Hamburger */}
@@ -26,14 +22,6 @@ export default function Navbar({
 
       {/* Right: Auth + Cart */}
       <div className='flex items-center gap-4'>
-        {!isSignedIn && (
-          <>
-            <button className='text-sm'>Log in</button>
-            <button className='rounded-lg bg-green-600 px-4 py-2 text-white'>
-              Sign Up
-            </button>
-          </>
-        )}
         <button onClick={onToggleCart} className='relative px-2'>
           <ShoppingCart className='h-6 w-6' />
         </button>

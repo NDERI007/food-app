@@ -1,39 +1,51 @@
-import React, { useState } from 'react';
+// ProductCard.tsx
+import { memo, useState } from 'react';
+import { useCartStore } from '@utils/hooks/useCrt';
 
-// Types
-export type ProductOption = {
-  id: string;
-  name: string; // e.g. "Size", "Extras"
-  choices: { id: string; label: string; priceDelta?: number }[];
-};
+interface SelectedChoice {
+  optionId: string;
+  choiceId: string;
+}
 
-export type Product = {
+export interface Product {
   id: string;
   name: string;
-  description?: string | null;
+  description: string;
   price: number;
   image: string;
-  category?: string | null;
-  discount?: number | null;
-  options?: ProductOption[]; // optional list of option groups for the product
-};
+  discount?: number;
+  category: string;
+  options?: Array<{
+    id: string;
+    name: string;
+    choices: Array<{
+      id: string;
+      label: string;
+      priceDelta?: number;
+    }>;
+  }>;
+}
+interface ProductCardProps {
+  product: {
+    id: string;
+    name: string;
+    price: number;
+    image: string;
+    description?: string;
+    discount?: number;
+    options?: Array<{
+      id: string;
+      name: string;
+      choices: Array<{
+        id: string;
+        label: string;
+        priceDelta?: number;
+      }>;
+    }>;
+  };
+}
 
-type SelectedChoice = { optionId: string; choiceId: string };
-
-type ProductCardProps = {
-  product: Product;
-  // Updated to pass selected choices + quantity when adding from the modal
-  onAddToCart: (
-    product: Product,
-    selectedChoices?: SelectedChoice[],
-    quantity?: number,
-  ) => void;
-};
-
-export default function ProductCard({
-  product,
-  onAddToCart,
-}: ProductCardProps) {
+const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [selectedChoices, setSelectedChoices] = useState<SelectedChoice[]>(() =>
@@ -43,13 +55,22 @@ export default function ProductCard({
     })),
   );
 
-  function openModal(e?: React.MouseEvent) {
-    // prevent card click when clicking the Add button (handled separately)
+  const addItem = useCartStore((state) => state.addItem);
+
+  function openModal() {
     setIsOpen(true);
   }
 
   function closeModal() {
     setIsOpen(false);
+    // Reset to defaults when closing
+    setQuantity(1);
+    setSelectedChoices(
+      (product.options ?? []).map((opt) => ({
+        optionId: opt.id,
+        choiceId: opt.choices[0]?.id ?? '',
+      })),
+    );
   }
 
   function handleChoiceChange(optionId: string, choiceId: string) {
@@ -63,12 +84,32 @@ export default function ProductCard({
   }
 
   function handleAddFromModal() {
-    onAddToCart(product, selectedChoices, quantity);
+    // Pass quantity and selectedChoices to the store
+    addItem(product, quantity, selectedChoices);
     closeModal();
-    setQuantity(1);
   }
 
-  const displayPrice = `$${product.price.toFixed(2)}`;
+  // Calculate display price including selected options
+  const calculateDisplayPrice = () => {
+    let price = product.price;
+
+    selectedChoices.forEach((selected) => {
+      const option = product.options?.find(
+        (opt) => opt.id === selected.optionId,
+      );
+      if (option) {
+        const choice = option.choices.find((c) => c.id === selected.choiceId);
+        if (choice?.priceDelta) {
+          price += choice.priceDelta;
+        }
+      }
+    });
+
+    return price;
+  };
+
+  const displayPrice = `$${calculateDisplayPrice().toFixed(2)}`;
+  const basePrice = `$${product.price.toFixed(2)}`;
 
   return (
     <>
@@ -76,7 +117,7 @@ export default function ProductCard({
         className='group relative flex cursor-pointer flex-col rounded-xl bg-white p-3 shadow transition hover:shadow-lg sm:p-4'
         onClick={openModal}
       >
-        {/* Image only on the card (no description) */}
+        {/* Image */}
         <img
           src={product.image}
           alt={product.name}
@@ -99,15 +140,20 @@ export default function ProductCard({
               <span className='mr-2 text-sm text-gray-400'>&nbsp;</span>
             )}
             <span className='text-sm font-bold text-green-600 sm:text-base'>
-              {displayPrice}
+              {basePrice}
             </span>
           </div>
 
-          {/* Keep Add button but stop propagation so clicking Add doesn't open modal */}
           <button
             onClick={(e) => {
-              e.stopPropagation();
-              onAddToCart(product);
+              e.stopPropagation(); // Prevent modal from opening
+              if ((product.options ?? []).length > 0) {
+                // Has options, open modal
+                openModal();
+              } else {
+                // No options, add directly
+                addItem(product, 1, []);
+              }
             }}
             className='rounded-lg bg-green-600 px-2 py-1 text-xs text-white sm:px-3 sm:py-1.5 sm:text-sm'
           >
@@ -116,7 +162,7 @@ export default function ProductCard({
         </div>
       </div>
 
-      {/* Modal (simple, accessible) */}
+      {/* Modal */}
       {isOpen && (
         <div className='fixed inset-0 z-50 flex items-center justify-center'>
           {/* Backdrop */}
@@ -169,7 +215,11 @@ export default function ProductCard({
                               <button
                                 key={c.id}
                                 onClick={() => handleChoiceChange(opt.id, c.id)}
-                                className={`rounded-md border px-3 py-1 text-sm ${selected ? 'border-green-600 font-semibold' : 'border-gray-300'}`}
+                                className={`rounded-md border px-3 py-1 text-sm transition ${
+                                  selected
+                                    ? 'border-green-600 bg-green-50 font-semibold text-green-700'
+                                    : 'border-gray-300 hover:border-gray-400'
+                                }`}
                                 type='button'
                               >
                                 {c.label}
@@ -188,19 +238,21 @@ export default function ProductCard({
                 {/* Quantity + Price summary */}
                 <div className='flex items-center justify-between border-t pt-4'>
                   <div className='flex items-center gap-2'>
-                    <label className='text-sm'>Quantity</label>
+                    <label className='text-sm font-medium'>Quantity</label>
                     <div className='flex items-center gap-1'>
                       <button
                         onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                        className='rounded border px-2 py-1'
+                        className='rounded border border-gray-300 px-3 py-1 hover:bg-gray-50'
                         type='button'
                       >
                         -
                       </button>
-                      <div className='w-10 text-center'>{quantity}</div>
+                      <div className='w-12 text-center font-medium'>
+                        {quantity}
+                      </div>
                       <button
                         onClick={() => setQuantity((q) => q + 1)}
-                        className='rounded border px-2 py-1'
+                        className='rounded border border-gray-300 px-3 py-1 hover:bg-gray-50'
                         type='button'
                       >
                         +
@@ -209,8 +261,10 @@ export default function ProductCard({
                   </div>
 
                   <div className='text-right'>
-                    <div className='text-sm text-gray-500'>Unit</div>
-                    <div className='text-lg font-bold'>{displayPrice}</div>
+                    <div className='text-sm text-gray-500'>Subtotal</div>
+                    <div className='text-xl font-bold text-green-600'>
+                      ${(calculateDisplayPrice() * quantity).toFixed(2)}
+                    </div>
                   </div>
                 </div>
 
@@ -218,14 +272,14 @@ export default function ProductCard({
                 <div className='flex gap-3'>
                   <button
                     onClick={handleAddFromModal}
-                    className='flex-1 rounded-lg bg-green-600 px-4 py-2 text-white'
+                    className='flex-1 rounded-lg bg-green-600 px-4 py-2 font-medium text-white transition hover:bg-green-700'
                   >
-                    Add to cart
+                    Add {quantity > 1 ? `${quantity} ` : ''}to cart
                   </button>
 
                   <button
                     onClick={closeModal}
-                    className='rounded-lg border px-4 py-2'
+                    className='rounded-lg border border-gray-300 px-4 py-2 transition hover:bg-gray-50'
                   >
                     Cancel
                   </button>
@@ -237,4 +291,6 @@ export default function ProductCard({
       )}
     </>
   );
-}
+});
+
+export default ProductCard;
