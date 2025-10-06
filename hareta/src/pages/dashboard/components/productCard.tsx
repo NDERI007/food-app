@@ -1,6 +1,7 @@
 // ProductCard.tsx
 import { memo, useState } from 'react';
 import { useCartStore } from '@utils/hooks/useCrt';
+import { ImageOff, Plus } from 'lucide-react';
 
 interface SelectedChoice {
   optionId: string;
@@ -13,7 +14,6 @@ export interface Product {
   description: string;
   price: number;
   image: string;
-  discount?: number;
   category: string;
   options?: Array<{
     id: string;
@@ -32,7 +32,6 @@ interface ProductCardProps {
     price: number;
     image: string;
     description?: string;
-    discount?: number;
     options?: Array<{
       id: string;
       name: string;
@@ -107,9 +106,11 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
 
     return price;
   };
+  const basePrice = `KES ${product.price.toFixed(2)}`;
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
 
-  const displayPrice = `$${calculateDisplayPrice().toFixed(2)}`;
-  const basePrice = `$${product.price.toFixed(2)}`;
+  const base = product.image?.replace(/\.(jpg|jpeg|png|webp|avif)$/i, '') || '';
 
   return (
     <>
@@ -118,30 +119,55 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
         onClick={openModal}
       >
         {/* Image */}
-        <img
-          src={product.image}
-          alt={product.name}
-          className='h-32 w-full rounded-xl object-cover sm:h-36 md:h-40 lg:h-44'
-        />
+        <div className='relative w-full overflow-hidden rounded-xl bg-gray-100'>
+          {/* Blur placeholder */}
+          {!error && (
+            <div
+              className={`absolute inset-0 bg-gray-200 blur-md transition-opacity duration-500 ${
+                loaded ? 'opacity-0' : 'opacity-100'
+              }`}
+            />
+          )}
+
+          {!error ? (
+            <picture>
+              <source srcSet={`${base}.avif`} type='image/avif' />
+              <source srcSet={`${base}.webp`} type='image/webp' />
+              <img
+                src={`${base}.jpg`}
+                alt={product.name}
+                loading='lazy'
+                onLoad={() => setLoaded(true)}
+                onError={() => setError(true)}
+                className={`h-32 w-full rounded-xl object-cover transition-all duration-500 sm:h-36 md:h-40 lg:h-44 ${
+                  loaded ? 'scale-100 opacity-100' : 'scale-105 opacity-0'
+                }`}
+                srcSet={`
+                ${base}-400.jpg 400w,
+                ${base}-600.jpg 600w,
+                ${base}-800.jpg 800w
+              `}
+                sizes='(max-width: 640px) 200px,
+                     (max-width: 1024px) 300px,
+                     400px'
+              />
+            </picture>
+          ) : (
+            <div className='flex h-40 items-center justify-center text-gray-400'>
+              <ImageOff size={32} />
+            </div>
+          )}
+        </div>
 
         {/* Name */}
         <div className='mt-3 flex-1'>
-          <h3 className='text-base font-semibold sm:text-lg'>{product.name}</h3>
+          <h3 className='text-base font-normal sm:text-lg'>{product.name}</h3>
         </div>
 
         {/* Price + Action */}
         <div className='mt-3 flex items-center justify-between'>
           <div>
-            {product.discount ? (
-              <span className='mr-2 text-sm text-red-500'>
-                -{product.discount}%
-              </span>
-            ) : (
-              <span className='mr-2 text-sm text-gray-400'>&nbsp;</span>
-            )}
-            <span className='text-sm font-bold text-green-600 sm:text-base'>
-              {basePrice}
-            </span>
+            <span className='font-sans text-sm sm:text-base'>{basePrice}</span>
           </div>
 
           <button
@@ -155,9 +181,10 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
                 addItem(product, 1, []);
               }
             }}
-            className='rounded-lg bg-green-600 px-2 py-1 text-xs text-white sm:px-3 sm:py-1.5 sm:text-sm'
+            className='flex items-center justify-center rounded-full bg-green-100 p-2 text-green-500 transition-colors hover:bg-green-200'
+            aria-label='Add to cart'
           >
-            Add
+            <Plus size={18} className='sm:h-5 sm:w-5' />
           </button>
         </div>
       </div>
@@ -224,7 +251,7 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
                               >
                                 {c.label}
                                 {c.priceDelta
-                                  ? ` (+$${c.priceDelta.toFixed(2)})`
+                                  ? ` (+KES${c.priceDelta.toFixed(2)})`
                                   : ''}
                               </button>
                             );
@@ -263,7 +290,7 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
                   <div className='text-right'>
                     <div className='text-sm text-gray-500'>Subtotal</div>
                     <div className='text-xl font-bold text-green-600'>
-                      ${(calculateDisplayPrice() * quantity).toFixed(2)}
+                      KES{(calculateDisplayPrice() * quantity).toFixed(2)}
                     </div>
                   </div>
                 </div>

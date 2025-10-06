@@ -161,6 +161,9 @@ export const DeliveryPickupToggle: React.FC = () => {
       name: savedAddress.label,
       description: savedAddress.address,
       source: 'saved',
+      id: 0,
+      lat: null,
+      lng: null,
     };
 
     setDeliveryAddress(savedAddress.address, place, sessionToken);

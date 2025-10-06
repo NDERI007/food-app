@@ -42,7 +42,6 @@ const products: Product[] = [
     description: 'Reis, Zoodles, Garnelen, Sesame Dressing, Avocado',
     price: 29,
     image: 'https://source.unsplash.com/400x300/?chicken',
-    discount: 15,
     category: 'breakfast',
   },
   {
@@ -51,7 +50,6 @@ const products: Product[] = [
     description: 'Pasta with fresh tomatoes and basil',
     price: 20,
     image: 'https://source.unsplash.com/400x300/?pasta',
-    discount: 12,
     category: 'fries',
   },
   {
@@ -60,7 +58,6 @@ const products: Product[] = [
     description: 'Fresh sushi platter with salmon and tuna',
     price: 35,
     image: 'https://source.unsplash.com/400x300/?sushi',
-    discount: 18,
     category: 'trad',
   },
   {
@@ -69,7 +66,6 @@ const products: Product[] = [
     description: 'Juicy beef patty, cheddar cheese, and lettuce',
     price: 18,
     image: 'https://source.unsplash.com/400x300/?burger',
-    discount: 10,
     category: 'burger',
   },
   {
@@ -78,7 +74,6 @@ const products: Product[] = [
     description: 'Stone-baked pizza with mozzarella and pepperoni',
     price: 25,
     image: 'https://source.unsplash.com/400x300/?pizza',
-    discount: 20,
     category: 'pizza',
   },
   {
@@ -87,7 +82,6 @@ const products: Product[] = [
     description: 'Mixed greens, avocado, chickpeas, and tahini dressing',
     price: 22,
     image: 'https://source.unsplash.com/400x300/?salad',
-    discount: 8,
     category: 'breakfast',
   },
   {
@@ -96,7 +90,6 @@ const products: Product[] = [
     description: 'Golden crispy fries with ketchup and mayo',
     price: 12,
     image: 'https://source.unsplash.com/400x300/?fries',
-    discount: 5,
     category: 'fries',
   },
   {
@@ -105,7 +98,6 @@ const products: Product[] = [
     description: 'Noodles in spicy miso broth with pork and egg',
     price: 28,
     image: 'https://source.unsplash.com/400x300/?ramen',
-    discount: 15,
     category: 'trad',
   },
   {
@@ -114,7 +106,7 @@ const products: Product[] = [
     description: 'Toasted sourdough with smashed avocado and poached egg',
     price: 16,
     image: 'https://source.unsplash.com/400x300/?avocado-toast',
-    discount: 7,
+
     category: 'breakfast',
   },
   {
@@ -123,7 +115,7 @@ const products: Product[] = [
     description: 'Beef burger, cheese, fries, and soft drink',
     price: 30,
     image: 'https://source.unsplash.com/400x300/?fastfood',
-    discount: 12,
+
     category: 'burger',
   },
   {
@@ -132,7 +124,7 @@ const products: Product[] = [
     description: 'Classic pizza with tomato sauce, mozzarella, and basil',
     price: 24,
     image: 'https://source.unsplash.com/400x300/?margherita-pizza',
-    discount: 10,
+
     category: 'pizza',
   },
   {
@@ -141,7 +133,7 @@ const products: Product[] = [
     description: 'Sushi rolls with crab, avocado, and cucumber',
     price: 27,
     image: 'https://source.unsplash.com/400x300/?sushi-roll',
-    discount: 14,
+
     category: 'sushi',
   },
   {
@@ -150,14 +142,13 @@ const products: Product[] = [
     description: 'Fluffy pancakes with maple syrup and berries',
     price: 19,
     image: 'https://source.unsplash.com/400x300/?pancakes',
-    discount: 9,
+
     category: 'breakfast',
   },
 ];
 
 function Dashboard() {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
-  const [isSignedIn, setSignedIn] = useState(false);
   const [activeCategory, setActiveCategory] = useState('all');
   // Get cart state and actions from Zustand
   const toggleCart = useCartStore((state) => state.toggleCart);
