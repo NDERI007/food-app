@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import axios, { AxiosError, type CancelTokenSource } from 'axios';
 
 export interface Place {
   place_id: string | null;
@@ -14,6 +15,7 @@ interface UsePlacesSearchOptions {
   limit?: number;
   fetchUrl?: string; // defaults to `/api/places`
   onSubmit?: (place: Place) => void;
+  sessionToken?: string; // Add this
 }
 
 export function usePlacesSearch(options: UsePlacesSearchOptions = {}) {
@@ -23,6 +25,7 @@ export function usePlacesSearch(options: UsePlacesSearchOptions = {}) {
     limit = 6,
     fetchUrl = '/api/places',
     onSubmit,
+    sessionToken,
   } = options;
 
   const [query, setQuery] = useState('');
@@ -30,17 +33,17 @@ export function usePlacesSearch(options: UsePlacesSearchOptions = {}) {
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
-  const [highlightedIndex, setHighlightedIndex] = useState<number>(-1); // for arrow navigation
+  const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
 
-  const abortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<number | null>(null);
+  const cancelRef = useRef<CancelTokenSource | null>(null);
 
   useEffect(() => {
     if (!query || query.trim().length < minChars) {
       setResults([]);
       setLoading(false);
       setIsOpen(false);
-      if (abortRef.current) abortRef.current.abort();
+      if (cancelRef.current) cancelRef.current.cancel();
       return;
     }
 
@@ -48,33 +51,32 @@ export function usePlacesSearch(options: UsePlacesSearchOptions = {}) {
     setIsOpen(true);
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = window.setTimeout(() => {
-      if (abortRef.current) abortRef.current.abort();
-      const controller = new AbortController();
-      abortRef.current = controller;
+    debounceRef.current = window.setTimeout(async () => {
+      if (cancelRef.current) cancelRef.current.cancel();
+      cancelRef.current = axios.CancelToken.source();
 
-      fetch(
-        `${fetchUrl}?q=${encodeURIComponent(query.trim())}&limit=${limit}`,
-        {
-          signal: controller.signal,
-        },
-      )
-        .then((res) => {
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          return res.json();
-        })
-        .then((data) => setResults(data || []))
-        .catch((err) => {
-          if (err.name !== 'AbortError') setResults([]);
-        })
-        .finally(() => setLoading(false));
+      try {
+        const { data } = await axios.get(fetchUrl, {
+          params: { q: query.trim(), limit, sessionToken },
+          cancelToken: cancelRef.current.token,
+        });
+        setResults(data || []);
+      } catch (error) {
+        const err = error as AxiosError;
+        if (!axios.isCancel(err)) {
+          console.error('Places search error:', err.message);
+          setResults([]);
+        }
+      } finally {
+        setLoading(false);
+      }
     }, debounceMs);
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
-      if (abortRef.current) abortRef.current.abort();
+      if (cancelRef.current) cancelRef.current.cancel();
     };
-  }, [query, debounceMs, minChars, limit, fetchUrl]);
+  }, [query, debounceMs, minChars, limit, fetchUrl, sessionToken]);
 
   const onChange = (v: string) => {
     setQuery(v);
@@ -82,8 +84,8 @@ export function usePlacesSearch(options: UsePlacesSearchOptions = {}) {
 
     if (!v || v.trim().length === 0) {
       setResults([]);
-      setIsOpen(true); // keep dropdown visible if user clicks input
-      if (abortRef.current) abortRef.current.abort();
+      setIsOpen(true);
+      if (cancelRef.current) cancelRef.current.cancel();
       setLoading(false);
     }
   };

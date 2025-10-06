@@ -18,9 +18,9 @@ export default function FallbackModal({
 
   return (
     <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40'>
-      <div className='w-[90%] max-w-md rounded-lg bg-[#fefaef] p-6 shadow-lg'>
+      <div className='w-[90%] max-w-md rounded-lg bg-white p-6 shadow-lg'>
         <h2 className='mb-4 text-xl font-semibold'>Enter Hostel Details</h2>
-        <label>
+        <label className='mb-1 text-sm font-medium text-gray-700'>
           {' '}
           Location's name
           <input
@@ -28,18 +28,19 @@ export default function FallbackModal({
             placeholder='Enter landmark/hostel name'
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className='focus-outline mb-3 w-full rounded-md px-3 py-2'
+            className='mb-3 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none'
           />
         </label>
-
-        <input
-          type='text'
-          placeholder='Room number (optional)'
-          value={room}
-          onChange={(e) => setRoom(e.target.value)}
-          className='mb-3 w-full rounded-md border px-3 py-2'
-        />
-
+        <label className='mb-1 text-sm font-medium text-gray-700'>
+          Room Number
+          <input
+            type='text'
+            placeholder='Room number (optional)'
+            value={room}
+            onChange={(e) => setRoom(e.target.value)}
+            className='mb-3 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none'
+          />
+        </label>
         <div className='flex justify-end gap-2'>
           <button
             onClick={onClose}

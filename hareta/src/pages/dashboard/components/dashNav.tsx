@@ -1,5 +1,6 @@
 import { ShoppingCart, Menu } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { DeliveryPickupToggle } from './addrChange';
 
 type NavbarProps = {
   onToggleSidebar: () => void;
@@ -18,6 +19,7 @@ export default function Navbar({ onToggleSidebar, onToggleCart }: NavbarProps) {
         <Link to={'/'} className='text-xl font-bold text-green-600'>
           Iura
         </Link>
+        <DeliveryPickupToggle />
       </div>
 
       {/* Right: Auth + Cart */}

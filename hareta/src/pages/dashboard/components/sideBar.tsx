@@ -25,7 +25,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       {/* Backdrop - appears behind sidebar but above content */}
       {open && (
         <div
-          className='bg-opacity-50 fixed inset-0 z-40 bg-black/90'
+          className='bg-opacity-50 fixed inset-0 z-40 bg-black/50'
           onClick={onClose}
         />
       )}

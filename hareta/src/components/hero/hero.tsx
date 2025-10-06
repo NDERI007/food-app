@@ -3,6 +3,7 @@ import { usePlacesSearch, type Place } from '../../utils/hooks/placeSearch';
 import { useNavigate } from 'react-router-dom';
 import FallbackModal from '../modal';
 import { MapPin } from 'lucide-react';
+import { useDeliveryStore } from '@utils/hooks/deliveryStore';
 
 // --- COLOR HELPERS ---
 const clamp = (v: number, a = 0, b = 1) => Math.max(a, Math.min(b, v));
@@ -34,6 +35,7 @@ export default function HeroStickyHeadline({ onSubmit }: HeroSearchBarProps) {
   const heroRef = useRef<HTMLDivElement | null>(null);
   const [progress, setProgress] = useState(0);
   const [fallbackOpen, setFallbackOpen] = useState(false);
+  const { sessionToken, setDeliveryAddress } = useDeliveryStore();
 
   const navigate = useNavigate();
   // Use the Places hook
@@ -42,7 +44,6 @@ export default function HeroStickyHeadline({ onSubmit }: HeroSearchBarProps) {
     results,
     loading,
     isOpen,
-    selectedPlace,
     highlightedIndex,
     onChange: handleChange,
     onFocus: handleFocus,
@@ -50,7 +51,18 @@ export default function HeroStickyHeadline({ onSubmit }: HeroSearchBarProps) {
     handleKeyDown,
     selectPlace,
   } = usePlacesSearch({
-    onSubmit,
+    onSubmit: (place) => {
+      // Save address to store
+      const address = place.description || place.main_text || place.name || '';
+      setDeliveryAddress(address, place, sessionToken);
+
+      // Call parent's onSubmit if provided
+      onSubmit?.(place);
+
+      // Navigate to dashboard
+      navigate('/dashboard');
+    },
+    sessionToken, // Pass session token from store
   });
 
   // Scroll progress for animations
@@ -134,7 +146,7 @@ export default function HeroStickyHeadline({ onSubmit }: HeroSearchBarProps) {
 
               {/* Suggestions dropdown */}
               {isOpen && (
-                <ul className='absolute top-full right-0 left-0 z-20 max-h-60 overflow-auto bg-white shadow-md'>
+                <ul className='absolute top-full right-0 left-0 z-20 max-h-60 overflow-auto rounded-lg bg-white shadow-md'>
                   {results.length > 0 ? (
                     results.map((r, i) => (
                       <li
@@ -142,7 +154,6 @@ export default function HeroStickyHeadline({ onSubmit }: HeroSearchBarProps) {
                         onMouseDown={(ev) => {
                           ev.preventDefault();
                           selectPlace(r);
-                          navigate('/dashboard', { state: { place: r } }); // redirect to /menu
                         }}
                         className={`cursor-pointer px-4 py-2 text-left ${
                           highlightedIndex === i ? 'bg-gray-100' : ''
@@ -222,14 +233,24 @@ export default function HeroStickyHeadline({ onSubmit }: HeroSearchBarProps) {
         open={fallbackOpen}
         onClose={() => setFallbackOpen(false)}
         onSubmit={(data) => {
-          const fakePlace = {
+          const customPlace = {
             place_id: null,
             name: data.name,
             room: data.room,
             source: 'manual',
+            description: data.room
+              ? `${data.name}, ${data.room}` // Include room if it exists
+              : data.name, // Just name if no room
           };
-          onSubmit?.(fakePlace);
-          navigate('/login', { state: { place: fakePlace } });
+
+          // Save to store with properly formatted address
+          setDeliveryAddress(
+            data.room ? `${data.name}, ${data.room}` : data.name,
+            customPlace,
+            sessionToken,
+          );
+          onSubmit?.(customPlace);
+          navigate('/dashboard');
         }}
       />
     </section>

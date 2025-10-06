@@ -9,7 +9,7 @@ import {
   type emailSchemaType,
   type OtpSchemaType,
 } from '@utils/schemas/auth';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 export default function Login() {
   const [step, setStep] = useState<1 | 2>(1);
@@ -121,6 +121,16 @@ export default function Login() {
             >
               {disabled ? 'Please wait...' : 'Continue'}
             </button>
+            {/* 👇 Add this section */}
+            <p className='mt-6 text-center text-sm text-gray-600'>
+              Don't have an account?{' '}
+              <Link
+                to={'/signup'}
+                className='font-semibold text-green-900 hover:underline'
+              >
+                Sign up
+              </Link>
+            </p>
           </form>
         )}
 

@@ -1,5 +1,4 @@
 import fetch from "node-fetch";
-import cache from "@config/cache";
 
 const GOOGLE_KEY = process.env.GOOGLE_CLOUD_KEY || "";
 const COUNTRY = "KE";
@@ -7,16 +6,41 @@ const CAMPUS_LAT = -0.565981;
 const CAMPUS_LNG = 37.320272;
 const CAMPUS_RADIUS_METERS = 5000;
 
-export async function googleAutocomplete(input: string, sessionToken?: string) {
-  if (!GOOGLE_KEY) return [];
+interface PlacePrediction {
+  source: "google";
+  place_id: string;
+  name: string;
+  type: "place";
+}
 
-  const biasPart = `|campus:${CAMPUS_LAT},${CAMPUS_LNG},${CAMPUS_RADIUS_METERS}`;
-  const cacheKey = `google:${input.toLowerCase()}${biasPart}`;
+interface QueryPrediction {
+  source: "google";
+  place_id: null;
+  name: string;
+  type: "query";
+}
 
-  const cached = await cache.get(cacheKey);
-  if (cached) return cached;
+type AutocompletePrediction = PlacePrediction | QueryPrediction;
 
-  const body: any = {
+/**
+ * Google Places Autocomplete
+ * No caching - always calls Google API to ensure session tokens are properly utilized
+ * for billing optimization when combined with place details calls
+ */
+export async function googleAutocomplete(
+  input: string,
+  sessionToken: string
+): Promise<AutocompletePrediction[]> {
+  if (!GOOGLE_KEY) {
+    console.warn("GOOGLE_CLOUD_KEY not configured");
+    return [];
+  }
+
+  if (!sessionToken) {
+    console.warn("Session token not provided for autocomplete");
+  }
+
+  const body = {
     input,
     sessionToken,
     languageCode: "en-KE",
@@ -38,18 +62,18 @@ export async function googleAutocomplete(input: string, sessionToken?: string) {
           "Content-Type": "application/json",
           "X-Goog-Api-Key": GOOGLE_KEY,
         },
-        body: JSON.stringify(body), //Stringify for HTTP request (network transmission)  ← Converts JS object → JSON string for HTTP
+        body: JSON.stringify(body),
       }
     );
 
-    const json = (await res.json()) as any; //← Parses JSON string → JS object
+    const json = (await res.json()) as any;
 
     if (json.error) {
-      console.error("Google error:", json.error);
+      console.error("Google Places API error:", json.error);
       return [];
     }
 
-    const preds = (json.suggestions || [])
+    const predictions = (json.suggestions || [])
       .map((s: any) => {
         if (s.placePrediction) {
           return {
@@ -57,23 +81,22 @@ export async function googleAutocomplete(input: string, sessionToken?: string) {
             place_id: s.placePrediction.placeId,
             name: s.placePrediction.text?.text || "",
             type: "place",
-          };
+          } as PlacePrediction;
         } else if (s.queryPrediction) {
           return {
             source: "google",
             place_id: null,
             name: s.queryPrediction.text?.text || "",
             type: "query",
-          };
+          } as QueryPrediction;
         }
         return null;
       })
-      .filter(Boolean);
-    // 5. Store in Redis (needs stringifying again for Redis storage)
-    await cache.set(cacheKey, JSON.stringify(preds), 60 * 30);
-    return preds;
+      .filter(Boolean) as AutocompletePrediction[];
+
+    return predictions;
   } catch (err) {
-    console.error("Google fetch failed:", err);
+    console.error("Google autocomplete fetch failed:", err);
     return [];
   }
 }
