@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect } from 'react';
-import { usePlacesSearch, type Place } from '../../utils/hooks/placeSearch';
+import { usePlacesSearch, type Place } from '@utils/hooks/placeSearch';
 import { useNavigate } from 'react-router-dom';
-import FallbackModal from '../modal';
+import FallbackModal from '@components/modal';
 import { MapPin } from 'lucide-react';
 import { useDeliveryStore } from '@utils/hooks/deliveryStore';
 
@@ -53,7 +53,7 @@ export default function HeroStickyHeadline({ onSubmit }: HeroSearchBarProps) {
   } = usePlacesSearch({
     onSubmit: (place) => {
       // Save address to store
-      const address = place.description || place.main_text || place.name || '';
+      const address = place.main_text || '';
       setDeliveryAddress(address, place, sessionToken);
 
       // Call parent's onSubmit if provided
@@ -159,9 +159,7 @@ export default function HeroStickyHeadline({ onSubmit }: HeroSearchBarProps) {
                           highlightedIndex === i ? 'bg-gray-100' : ''
                         }`}
                       >
-                        <div className='font-medium'>
-                          {r.main_text ?? r.name}
-                        </div>
+                        <div className='font-medium'>{r.main_text}</div>
                         {r.secondary_text && (
                           <div className='text-xs text-gray-500'>
                             {r.secondary_text}
@@ -235,7 +233,7 @@ export default function HeroStickyHeadline({ onSubmit }: HeroSearchBarProps) {
         onSubmit={(data) => {
           const customPlace = {
             place_id: null,
-            name: data.name,
+            main_text: data.name,
             room: data.room,
             source: 'manual',
             description: data.room

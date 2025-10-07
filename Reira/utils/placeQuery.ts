@@ -14,7 +14,7 @@ export const PlacesQuerySchema = z.object({
     .optional()
     .default(10),
 
-  sessiontoken: z.string().max(256),
+  sessionToken: z.uuidv4(),
 });
 
 export type PlacesQuery = z.infer<typeof PlacesQuerySchema>;
@@ -58,7 +58,7 @@ export function validateQuery<T extends z.ZodTypeAny>(
     const toValidate = {
       q: qProcessed,
       limit: req.query.limit?.toString(),
-      sessiontoken: req.query.sessiontoken?.toString,
+      sessionToken: req.query.sessionToken?.toString(),
     };
 
     const result = schema.safeParse(toValidate);

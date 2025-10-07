@@ -51,7 +51,7 @@ router.post("/send-otp", authLimiter, async (req, res) => {
       retryAfter: cooldownTTL,
     });
   }
-  const code = crypto.randomInt(100000, 999999).toString();
+  const code = crypto.randomInt(100000, 999999).toString(); //store OTPs as strings (not integers) to avoid losing leading zeros (e.g. "045678").
 
   await cache.set(`otp:${email}`, code, OTP_TTL);
 
@@ -137,11 +137,11 @@ router.post("/verify-otp", authLimiter, async (req, res) => {
       email,
     });
     if (rpcError) {
-      console.error("❌ ensure_profile_exists error:", rpcError);
+      console.error("ensure_profile_exists error:", rpcError);
       return res.status(500).json({ error: "Profile creation failed." });
     }
   } catch (err) {
-    console.error("❌ RPC call failed:", err);
+    console.error("RPC call failed:", err);
     return res.status(500).json({ error: "Unexpected server error." });
   }
   // just trust the trigger will handle user creation
@@ -153,6 +153,7 @@ router.post("/verify-otp", authLimiter, async (req, res) => {
     secure: process.env.NODE_ENV === "production",
     sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     maxAge: SESSION_TTL * 1000,
+    path: "/", //✅ Always sent to every route on your domain
   });
 
   res.json({ message: "Authenticated!", email });

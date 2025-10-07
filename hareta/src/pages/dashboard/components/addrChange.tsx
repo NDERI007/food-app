@@ -1,21 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
-import {
-  MapPin,
-  Home,
-  X,
-  Search,
-  Clock,
-  Phone,
-  ChevronDown,
-} from 'lucide-react';
-import { usePlacesSearch, type Place } from '@utils/hooks/placeSearch';
+import { MapPin, Home, Clock, Phone, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDeliveryStore } from '@utils/hooks/deliveryStore';
+import AddressModal from './searchModal';
+import type { Place } from '@utils/hooks/placeSearch';
 
 // Type definitions
 type DeliveryOption = 'delivery' | 'pickup';
 
-interface SavedAddress {
+export interface SavedAddress {
   id: number;
   label: string;
   address: string;
@@ -29,16 +22,6 @@ interface RestaurantInfo {
   hours: string;
   mapUrl: string;
 }
-
-interface RestaurantInfo {
-  name: string;
-  address: string;
-  city: string;
-  phone: string;
-  hours: string;
-  mapUrl: string;
-}
-
 export const DeliveryPickupToggle: React.FC = () => {
   // Get delivery info from global store
   const {
@@ -96,26 +79,6 @@ export const DeliveryPickupToggle: React.FC = () => {
     }
   };
 
-  const {
-    query,
-    results,
-    loading,
-    isOpen,
-    onChange,
-    onFocus,
-    onBlur,
-    handleKeyDown,
-    selectPlace,
-  } = usePlacesSearch({
-    onSubmit: (place) => {
-      // When user selects an address, save to global store
-      const newAddress = place.description || place.main_text || '';
-      setDeliveryAddress(newAddress, place, sessionToken);
-      setShowModal(false);
-    },
-    sessionToken, // Use session token from store
-  });
-
   const timerRef = useRef<number | null>(null);
 
   const handleCopy = async () => {
@@ -159,7 +122,7 @@ export const DeliveryPickupToggle: React.FC = () => {
     const place: Place = {
       place_id: null,
       name: savedAddress.label,
-      description: savedAddress.address,
+      main_text: savedAddress.address,
       source: 'saved',
       id: 0,
       lat: null,
@@ -327,111 +290,19 @@ export const DeliveryPickupToggle: React.FC = () => {
       </div>
 
       {/* Delivery Address Modal */}
-      {showModal && (
-        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4'>
-          <div className='max-h-[80vh] w-full max-w-md overflow-y-auto rounded-lg bg-white'>
-            <div className='p-6'>
-              <div className='mb-4 flex items-center justify-between'>
-                <h2 className='text-xl font-semibold'>Delivery Address</h2>
-                <button
-                  onClick={() => setShowModal(false)}
-                  className='text-gray-500 hover:text-gray-700'
-                >
-                  <X size={24} />
-                </button>
-              </div>
-
-              {/* Search Input */}
-              <div className='mb-4'>
-                <div className='relative'>
-                  <input
-                    type='text'
-                    value={query}
-                    onChange={(e) => onChange(e.target.value)}
-                    onFocus={onFocus}
-                    onBlur={onBlur}
-                    onKeyDown={handleKeyDown}
-                    placeholder='Enter delivery address...'
-                    className='w-full rounded-lg border border-gray-300 px-4 py-3 pr-12 focus:ring-2 focus:ring-green-500 focus:outline-none'
-                  />
-                  <button className='absolute top-1/2 right-3 -translate-y-1/2 transform text-gray-500 hover:text-green-600'>
-                    <Search size={20} />
-                  </button>
-                </div>
-                {/* Loading indicator */}
-                {loading && (
-                  <p className='mt-2 text-sm text-gray-400'>Searching...</p>
-                )}
-              </div>
-
-              {/* Search Results */}
-              {isOpen && results.length > 0 && (
-                <div className='mb-4 max-h-64 overflow-y-auto rounded-lg border border-gray-100 bg-white shadow'>
-                  {results.map((place, index) => (
-                    <button
-                      key={index}
-                      onMouseDown={() => selectPlace(place)} // onMouseDown prevents premature blur
-                      className='flex w-full items-center gap-2 px-4 py-3 text-left hover:bg-gray-50'
-                    >
-                      <MapPin size={16} className='text-gray-500' />
-                      <div>
-                        <p className='font-medium text-gray-800'>
-                          {place.main_text || place.description}
-                        </p>
-                        {place.secondary_text && (
-                          <p className='text-sm text-gray-500'>
-                            {place.secondary_text}
-                          </p>
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Saved Addresses */}
-              {savedAddresses.length > 0 && !isOpen && (
-                <div>
-                  <p className='mb-2 text-sm text-gray-600'>Saved Addresses:</p>
-                  <div className='space-y-2'>
-                    {savedAddresses.map((saved: SavedAddress) => (
-                      <button
-                        key={saved.id}
-                        onClick={() => handleSavedAddressSelect(saved)}
-                        className='w-full rounded-lg bg-gray-50 px-4 py-3 text-left transition-colors hover:bg-gray-100'
-                      >
-                        <div className='flex items-center gap-3'>
-                          <div className='rounded-full bg-green-100 p-2'>
-                            <Home size={16} className='text-green-600' />
-                          </div>
-                          <div>
-                            <p className='font-medium text-gray-800'>
-                              {saved.label}
-                            </p>
-                            <p className='text-sm text-gray-600'>
-                              {saved.address}
-                            </p>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Confirm Button */}
-              {address && (
-                <button
-                  onClick={() => handleAddressSelect(address)}
-                  className='mt-4 w-full rounded-lg bg-green-600 py-3 text-white transition-colors hover:bg-green-700'
-                >
-                  Confirm Delivery Address
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <AddressModal
+        show={showModal}
+        onClose={() => setShowModal(false)}
+        onSelect={(place) => {
+          // when user selects an address from search
+          const newAddress = place.description || place.main_text || '';
+          setDeliveryAddress(newAddress, place, sessionToken);
+        }}
+        savedAddresses={savedAddresses}
+        address={address}
+        handleSavedAddressSelect={handleSavedAddressSelect}
+        handleAddressSelect={handleAddressSelect}
+      />
     </>
   );
 };

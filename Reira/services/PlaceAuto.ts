@@ -1,6 +1,8 @@
 import fetch from "node-fetch";
+import dotenv from "dotenv";
+dotenv.config();
 
-const GOOGLE_KEY = process.env.GOOGLE_CLOUD_KEY || "";
+const GOOGLE_KEY = process.env.GOOGLE_CLOUD_KEY;
 const COUNTRY = "KE";
 const CAMPUS_LAT = -0.565981;
 const CAMPUS_LNG = 37.320272;
