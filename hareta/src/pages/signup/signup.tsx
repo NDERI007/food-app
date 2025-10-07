@@ -4,32 +4,16 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-import { z } from 'zod';
-
-// Schemas
-const signupSchema = z.object({
-  email: z.email('Please enter a valid email'),
-  username: z
-    .string()
-    .min(3, 'Username must be at least 3 characters')
-    .max(20, 'Username must be less than 20 characters')
-    .regex(
-      /^[a-zA-Z0-9_]+$/,
-      'Username can only contain letters, numbers, and underscores',
-    ),
-});
-
-const otpSchema = z.object({
-  otp: z.string().length(6, 'OTP must be exactly 6 digits'),
-});
-
-type SignupSchemaType = z.infer<typeof signupSchema>;
-type OtpSchemaType = z.infer<typeof otpSchema>;
+import {
+  emailSchema,
+  otpSchema,
+  type emailSchemaType,
+  type OtpSchemaType,
+} from '@utils/schemas/auth';
 
 export default function Signup() {
   const [step, setStep] = useState<1 | 2>(1);
   const [email, setEmail] = useState('');
-  const [username, setUsername] = useState('');
   const [disabled, setDisabled] = useState(false);
 
   const navigate = useNavigate();
@@ -40,8 +24,8 @@ export default function Signup() {
     handleSubmit: handleSubmitSignup,
     formState: { errors: signupErrors },
     reset: resetSignup,
-  } = useForm<SignupSchemaType>({
-    resolver: zodResolver(signupSchema),
+  } = useForm<emailSchemaType>({
+    resolver: zodResolver(emailSchema),
   });
 
   // Step 2 form (otp)
@@ -55,17 +39,16 @@ export default function Signup() {
   });
 
   // Handlers
-  const handleSendOtp = async (data: SignupSchemaType) => {
+  const handleSendOtp = async (data: emailSchemaType) => {
     try {
       await axios.post(
-        '/auth/signup-send-otp',
-        { email: data.email, username: data.username },
+        '/auth/send-otp',
+        { email: data.email },
         { withCredentials: true },
       );
 
       toast.success('OTP sent! Check your inbox.');
       setEmail(data.email);
-      setUsername(data.username);
       setStep(2);
 
       resetSignup();
@@ -84,8 +67,8 @@ export default function Signup() {
   const handleVerifyOtp = async (data: OtpSchemaType) => {
     try {
       await axios.post(
-        '/auth/signup-verify-otp',
-        { email, username, code: data.otp },
+        '/auth/verify-otp',
+        { email, code: data.otp },
         { withCredentials: true },
       );
 
@@ -109,26 +92,6 @@ export default function Signup() {
             <h2 className='mb-6 text-center text-2xl font-bold text-green-900'>
               Create your account
             </h2>
-
-            {/* Username field */}
-            <div className='mb-4 flex flex-col'>
-              <label className='mb-1 text-sm font-medium text-gray-700'>
-                Username
-              </label>
-              <input
-                type='text'
-                placeholder='Choose a username'
-                {...registerSignup('username')}
-                className={`rounded-md border p-2 focus:outline-none ${
-                  signupErrors.username ? 'border-red-500' : 'border-gray-300'
-                }`}
-              />
-              {signupErrors.username && (
-                <p className='mt-1 text-sm text-red-500'>
-                  {signupErrors.username.message}
-                </p>
-              )}
-            </div>
 
             {/* Email field */}
             <div className='mb-4 flex flex-col'>
@@ -209,7 +172,6 @@ export default function Signup() {
                   resetOtp();
                   setStep(1);
                   setEmail('');
-                  setUsername('');
                 }}
                 className='w-1/3 rounded-md bg-gray-200 px-4 py-2 text-gray-700 shadow-sm hover:bg-gray-300 active:scale-95'
               >

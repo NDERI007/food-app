@@ -66,6 +66,56 @@ export const cache = {
     }
     lru.delete(key);
   },
+  /**
+   * Increment a numeric key (like Redis INCR)
+   * Creates the key if it doesn't exist, starting from 0.
+   * Returns the new incremented value.
+   */
+  async incr(key: string): Promise<number> {
+    if (redis) {
+      return redis.incr(key);
+    }
+
+    // LRU fallback
+    const current = parseInt(lru.get(key) ?? "0", 10);
+    const next = current + 1;
+    lru.set(key, next.toString());
+    return next;
+  },
+
+  /**
+   * Get the remaining TTL (time-to-live) of a key in seconds
+   * @returns -2 if key doesn't exist, -1 if key has no expiration, or seconds remaining
+   */
+  async ttl(key: string): Promise<number> {
+    if (redis) {
+      return await redis.ttl(key);
+    }
+
+    // LRU fallback
+    const ttl = lru.getRemainingTTL(key);
+    if (ttl === 0) return -2; // Key doesn't exist
+    if (ttl === Infinity) return -1; // No expiration
+    return Math.floor(ttl / 1000); // Convert ms to seconds
+  },
+
+  /**
+   * Set an expiration time on an existing key
+   * @returns true if expiration was set, false if key doesn't exist
+   */
+  async expire(key: string, seconds: number): Promise<boolean> {
+    if (redis) {
+      const result = await redis.expire(key, seconds);
+      return result === 1; // Redis returns 1 on success, 0 if key doesn't exist
+    }
+
+    // LRU fallback
+    const value = lru.get(key);
+    if (value === undefined) return false;
+
+    lru.set(key, value, { ttl: seconds * 1000 });
+    return true;
+  },
 };
 export { redis };
 export default cache;

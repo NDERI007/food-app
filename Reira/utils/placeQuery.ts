@@ -14,7 +14,7 @@ export const PlacesQuerySchema = z.object({
     .optional()
     .default(10),
 
-  sessiontoken: z.string().max(256).optional(),
+  sessiontoken: z.string().max(256),
 });
 
 export type PlacesQuery = z.infer<typeof PlacesQuerySchema>;
@@ -47,7 +47,7 @@ export function validateQuery<T extends z.ZodTypeAny>(
     res: express.Response,
     next: express.NextFunction
   ) => {
-    const qProcessed = safeQ(req.query.q as string | undefined);
+    const qProcessed = safeQ(req.query.q?.toString());
 
     if (!qProcessed) {
       // keep handler behavior simple: attach an explicit parsedQuery with empty q
@@ -57,15 +57,16 @@ export function validateQuery<T extends z.ZodTypeAny>(
 
     const toValidate = {
       q: qProcessed,
-      limit: req.query.limit as string | undefined,
-      sessiontoken: req.query.sessiontoken as string | undefined,
+      limit: req.query.limit?.toString(),
+      sessiontoken: req.query.sessiontoken?.toString,
     };
 
     const result = schema.safeParse(toValidate);
     if (!result.success) {
-      return res
-        .status(400)
-        .json({ error: "invalid_request", issues: result.error.format() });
+      return res.status(400).json({
+        error: "invalid_request",
+        issues: z.treeifyError(result.error),
+      });
     }
 
     req.parsedQuery = result.data as PlacesQuery;
