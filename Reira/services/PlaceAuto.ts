@@ -47,7 +47,7 @@ export async function googleAutocomplete(
     sessionToken,
     languageCode: "en-KE",
     includedRegionCodes: [COUNTRY],
-    locationBias: {
+    locationRestriction: {
       circle: {
         center: { latitude: CAMPUS_LAT, longitude: CAMPUS_LNG },
         radius: CAMPUS_RADIUS_METERS,

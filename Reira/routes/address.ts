@@ -1,17 +1,12 @@
-import cache from "@config/cache";
 import supabase from "@config/supabase";
 import express from "express";
+import { requireAuth } from "middleware/auth";
 
 const router = express.Router();
-router.get("/look-up", async (req, res) => {
-  try {
-    const sessionId = req.cookies.sessionId; // 🍪 comes from client cookie
 
-    if (!sessionId) {
-      return res.status(401).json({ error: "Missing session cookie" });
-    }
-    // Get email from Redis session
-    const userID = await cache.get(`session:${sessionId}`);
+router.get("/look-up", requireAuth, async (req, res) => {
+  try {
+    const userID = req.user?.userID;
 
     if (!userID) {
       return res.status(401).json({ message: "Unauthorized" });

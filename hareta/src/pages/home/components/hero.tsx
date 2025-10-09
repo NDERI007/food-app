@@ -159,7 +159,9 @@ export default function HeroStickyHeadline({ onSubmit }: HeroSearchBarProps) {
                           highlightedIndex === i ? 'bg-gray-100' : ''
                         }`}
                       >
-                        <div className='font-medium'>{r.main_text}</div>
+                        <div className='font-medium'>
+                          {r.main_text ?? r.name}
+                        </div>
                         {r.secondary_text && (
                           <div className='text-xs text-gray-500'>
                             {r.secondary_text}

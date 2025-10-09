@@ -4,6 +4,7 @@ import axios, { AxiosError, type CancelTokenSource } from 'axios';
 export interface Place {
   place_id: string | null;
   id?: number;
+  name?: string;
   main_text: string;
   secondary_text?: string;
   lat?: number | null;

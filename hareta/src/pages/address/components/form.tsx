@@ -109,7 +109,7 @@ export default function AddressForm({
                   <MapPin size={16} className='text-gray-500' />
                   <div>
                     <p className='font-medium text-gray-800'>
-                      {place.main_text || place.description}
+                      {place.main_text || place.name}
                     </p>
                     {place.secondary_text && (
                       <p className='text-sm text-gray-500'>
