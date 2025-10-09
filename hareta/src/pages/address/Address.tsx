@@ -27,7 +27,7 @@ export default function AddressPage() {
     try {
       setLoading(true);
       setError(null);
-      const { data } = await axios.get('/api/addresses'); // GET request via axios
+      const { data } = await axios.get('/api/addr/look-up'); // GET request via axios
 
       // Expecting { addresses: SavedAddress[] } from backend
       setSavedAddresses(data.addresses || []);

@@ -3,8 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import cookieParser from "cookie-parser";
-import placesRoutes from "./routes/places";
-import authRoutes from "./routes/withAuth";
+import apiRoutes from "index";
 
 const app = express();
 
@@ -22,7 +21,16 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // mount routes
-app.use("/api", placesRoutes);
-app.use("/auth", authRoutes);
+app.use("/api", apiRoutes);
+
+const PORT = parseInt(process.env.PORT || "8787", 10);
+
+app.listen(PORT, () => {
+  console.log(`🚀 Autocomplete API running on http://localhost:${PORT}`);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled Rejection:", reason);
+});
 
 export default app;

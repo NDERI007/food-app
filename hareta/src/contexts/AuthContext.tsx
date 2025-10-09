@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
 
 interface User {
   email: string;
@@ -24,21 +25,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Check authentication status
   const checkAuth = useCallback(async () => {
     try {
-      const response = await fetch('/auth/context-verif', {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const response = await axios.get('/api/auth/context-verif', {
+        withCredentials: true,
       });
+      const data = response.data;
 
-      if (!response.ok) {
-        setUser(null);
-        return;
-      }
-
-      const data = await response.json();
-
-      if (data.authenticated && data.user) {
+      if (data?.authenticated && data?.user) {
         setUser(data.user);
       } else {
         setUser(null);
@@ -59,20 +51,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Logout
   const logout = useCallback(async () => {
     try {
-      const response = await fetch('/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await axios.post(
+        'api/auth/logout',
+        {},
+        {
+          withCredentials: true,
+          headers: { 'Content-Type': 'application/json' },
         },
-      });
-
-      if (response.ok) {
+      );
+      if (response.status >= 200 && response.status < 300) {
+        setUser(null);
+      } else {
+        // non-2xx — still clear user locally, but log it
+        console.warn('Logout returned non-2xx status', response.status);
         setUser(null);
       }
     } catch (error) {
       console.error('Logout failed:', error);
-      // Still clear user on client side even if request fails
+      // clear user locally even if remote logout fails
       setUser(null);
     }
   }, []);

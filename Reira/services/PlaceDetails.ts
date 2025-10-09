@@ -40,9 +40,20 @@ export async function getPlaceDetails(placeId: string, sessionToken: string) {
     }
 
     const data = (await res.json()) as any;
+
+    if (!data.location) {
+      return null;
+    }
+    const formatted_address = data.formattedAddress || "";
+
+    // Split at first comma to separate name from rest of address
+    const parts = formatted_address.split(",");
+    const main_text = parts[0]?.trim() || "Unknown";
+    const secondary_text = parts.slice(1).join(",").trim() || null;
     return {
       id: data.id,
-      formatted_address: data.formattedAddress,
+      main_text,
+      secondary_text,
       lat: data.location?.latitude,
       lng: data.location?.longitude,
     };

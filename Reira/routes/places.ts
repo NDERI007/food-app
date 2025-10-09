@@ -8,7 +8,7 @@ import supabase from "@config/supabase";
 
 const router = express.Router();
 
-router.get("/places", validateQuery(PlacesQuerySchema), async (req, res) => {
+router.get("/auto-comp", validateQuery(PlacesQuerySchema), async (req, res) => {
   try {
     const parsed = req.parsedQuery!;
     if (!parsed.q) return res.json([]);
@@ -30,41 +30,116 @@ router.get("/places", validateQuery(PlacesQuerySchema), async (req, res) => {
   }
 });
 
-router.get("/place-details/", async (req, res) => {
-  const { placeId, sessionToken, label, description } = req.body;
-  const sessionId = req.cookies.sessionId; // 🍪 comes from client cooki
+router.post("/place-details", async (req, res) => {
+  const {
+    source, // "db" or "google"
+    placeId, // For Google results
+    id, // For DB results
+    sessionToken, // Only needed for Google
+    label,
+    main_text,
+    secondary_text,
+    lat, // Present in DB results
+    lng, // Present in DB results
+  } = req.body;
+
+  const sessionId = req.cookies.sessionId; // 🍪 comes from client cookie
 
   // Basic validation
-  if (!placeId) {
-    return res.status(400).json({ error: "Missing placeId parameter" });
+  // Basic validation
+  if (!source) {
+    return res.status(400).json({ error: "Missing source parameter" });
   }
 
-  if (!sessionToken || typeof sessionToken !== "string") {
-    return res
-      .status(400)
-      .json({ error: "Missing or invalid sessionToken query parameter" });
+  if (source === "google" && !placeId) {
+    return res.status(400).json({ error: "Missing placeId for Google result" });
   }
 
-  if (!sessionId)
+  if (source === "db" && !id) {
+    return res.status(400).json({ error: "Missing id for DB result" });
+  }
+
+  if (!sessionId) {
     return res.status(401).json({ error: "Missing session cookie" });
+  }
 
   try {
     // Lookup session in Redis
     const email = await cache.get(`session:${sessionId}`);
-    const location = await getPlaceDetails(placeId, sessionToken);
-    if (!location) return res.status(404).json({ error: "Place not found" });
-    const { formatted_address, lat, lng } = location;
-    const { data, error } = await supabase.rpc("upsert_address", {
-      user_email: email,
-      address_label: label,
-      address_description: description,
-      address_text: formatted_address,
-      address_place_id: placeId,
-      address_lat: lat,
-      address_lng: lng,
+    let locationData;
+    let finalPlaceId;
+    let responseMainText;
+    let responseSecondaryText;
+
+    // If result is from DB, use existing coordinates (skip Google API)
+    if (source === "db") {
+      if (!lat || !lng) {
+        return res.status(400).json({ error: "DB result missing coordinates" });
+      }
+
+      // DB structure: main_text is name, secondary_text is address
+      const placeName = main_text || "Unknown";
+      const placeAddress = secondary_text || "";
+      locationData = {
+        main_text: placeName,
+        secondary_text: placeAddress,
+        lat,
+        lng,
+      };
+
+      // Use DB id as place identifier (or generate one)
+      finalPlaceId = `db_${id}`;
+      responseMainText = placeName;
+      responseSecondaryText = placeAddress;
+    } else if (source === "google") {
+      // Fetch from Google Place Details API
+      if (!sessionToken || typeof sessionToken !== "string") {
+        return res
+          .status(400)
+          .json({ error: "Missing or invalid sessionToken for Google API" });
+      }
+
+      const location = await getPlaceDetails(placeId, sessionToken);
+      if (!location) {
+        return res.status(404).json({ error: "Place not found" });
+      }
+
+      locationData = location;
+      finalPlaceId = placeId;
+      responseMainText = location.main_text;
+      responseSecondaryText = location.secondary_text;
+    } else {
+      return res.status(400).json({ error: "Invalid source type" });
+    }
+    // Upsert to database
+    const { error } = await supabase.rpc("upsert_address", {
+      p_email: email,
+      p_label: label,
+      p_place_name: responseMainText,
+      p_address: responseSecondaryText,
+      p_place_id: finalPlaceId,
+      p_lat: locationData.lat,
+      p_lng: locationData.lng,
     });
 
     if (error) throw error;
+    // Return the data we already have from dbSearch or getPlaceDetails
+    return res.json({
+      success: true,
+      address: {
+        label,
+        main_text: responseMainText,
+        secondary_text: responseSecondaryText,
+        lat: locationData.lat,
+        lng: locationData.lng,
+        placeId: finalPlaceId,
+        source,
+      },
+      message:
+        source === "db"
+          ? "Address saved from database cache"
+          : "Address fetched from Google and saved",
+    });
   } catch (error) {
     console.error("Error in /places/:placeId endpoint:", error);
     return res.status(500).json({ error: "Internal server error" });

@@ -5,12 +5,14 @@ import { sendOtpEmail } from "@utils/resend";
 import { v4 as uuidv4 } from "uuid";
 import rateLimit from "express-rate-limit";
 import supabase from "@config/supabase";
+import z, { email } from "zod";
+import { signSessionId } from "@utils/hmacF";
 
 const router = express.Router();
 
-const OTP_TTL = 300; // 5 minutes
+const OTP_TTL = 6000; // 5 minutes
 const RESEND_COOLDOWN = 30; // seconds
-const SESSION_TTL = 60 * 60 * 24 * 7; // 7 days
+export const SESSION_TTL = 60 * 60 * 2; // 2hrs
 const MAX_OTP_ATTEMPTS = 5; // Max verification attempts
 const MAX_SEND_ATTEMPTS = 10; // Max OTP send attempts per hour
 const ATTEMPT_WINDOW = 60 * 60; // 1 hour
@@ -133,50 +135,114 @@ router.post("/verify-otp", authLimiter, async (req, res) => {
 
   // Ensure user exists in Supabase (handled by function)
   try {
-    const { error: rpcError } = await supabase.rpc("ensure_profile_exists", {
-      email,
-    });
+    const { data, error: rpcError } = await supabase.rpc(
+      "ensure_profile_exists",
+      {
+        p_email: email,
+      }
+    );
     if (rpcError) {
       console.error("ensure_profile_exists error:", rpcError);
       return res.status(500).json({ error: "Profile creation failed." });
     }
+    if (!data) {
+      return res.status(500).json({ error: "No profile id returned." });
+    }
+
+    // define a schema
+    const userIdSchema = z.uuid();
+
+    // parse once → gives you a plain string
+    const userID: string = userIdSchema.parse(data);
+
+    // just trust the trigger will handle user creation
+    const sessionId = uuidv4();
+    const signedId = signSessionId(sessionId);
+    const sessionData = {
+      userID,
+      email,
+      createdAt: Date.now(), // 🔹 timestamp in ms
+    };
+    try {
+      await cache.set(
+        `session:${signedId}`,
+        JSON.stringify(sessionData),
+        SESSION_TTL
+      );
+    } catch (cacheErr) {
+      console.error("Failed to write session to cache:", cacheErr);
+      // decide: proceed (recommended)
+    }
+
+    res.cookie("sessionId", sessionId, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      maxAge: SESSION_TTL * 1000,
+      path: "/", //✅ Always sent to every route on your domain
+    });
+    return res.status(200).json({ message: "Authenticated!" });
   } catch (err) {
     console.error("RPC call failed:", err);
     return res.status(500).json({ error: "Unexpected server error." });
   }
-  // just trust the trigger will handle user creation
-  const sessionId = uuidv4();
-  await cache.set(`session:${sessionId}`, email, SESSION_TTL);
-
-  res.cookie("sessionId", sessionId, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-    maxAge: SESSION_TTL * 1000,
-    path: "/", //✅ Always sent to every route on your domain
-  });
-
-  res.json({ message: "Authenticated!", email });
 });
 
 //---CONTEXT-VERIFICATION ---
 router.get("/context-verif", async (req, res) => {
-  // 🔑 Express automatically parses cookies via cookie-parser middleware
-  const sessionId = req.cookies.sessionId; // Cookie is already here!
+  const sessionId = req.cookies.sessionId;
 
   if (!sessionId) {
     return res.json({ authenticated: false, user: null });
   }
 
-  // Lookup session in Redis
-  const email = await cache.get(`session:${sessionId}`);
+  const signedId = signSessionId(sessionId);
+  const key = `session:${signedId}`;
 
-  if (!email) {
+  let raw;
+  try {
+    raw = await cache.get(key);
+  } catch (err) {
+    console.error("Redis error:", err);
+    return res.json({ authenticated: false, user: null });
+  }
+
+  if (!raw) {
     res.clearCookie("sessionId");
     return res.json({ authenticated: false, user: null });
   }
 
-  res.json({ authenticated: true, user: { email } });
+  let sessionData: { userID: string; createdAt: number; email: string };
+  try {
+    sessionData = JSON.parse(raw);
+  } catch (parseErr) {
+    console.error("Failed to parse session:", parseErr);
+    await cache.del(key);
+    res.clearCookie("sessionId");
+    return res.json({ authenticated: false, user: null });
+  }
+
+  // Optional: manual max-age check
+  const now = Date.now();
+  const maxAgeMs = 1000 * 60 * 60 * 24 * 7; // 7 days, same as cookie
+
+  if (now - sessionData.createdAt > maxAgeMs) {
+    await cache.del(key);
+    res.clearCookie("sessionId");
+    return res.json({ authenticated: false, user: null });
+  }
+
+  // Refresh TTL (sliding session)
+  try {
+    await cache.expire(key, SESSION_TTL);
+  } catch (err) {
+    console.warn("Failed to refresh session TTL:", err);
+  }
+
+  return res.json({
+    authenticated: true,
+    user: { email: sessionData.email },
+  });
 });
 
 // --- LOGOUT ---

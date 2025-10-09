@@ -1,62 +1,72 @@
 import type { Request, Response, NextFunction } from "express";
 import cache from "@config/cache";
 
-// Extend Express Request type to include user
+import { SESSION_TTL } from "routes/withAuth";
+import { signSessionId } from "@utils/hmacF";
+
+const MAX_SESSION_AGE = 60 * 60 * 24 * 7; //7 DAYS
 declare global {
   namespace Express {
     interface Request {
       user?: {
-        email: string;
+        userID: string;
         sessionId: string;
       };
     }
   }
 }
 
-// Middleware to check if user is authenticated
 export async function requireAuth(
   req: Request,
   res: Response,
   next: NextFunction
 ) {
   const sessionId = req.cookies.sessionId;
-
   if (!sessionId) {
-    return res.status(401).json({
-      error: "Authentication required",
-      authenticated: false,
-    });
+    return res
+      .status(401)
+      .json({ error: "Authentication required", authenticated: false });
   }
 
-  const email = await cache.get(`session:${sessionId}`);
+  // 🔐 Compute signed key to lookup in Redis
+  const key = `session:${signSessionId(sessionId)}`;
 
-  if (!email) {
+  const raw = await cache.get(key);
+  if (!raw) {
     res.clearCookie("sessionId");
-    return res.status(401).json({
-      error: "Session expired",
-      authenticated: false,
-    });
+    return res
+      .status(401)
+      .json({ error: "Session expired", authenticated: false });
   }
 
-  // Attach user info to request
-  req.user = { email, sessionId };
-  next();
-}
-
-// Optional auth - doesn't block, just attaches user if available
-export async function optionalAuth(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
-  const sessionId = req.cookies.sessionId;
-
-  if (sessionId) {
-    const email = await cache.get(`session:${sessionId}`);
-    if (email) {
-      req.user = { email, sessionId };
-    }
+  let sessionData: { userID: string; createdAt: number; email: string };
+  try {
+    sessionData = JSON.parse(raw);
+  } catch {
+    // Corrupted data — force logout
+    await cache.del(key);
+    res.clearCookie("sessionId");
+    return res
+      .status(401)
+      .json({ error: "Invalid session data", authenticated: false });
   }
 
+  // ⏰ Enforce max session lifetime
+  if (Date.now() - sessionData.createdAt > MAX_SESSION_AGE * 1000) {
+    await cache.del(key);
+    res.clearCookie("sessionId");
+    return res
+      .status(401)
+      .json({ error: "Session too old", authenticated: false });
+  }
+
+  // 🔁 Refresh TTL (sliding expiration)
+  try {
+    await cache.expire(key, SESSION_TTL);
+  } catch (err) {
+    console.error("Failed to refresh session TTL:", err);
+  }
+
+  req.user = { userID: sessionData.userID, sessionId };
   next();
 }

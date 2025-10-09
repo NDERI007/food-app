@@ -41,7 +41,7 @@ export default function Login() {
   const handleSendOtp = async (data: emailSchemaType) => {
     try {
       await axios.post(
-        '/auth/send-otp',
+        '/api/auth/send-otp',
         { email: data.email },
         { withCredentials: true },
       );
@@ -66,7 +66,7 @@ export default function Login() {
   const handleVerifyOtp = async (data: OtpSchemaType) => {
     try {
       await axios.post(
-        '/auth/verify-otp',
+        '/api/auth/verify-otp',
         { email, code: data.otp },
         { withCredentials: true },
       );

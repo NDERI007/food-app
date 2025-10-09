@@ -1,5 +1,5 @@
 import { useAuth } from '@utils/hooks/useAuth';
-import { X } from 'lucide-react';
+import { Bookmark, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 type SidebarProps = {
@@ -8,7 +8,7 @@ type SidebarProps = {
 };
 
 export default function Sidebar({ open, onClose }: SidebarProps) {
-  const { isAuthenticated, user, logout, isLoading } = useAuth();
+  const { isAuthenticated, logout, isLoading } = useAuth();
 
   const handleLogout = async () => {
     await logout();
@@ -87,22 +87,6 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             </>
           ) : (
             <>
-              <div className='mb-4 border-b pb-4'>
-                <div className='flex items-center gap-3'>
-                  <div className='flex h-10 w-10 items-center justify-center rounded-full bg-green-600 font-bold text-white'>
-                    {user?.email.charAt(0).toUpperCase()}
-                  </div>
-                  <div className='min-w-0 flex-1'>
-                    <p className='truncate font-medium'>
-                      {user?.email.split('@')[0]}
-                    </p>
-                    <p className='truncate text-xs text-gray-500'>
-                      {user?.email}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
               <button
                 onClick={() => handleNavigation('/profile')}
                 className='flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-gray-100'
@@ -120,10 +104,10 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               </button>
 
               <button
-                onClick={() => handleNavigation('/addresses')}
+                onClick={() => handleNavigation('/address')}
                 className='flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-gray-100'
               >
-                <span>📍</span>
+                <Bookmark size={14} />
                 <span>Saved Addresses</span>
               </button>
 

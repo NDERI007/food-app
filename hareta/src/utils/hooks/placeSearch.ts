@@ -25,7 +25,7 @@ export function usePlacesSearch(options: UsePlacesSearchOptions = {}) {
     debounceMs = 220,
     minChars = 1,
     limit = 6,
-    fetchUrl = '/api/places',
+    fetchUrl = '/api/places/auto-comp',
     onSubmit,
     sessionToken,
   } = options;
