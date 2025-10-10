@@ -5,6 +5,7 @@ import { googleAutocomplete } from "@services/PlaceAuto";
 import { getPlaceDetails } from "@services/PlaceDetails";
 import cache from "@config/cache";
 import supabase from "@config/supabase";
+import { requireAuth } from "middleware/auth";
 
 const router = express.Router();
 
@@ -30,7 +31,7 @@ router.get("/auto-comp", validateQuery(PlacesQuerySchema), async (req, res) => {
   }
 });
 
-router.post("/place-details", async (req, res) => {
+router.post("/place-details", requireAuth, async (req, res) => {
   const {
     source, // "db" or "google"
     placeId, // For Google results
@@ -42,8 +43,6 @@ router.post("/place-details", async (req, res) => {
     lat, // Present in DB results
     lng, // Present in DB results
   } = req.body;
-
-  const sessionId = req.cookies.sessionId; // 🍪 comes from client cookie
 
   // Basic validation
   // Basic validation
@@ -59,13 +58,13 @@ router.post("/place-details", async (req, res) => {
     return res.status(400).json({ error: "Missing id for DB result" });
   }
 
-  if (!sessionId) {
-    return res.status(401).json({ error: "Missing session cookie" });
-  }
-
   try {
     // Lookup session in Redis
-    const email = await cache.get(`session:${sessionId}`);
+    const userID = req.user?.userID;
+
+    if (!userID) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
     let locationData;
     let finalPlaceId;
     let responseMainText;
@@ -111,9 +110,8 @@ router.post("/place-details", async (req, res) => {
     } else {
       return res.status(400).json({ error: "Invalid source type" });
     }
-    // Upsert to database
     const { error } = await supabase.rpc("upsert_address", {
-      p_email: email,
+      p_user_id: userID, // comes from your auth middleware
       p_label: label,
       p_place_name: responseMainText,
       p_address: responseSecondaryText,

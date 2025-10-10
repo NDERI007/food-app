@@ -12,6 +12,7 @@ export interface SavedAddress {
   id: number;
   label: string;
   address: string;
+  city: string;
 }
 
 interface RestaurantInfo {
@@ -50,8 +51,8 @@ export const DeliveryPickupToggle: React.FC = () => {
 
   // Mock saved addresses - replace with actual user data
   const savedAddresses: SavedAddress[] = [
-    { id: 1, label: 'Home', address: '456 Oak Avenue, Apt 3B' },
-    { id: 2, label: 'Work', address: '789 Business Plaza, Floor 5' },
+    { id: 1, label: 'Home', address: '456 Oak Avenue', city: 'Apt 3B' },
+    { id: 2, label: 'Work', address: '789 Business Plaza', city: 'Floor 5' },
   ];
 
   // Close dropdown when clicking outside
@@ -123,6 +124,7 @@ export const DeliveryPickupToggle: React.FC = () => {
       place_id: null,
       name: savedAddress.label,
       main_text: savedAddress.address,
+      secondary_text: savedAddress.city,
       source: 'saved',
       id: 0,
       lat: null,

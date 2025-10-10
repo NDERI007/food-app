@@ -1,13 +1,18 @@
 import { useState, useMemo } from 'react';
 import { MapPin, Trash2, Plus, Search } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
-import { usePlacesSearch } from '@utils/hooks/placeSearch';
-import type { SavedAddress } from '@pages/dashboard/components/addrChange';
+import { usePlacesSearch, type Place } from '@utils/hooks/placeSearch';
 
+export interface SavedAddress {
+  id: string;
+  label: string;
+  place_name: string;
+  address: string;
+}
 interface SavedAddressFormProps {
   savedAddresses: SavedAddress[];
-  onAdd: (address: SavedAddress) => void;
-  onDelete: (id: number) => void;
+  onAdd: (address: Place, sessionToken: string, label: string) => void;
+  onDelete: (id: string) => void;
 }
 
 export default function AddressForm({
@@ -16,9 +21,7 @@ export default function AddressForm({
   onDelete,
 }: SavedAddressFormProps) {
   const [label, setLabel] = useState('');
-  const [selectedAddress, setSelectedAddress] = useState<SavedAddress | null>(
-    null,
-  );
+  const [selectedAddress, setSelectedAddress] = useState<Place | null>(null);
 
   // Each session has its own token for Google Places consistency
   const sessionToken = useMemo(() => uuidv4(), []);
@@ -37,11 +40,14 @@ export default function AddressForm({
     minChars: 2,
     sessionToken,
     onSubmit: (place) => {
-      const addressObj: SavedAddress = {
-        id: Date.now(),
-        label,
-        address: place.main_text,
+      const addressObj: Place = {
+        place_id: place.place_id, // ✅ correct field
+        main_text: place.main_text, // ✅ correct field
+        secondary_text: place.secondary_text, // ✅ correct field
+        lat: place.lat,
+        lng: place.lng,
       };
+
       setSelectedAddress(addressObj);
     },
   });
@@ -50,8 +56,8 @@ export default function AddressForm({
     e.preventDefault();
     if (!label.trim() || !selectedAddress) return;
 
-    const newAddress = { ...selectedAddress, label };
-    onAdd(newAddress);
+    const newAddress = { ...selectedAddress };
+    onAdd(newAddress, sessionToken, label);
 
     // Reset form
     setLabel('');
@@ -153,11 +159,11 @@ export default function AddressForm({
               </div>
               <div>
                 <p className='font-medium text-gray-800'>{saved.label}</p>
-                <p className='text-sm text-gray-600'>{saved.address}</p>
+                <p className='text-sm text-gray-600'>{saved.place_name}</p>
               </div>
             </div>
             <button
-              onClick={() => onDelete(saved.id)}
+              onClick={() => onDelete(saved.id!)}
               className='text-gray-400 transition-colors hover:text-red-500'
             >
               <Trash2 size={18} />

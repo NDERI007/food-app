@@ -6,6 +6,7 @@ import { z } from "zod";
 const PlaceSearchRowSchema = z.object({
   id: z.number(),
   name: z.string(),
+  place_id: z.string(),
   display_addr: z.string(),
   lat: z.number(),
   lng: z.number(),
@@ -22,6 +23,7 @@ type PlaceSearchRow = z.infer<typeof PlaceSearchRowSchema>;
 export interface PlaceResult {
   source: "db";
   id: number;
+  place_id: string;
   main_text: string;
   secondary_text: string | null;
   lat: number | null;
@@ -43,7 +45,7 @@ export async function dbSearch(q: string, limit = 10): Promise<PlaceResult[]> {
     // Simple prefix search
     const { data: resData, error: resError } = await supabase
       .from("places_with_latlng")
-      .select("id, name, display_addr, lat, lng")
+      .select("id, name, display_addr,place_id, lat, lng")
       .ilike("name_norm", `${q.toLowerCase()}%`)
       .limit(limit);
 
@@ -58,7 +60,7 @@ export async function dbSearch(q: string, limit = 10): Promise<PlaceResult[]> {
   } else {
     // RPC full-text search
     const { data: rpcData, error: rpcError } = await supabase.rpc(
-      "places_search_rpc",
+      "places_search",
       {
         p_q: q,
         p_limit: limit,
@@ -89,6 +91,7 @@ export async function dbSearch(q: string, limit = 10): Promise<PlaceResult[]> {
     id: r.id,
     main_text: r.name,
     secondary_text: r.display_addr ?? null,
+    place_id: r.place_id,
     lat: r.lat ?? null,
     lng: r.lng ?? null,
   }));

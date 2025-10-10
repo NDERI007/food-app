@@ -11,7 +11,9 @@ const CAMPUS_RADIUS_METERS = 5000;
 interface PlacePrediction {
   source: "google";
   place_id: string;
-  name: string;
+  name: string; // Full combined text (main + secondary)
+  main_text: string;
+  secondary_text: string | null;
   type: "place";
 }
 
@@ -26,8 +28,8 @@ type AutocompletePrediction = PlacePrediction | QueryPrediction;
 
 /**
  * Google Places Autocomplete
- * No caching - always calls Google API to ensure session tokens are properly utilized
- * for billing optimization when combined with place details calls
+ * - Calls Google API directly, no caching (sessionToken handles billing optimization)
+ * - Extracts main_text & secondary_text for display
  */
 export async function googleAutocomplete(
   input: string,
@@ -36,10 +38,6 @@ export async function googleAutocomplete(
   if (!GOOGLE_KEY) {
     console.warn("GOOGLE_CLOUD_KEY not configured");
     return [];
-  }
-
-  if (!sessionToken) {
-    console.warn("Session token not provided for autocomplete");
   }
 
   const body = {
@@ -77,21 +75,33 @@ export async function googleAutocomplete(
 
     const predictions = (json.suggestions || [])
       .map((s: any) => {
-        if (s.placePrediction) {
+        const place = s.placePrediction;
+        const query = s.queryPrediction;
+
+        if (place) {
+          const main = place.structuredFormat?.mainText?.text || "";
+          const secondary = place.structuredFormat?.secondaryText?.text || null;
+
           return {
             source: "google",
-            place_id: s.placePrediction.placeId,
-            name: s.placePrediction.text?.text || "",
+            place_id: place.placeId,
+            name:
+              place.text?.text || `${main}${secondary ? `, ${secondary}` : ""}`,
+            main_text: main,
+            secondary_text: secondary,
             type: "place",
           } as PlacePrediction;
-        } else if (s.queryPrediction) {
+        }
+
+        if (query) {
           return {
             source: "google",
             place_id: null,
-            name: s.queryPrediction.text?.text || "",
+            name: query.text?.text || "",
             type: "query",
           } as QueryPrediction;
         }
+
         return null;
       })
       .filter(Boolean) as AutocompletePrediction[];

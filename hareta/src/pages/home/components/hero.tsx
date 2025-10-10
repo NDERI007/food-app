@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import FallbackModal from '@components/modal';
 import { MapPin } from 'lucide-react';
 import { useDeliveryStore } from '@utils/hooks/deliveryStore';
+import { v4 as uuidv4 } from 'uuid';
 
 // --- COLOR HELPERS ---
 const clamp = (v: number, a = 0, b = 1) => Math.max(a, Math.min(b, v));
@@ -234,7 +235,9 @@ export default function HeroStickyHeadline({ onSubmit }: HeroSearchBarProps) {
         onClose={() => setFallbackOpen(false)}
         onSubmit={(data) => {
           const customPlace = {
+            id: uuidv4(),
             place_id: null,
+            secondary_text: 'Nduini, Kenya',
             main_text: data.name,
             room: data.room,
             source: 'manual',

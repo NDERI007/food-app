@@ -3,13 +3,12 @@ import axios, { AxiosError, type CancelTokenSource } from 'axios';
 
 export interface Place {
   place_id: string | null;
-  id?: number;
+  id?: string;
   name?: string;
   main_text: string;
-  secondary_text?: string;
+  secondary_text: string;
   lat?: number | null;
   lng?: number | null;
-  [key: string]: any;
 }
 
 interface UsePlacesSearchOptions {
@@ -102,7 +101,7 @@ export function usePlacesSearch(options: UsePlacesSearchOptions = {}) {
 
   const selectPlace = (place: Place) => {
     setSelectedPlace(place);
-    setQuery(place.description || place.main_text || '');
+    setQuery(place.name || place.main_text || '');
     setResults([]);
     setIsOpen(false);
     onSubmit?.(place);

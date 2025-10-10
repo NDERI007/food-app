@@ -1,17 +1,9 @@
 import { useState, useEffect } from 'react';
 import { MapPin, Loader2 } from 'lucide-react';
-import AddressForm from './components/form';
+import AddressForm, { type SavedAddress } from './components/form';
 import axios from 'axios';
 import { toast } from 'sonner';
-
-export interface SavedAddress {
-  id: number;
-  label: string;
-  address: string;
-  latitude?: number;
-  longitude?: number;
-  placeId?: string;
-}
+import type { Place } from '@utils/hooks/placeSearch';
 
 export default function AddressPage() {
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
@@ -53,9 +45,49 @@ export default function AddressPage() {
     }
   };
 
-  const handleAddAddress = async (address: SavedAddress) => {
+  const handleAddAddress = async (
+    address: Place,
+    sessionToken: string,
+    label: string,
+  ) => {
     try {
-      const { data } = await axios.post('/api/', address);
+      // ✅ If no lat/lng, fetch from /api/place-details
+      if (!address.lat || !address.lng) {
+        const { data } = await axios.post(
+          '/api/place-details',
+          {
+            source: 'google', // default to google if from autocomplete
+            place_id: address.place_id,
+            main_text: address.main_text,
+            secondary_text: address.secondary_text,
+            lat: address.lat,
+            lng: address.lng,
+            sessionToken,
+            label, // if you're maintaining one from autocomplete
+          },
+          {
+            withCredentials: true,
+          },
+        );
+
+        if (!data.success || !data.address) {
+          throw new Error('Failed to fetch place details');
+        }
+      }
+      const payload = {
+        label: label, // comes from your input
+        place_name: address.main_text, // from Google Autocomplete
+        address: address.secondary_text, // formatted secondary line
+        place_id: address.place_id, // Google Place ID
+        lat: address.lat, // from Google result
+        lng: address.lng, // from Google result
+      };
+      console.log('Payload being sent:', payload);
+
+      // ✅ Now upsert (always call upsert)
+      const { data } = await axios.post('/api/addr/upsert', payload, {
+        withCredentials: true,
+      });
 
       // Backend expected to return { address: {...} }
       setSavedAddresses((prev) => [...prev, data.address]);
@@ -77,7 +109,7 @@ export default function AddressPage() {
     }
   };
 
-  const handleDeleteAddress = async (id: number) => {
+  const handleDeleteAddress = async (id: string) => {
     try {
       const { status } = await axios.delete(`/api/addresses/${id}`);
 
