@@ -11,6 +11,7 @@ declare global {
       user?: {
         userID: string;
         sessionId: string;
+        role: string;
       };
     }
   }
@@ -39,7 +40,12 @@ export async function requireAuth(
       .json({ error: "Session expired", authenticated: false });
   }
 
-  let sessionData: { userID: string; createdAt: number; email: string };
+  let sessionData: {
+    userID: string;
+    createdAt: number;
+    email: string;
+    role: string;
+  };
   try {
     sessionData = JSON.parse(raw);
   } catch {
@@ -67,6 +73,6 @@ export async function requireAuth(
     console.error("Failed to refresh session TTL:", err);
   }
 
-  req.user = { userID: sessionData.userID, sessionId };
+  req.user = { userID: sessionData.userID, sessionId, role: sessionData.role };
   next();
 }

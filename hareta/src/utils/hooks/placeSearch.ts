@@ -15,9 +15,9 @@ interface UsePlacesSearchOptions {
   debounceMs?: number;
   minChars?: number;
   limit?: number;
-  fetchUrl?: string; // defaults to `/api/places`
+  fetchUrl?: string;
   onSubmit?: (place: Place) => void;
-  sessionToken?: string; // Add this
+  sessionToken?: string;
 }
 
 export function usePlacesSearch(options: UsePlacesSearchOptions = {}) {

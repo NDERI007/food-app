@@ -235,6 +235,14 @@ router.get("/context-verif", async (req, res) => {
   // Refresh TTL (sliding session)
   try {
     await cache.expire(key, SESSION_TTL);
+    // 🔁 Refresh browser cookie maxAge (2h sliding)
+    res.cookie("sessionId", sessionId, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      maxAge: SESSION_TTL * 1000,
+      path: "/",
+    });
   } catch (err) {
     console.warn("Failed to refresh session TTL:", err);
   }
@@ -249,7 +257,8 @@ router.get("/context-verif", async (req, res) => {
 router.post("/logout", async (req, res) => {
   const sessionId = req.cookies.sessionId;
   if (sessionId) {
-    await cache.del(`session:${sessionId}`);
+    const signedId = signSessionId(sessionId);
+    await cache.del(`session:${signSessionId}`);
     res.clearCookie("sessionId");
   }
   res.json({ message: "Logged out!" });

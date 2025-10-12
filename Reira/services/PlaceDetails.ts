@@ -15,24 +15,19 @@ export async function getPlaceDetails(placeId: string, sessionToken: string) {
     return null;
   }
 
-  if (!sessionToken) {
-    console.warn("Session token not provided for Place Details call");
+  // Append fields directly in the URL
+  const url = new URL(`https://places.googleapis.com/v1/places/${placeId}`);
+  url.searchParams.set("fields", "location");
+  url.searchParams.set("regionCode", "KE");
+  url.searchParams.set("key", GOOGLE_KEY);
+
+  // sessionToken is optional but can be used for billing optimization
+  if (sessionToken) {
+    url.searchParams.set("sessionToken", sessionToken);
   }
 
-  // The 'fields' parameter is crucial. It specifies that we ONLY want the 'location' data.
-  // This makes the request cheaper and more efficient.
-  const fieldMask = "location,formattedAddress";
-  const url = `https://places.googleapis.com/v1/places/${placeId}?&sessionToken=${sessionToken}&regionCode=KE`;
-
   try {
-    const res = await fetch(url, {
-      method: "GET", // Place Details uses a GET request
-      headers: {
-        "Content-Type": "application/json",
-        "X-Goog-Api-Key": GOOGLE_KEY, // The API Key is sent as a header
-        "X-Goog-FieldMask": fieldMask, // 👈 required for v1
-      },
-    });
+    const res = await fetch(url.toString(), { method: "GET" });
 
     if (!res.ok) {
       const text = await res.text();
@@ -42,21 +37,19 @@ export async function getPlaceDetails(placeId: string, sessionToken: string) {
     const data = (await res.json()) as any;
 
     if (!data.location) {
+      console.warn("⚠️ No location found for this place_id:", placeId);
       return null;
     }
-    const formatted_address = data.formattedAddress || "";
+    // ✅ Explicitly coerce and validate numeric types
+    const lat = Number(data.location?.latitude);
+    const lng = Number(data.location?.longitude);
 
-    // Split at first comma to separate name from rest of address
-    const parts = formatted_address.split(",");
-    const main_text = parts[0]?.trim() || "Unknown";
-    const secondary_text = parts.slice(1).join(",").trim() || null;
-    return {
-      id: data.id,
-      main_text,
-      secondary_text,
-      lat: data.location?.latitude,
-      lng: data.location?.longitude,
-    };
+    if (isNaN(lat) || isNaN(lng)) {
+      console.error("❌ Invalid coordinates received:", data.location);
+      return null;
+    }
+
+    return { lat, lng };
   } catch (err) {
     console.error("Google Place Details fetch failed:", err);
     return null;

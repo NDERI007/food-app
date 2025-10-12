@@ -54,10 +54,10 @@ export default function AddressPage() {
       // ✅ If no lat/lng, fetch from /api/place-details
       if (!address.lat || !address.lng) {
         const { data } = await axios.post(
-          '/api/place-details',
+          '/api/places/place-details',
           {
             source: 'google', // default to google if from autocomplete
-            place_id: address.place_id,
+            placeId: address.place_id,
             main_text: address.main_text,
             secondary_text: address.secondary_text,
             lat: address.lat,
@@ -82,7 +82,6 @@ export default function AddressPage() {
         lat: address.lat, // from Google result
         lng: address.lng, // from Google result
       };
-      console.log('Payload being sent:', payload);
 
       // ✅ Now upsert (always call upsert)
       const { data } = await axios.post('/api/addr/upsert', payload, {
@@ -111,7 +110,7 @@ export default function AddressPage() {
 
   const handleDeleteAddress = async (id: string) => {
     try {
-      const { status } = await axios.delete(`/api/addresses/${id}`);
+      const { status } = await axios.delete(`/api/addr/${id}`);
 
       if (status !== 200 && status !== 204) {
         throw new Error('Failed to delete address');

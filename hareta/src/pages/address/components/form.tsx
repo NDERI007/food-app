@@ -41,9 +41,9 @@ export default function AddressForm({
     sessionToken,
     onSubmit: (place) => {
       const addressObj: Place = {
-        place_id: place.place_id, // ✅ correct field
-        main_text: place.main_text, // ✅ correct field
-        secondary_text: place.secondary_text, // ✅ correct field
+        place_id: place.place_id,
+        main_text: place.main_text,
+        secondary_text: place.secondary_text,
         lat: place.lat,
         lng: place.lng,
       };
@@ -72,7 +72,7 @@ export default function AddressForm({
         onSubmit={handleSubmit}
         className='rounded-xl border border-gray-200 bg-white p-4 shadow-sm'
       >
-        <h3 className='mb-3 text-lg font-semibold'>Add a place</h3>
+        <h3 className='mb-3 text-lg text-gray-800'>Add a place</h3>
 
         <div className='space-y-3'>
           {/* Label input */}
@@ -100,33 +100,33 @@ export default function AddressForm({
               size={18}
               className='absolute top-1/2 right-3 -translate-y-1/2 text-gray-500'
             />
-          </div>
 
-          {/* Autocomplete results */}
-          {isOpen && results.length > 0 && (
-            <div className='absolute z-50 mt-1 max-h-56 w-[calc(100%-2rem)] overflow-y-auto rounded-lg border border-gray-100 bg-white shadow'>
-              {results.map((place, index) => (
-                <button
-                  key={index}
-                  type='button'
-                  onMouseDown={() => selectPlace(place)}
-                  className='flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-gray-50'
-                >
-                  <MapPin size={16} className='text-gray-500' />
-                  <div>
-                    <p className='font-medium text-gray-800'>
-                      {place.main_text || place.name}
-                    </p>
-                    {place.secondary_text && (
-                      <p className='text-sm text-gray-500'>
-                        {place.secondary_text}
+            {/* Autocomplete results */}
+            {isOpen && results.length > 0 && (
+              <div className='absolute z-50 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-gray-100 bg-white shadow'>
+                {results.map((place, index) => (
+                  <button
+                    key={index}
+                    type='button'
+                    onMouseDown={() => selectPlace(place)}
+                    className='flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-gray-50'
+                  >
+                    <MapPin size={16} className='text-gray-500' />
+                    <div>
+                      <p className='font-medium text-gray-800'>
+                        {place.main_text || place.name}
                       </p>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
+                      {place.secondary_text && (
+                        <p className='text-sm text-gray-500'>
+                          {place.secondary_text}
+                        </p>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Add button */}
           <button

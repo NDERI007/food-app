@@ -46,29 +46,68 @@ router.post("/upsert", requireAuth, async (req, res) => {
         message: "Missing required fields (label, place_name, place_id)",
       });
     }
-
-    // Call RPC to insert/update the address
-    const { error } = await supabase.rpc("upsert_address", {
-      p_user_id: userID,
-      p_label: label,
-      p_place_name: place_name,
-      p_address: address || null,
-      p_place_id: place_id,
-      p_lat: lat ?? null,
-      p_lng: lng ?? null,
-    });
+    const { data, error } = await supabase
+      .from("addresses")
+      .upsert(
+        {
+          user_id: userID,
+          label: label,
+          place_name: place_name,
+          address: address,
+          place_id: place_id,
+          lat: lat,
+          lng: lng,
+        },
+        {
+          onConflict: "user_id,place_id",
+        }
+      )
+      .select();
 
     if (error) throw error;
 
     return res.json({
       success: true,
       message: "Address saved successfully",
+      address: data?.[0] || null,
     });
   } catch (error) {
     console.error("Error saving address:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to save address",
+    });
+  }
+});
+/**
+ * DELETE /api/addresses/:id
+ * Deletes a single address belonging to the authenticated user
+ */
+router.delete("/:id", requireAuth, async (req, res) => {
+  try {
+    const userID = req.user?.userID;
+    const { id } = req.params;
+
+    if (!userID) return res.status(401).json({ message: "Unauthorized" });
+    if (!id) return res.status(400).json({ message: "Missing address ID" });
+
+    const { error } = await supabase
+      .from("addresses")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", userID);
+
+    if (error) throw error;
+
+    return res.status(200).json({
+      success: true,
+      message: "Address deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting address:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete address",
     });
   }
 });
