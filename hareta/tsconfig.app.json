@@ -11,7 +11,8 @@
       "@components/*": ["components/*"],
       "@assets/*": ["assets/*"],
       "@pages/*": ["pages/*"],
-      "@utils/*": ["utils/*"]
+      "@utils/*": ["utils/*"],
+      "@admin/*": ["admin/*"]
     },
     "types": ["vite/client"],
 

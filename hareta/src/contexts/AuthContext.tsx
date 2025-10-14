@@ -3,15 +3,16 @@ import axios from 'axios';
 
 interface User {
   email: string;
+  role: string;
 }
 
 export interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  checkAuth: () => Promise<void>;
+  checkAuth: () => Promise<User | null>;
   logout: () => Promise<void>;
-  login: (email: string) => void;
+  login: (email: string, role: string) => void;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(
@@ -28,12 +29,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await axios.get('/api/auth/context-verif', {
         withCredentials: true,
       });
-      const data = response.data;
 
-      if (data?.authenticated && data?.user) {
-        setUser(data.user);
+      const { authenticated, user } = response.data;
+      if (authenticated && user) {
+        setUser(user);
+        return user;
       } else {
         setUser(null);
+        return null;
       }
     } catch (error) {
       console.error('Auth check failed:', error);
@@ -44,8 +47,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Login (called after successful OTP verification)
-  const login = useCallback((email: string) => {
-    setUser({ email });
+  const login = useCallback((email: string, role: string) => {
+    setUser({ email, role });
   }, []);
 
   // Logout

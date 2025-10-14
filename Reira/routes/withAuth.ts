@@ -145,15 +145,16 @@ router.post("/verify-otp", authLimiter, async (req, res) => {
       console.error("ensure_profile_exists error:", rpcError);
       return res.status(500).json({ error: "Profile creation failed." });
     }
-    if (!data) {
-      return res.status(500).json({ error: "No profile id returned." });
+    if (!data || !Array.isArray(data) || data.length === 0) {
+      return res.status(500).json({ error: "No profile data returned." });
     }
+    const { id: user_id, role } = data[0];
 
     // define a schema
     const userIdSchema = z.uuid();
 
     // parse once → gives you a plain string
-    const userID: string = userIdSchema.parse(data);
+    const userID: string = userIdSchema.parse(user_id);
 
     // just trust the trigger will handle user creation
     const sessionId = uuidv4();
@@ -161,6 +162,7 @@ router.post("/verify-otp", authLimiter, async (req, res) => {
     const sessionData = {
       userID,
       email,
+      role: role,
       createdAt: Date.now(), // 🔹 timestamp in ms
     };
     try {
@@ -212,7 +214,12 @@ router.get("/context-verif", async (req, res) => {
     return res.json({ authenticated: false, user: null });
   }
 
-  let sessionData: { userID: string; createdAt: number; email: string };
+  let sessionData: {
+    userID: string;
+    createdAt: number;
+    email: string;
+    role: string;
+  };
   try {
     sessionData = JSON.parse(raw);
   } catch (parseErr) {
@@ -249,7 +256,7 @@ router.get("/context-verif", async (req, res) => {
 
   return res.json({
     authenticated: true,
-    user: { email: sessionData.email },
+    user: { email: sessionData.email, role: sessionData.role },
   });
 });
 

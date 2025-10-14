@@ -4,7 +4,7 @@ import { dbSearch } from "@services/dbSearch";
 import { googleAutocomplete } from "@services/PlaceAuto";
 import { getPlaceDetails } from "@services/PlaceDetails";
 import supabase from "@config/supabase";
-import { requireAuth } from "middleware/auth";
+import { withAuth } from "middleware/auth";
 
 const router = express.Router();
 
@@ -30,7 +30,7 @@ router.get("/auto-comp", validateQuery(PlacesQuerySchema), async (req, res) => {
   }
 });
 
-router.post("/place-details", requireAuth, async (req, res) => {
+router.post("/place-details", withAuth(), async (req, res) => {
   const { placeId, sessionToken, label, main_text, secondary_text } = req.body;
 
   // Basic validation

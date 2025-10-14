@@ -1,14 +1,12 @@
 import express from "express";
-
 import multer from "multer";
-
-import dotenv from "dotenv";
 import { v4 as uuidv4 } from "uuid";
 import supabase from "@config/supabase";
-
-dotenv.config();
+import { withAuth } from "middleware/auth";
 
 const router = express.Router();
+
+router.use(withAuth());
 
 // Configure multer for memory storage
 const upload = multer({
@@ -26,22 +24,6 @@ const upload = multer({
   },
 });
 
-// Types
-interface MenuItem {
-  id?: string;
-  name: string;
-  description?: string;
-  price: number;
-  image_url?: string | null;
-  available: boolean;
-  category_id?: string | null;
-}
-
-interface Category {
-  id: string;
-  name: string;
-}
-
 // Helper function to upload image to Supabase Storage
 async function uploadImageToSupabase(
   file: Express.Multer.File
@@ -53,7 +35,7 @@ async function uploadImageToSupabase(
 
     // Upload to Supabase Storage
     const { error } = await supabase.storage
-      .from("food-images") // Make sure this bucket exists in your Supabase project
+      .from("airi") // Make sure this bucket exists in your Supabase project
       .upload(filePath, file.buffer, {
         contentType: file.mimetype,
         upsert: false,
@@ -65,9 +47,7 @@ async function uploadImageToSupabase(
     }
 
     // Get the public URL
-    const { data } = supabase.storage
-      .from("food-images")
-      .getPublicUrl(filePath);
+    const { data } = supabase.storage.from("airi").getPublicUrl(filePath);
 
     return data.publicUrl;
   } catch (error) {
@@ -83,7 +63,7 @@ async function deleteImageFromSupabase(imageUrl: string): Promise<void> {
     const urlParts = imageUrl.split("/");
     const filePath = `menu-items/${urlParts[urlParts.length - 1]}`;
 
-    await supabase.storage.from("food-images").remove([filePath]);
+    await supabase.storage.from("airi").remove([filePath]);
   } catch (error) {
     console.error("Error deleting image:", error);
   }
@@ -92,7 +72,7 @@ async function deleteImageFromSupabase(imageUrl: string): Promise<void> {
 // Routes
 
 // Get all menu items
-router.get("/api/menu-items", async (req, res) => {
+router.get("/menu-items", async (req, res) => {
   try {
     const { data, error } = await supabase
       .from("menu_items")
@@ -108,7 +88,7 @@ router.get("/api/menu-items", async (req, res) => {
 });
 
 // Get single menu item
-router.get("/api/menu-items/:id", async (req, res) => {
+router.get("/menu-items/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const { data, error } = await supabase
@@ -129,7 +109,7 @@ router.get("/api/menu-items/:id", async (req, res) => {
 });
 
 // Create new menu item
-router.post("/api/menu-items", upload.single("image"), async (req, res) => {
+router.post("/menu-items", upload.single("image"), async (req, res) => {
   try {
     const { name, description, price, available, category_id } = req.body;
 
@@ -164,7 +144,7 @@ router.post("/api/menu-items", upload.single("image"), async (req, res) => {
 });
 
 // Update menu item
-router.put("/api/menu-items/:id", upload.single("image"), async (req, res) => {
+router.put("/menu-items/:id", upload.single("image"), async (req, res) => {
   try {
     const { id } = req.params;
     const { name, description, price, available, category_id } = req.body;
@@ -219,7 +199,7 @@ router.put("/api/menu-items/:id", upload.single("image"), async (req, res) => {
 });
 
 // Update availability only
-router.patch("/api/menu-items/:id/availability", async (req, res) => {
+router.patch("/menu-items/:id/availability", async (req, res) => {
   try {
     const { id } = req.params;
     const { available } = req.body;
@@ -240,7 +220,7 @@ router.patch("/api/menu-items/:id/availability", async (req, res) => {
 });
 
 // Delete menu item
-router.delete("/api/menu-items/:id", async (req, res) => {
+router.delete("/menu-items/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -270,7 +250,7 @@ router.delete("/api/menu-items/:id", async (req, res) => {
 });
 
 // Get all categories
-router.get("/api/categories", async (req, res) => {
+router.get("/categories", async (req, res) => {
   try {
     const { data, error } = await supabase
       .from("categories")
@@ -286,7 +266,7 @@ router.get("/api/categories", async (req, res) => {
 });
 
 // Create category
-router.post("/api/categories", async (req, res) => {
+router.post("/categories", async (req, res) => {
   try {
     const { name } = req.body;
 
@@ -303,3 +283,18 @@ router.post("/api/categories", async (req, res) => {
     res.status(500).json({ error: "Failed to create category" });
   }
 });
+// Delete category
+router.delete("/categories/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { error } = await supabase.from("categories").delete().eq("id", id);
+
+    if (error) throw error;
+    res.status(200).json({ message: "Category deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting category:", error);
+    res.status(500).json({ error: "Failed to delete category" });
+  }
+});
+export default router;

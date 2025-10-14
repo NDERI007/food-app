@@ -5,10 +5,11 @@ import AddressPage from '@pages/address/Address';
 
 const Home = lazy(() => import('@pages/home/homepage'));
 
-export const homeRoutes: RouteObject[] = [
+const homeRoutes: RouteObject[] = [
   { index: true, element: <Home /> },
   { path: '/dashboard', element: <Dashboard /> },
   { path: '/address', element: <AddressPage /> },
   // protected example:
   // { path: "/private", element: <RequireAuth><PrivatePage/></RequireAuth> },
 ];
+export default homeRoutes;

@@ -1,10 +1,12 @@
 import supabase from "@config/supabase";
 import express from "express";
-import { requireAuth } from "middleware/auth";
+import { withAuth } from "middleware/auth";
 
 const router = express.Router();
 
-router.get("/look-up", requireAuth, async (req, res) => {
+router.use(withAuth()); //Before any of these routes run, check authentication first.
+
+router.get("/look-up", async (req, res) => {
   try {
     const userID = req.user?.userID;
 
@@ -29,7 +31,7 @@ router.get("/look-up", requireAuth, async (req, res) => {
  * POST /api/addr/save
  * Upsert address using RPC (stored procedure)
  */
-router.post("/upsert", requireAuth, async (req, res) => {
+router.post("/upsert", async (req, res) => {
   try {
     const userID = req.user?.userID;
 
@@ -83,7 +85,7 @@ router.post("/upsert", requireAuth, async (req, res) => {
  * DELETE /api/addresses/:id
  * Deletes a single address belonging to the authenticated user
  */
-router.delete("/:id", requireAuth, async (req, res) => {
+router.delete("/:id", async (req, res) => {
   try {
     const userID = req.user?.userID;
     const { id } = req.params;

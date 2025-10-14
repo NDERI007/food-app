@@ -1,7 +1,8 @@
 import { lazy } from 'react';
 import { createBrowserRouter, type RouteObject } from 'react-router-dom';
-import { authRoutes } from './routes/auth/WithAuth';
-import { homeRoutes } from './routes/usual/uroutes';
+import adminRoutes from 'routes/admin/adminR';
+import authRoutes from 'routes/auth/WithAuth';
+import homeRoutes from 'routes/usual/uroutes';
 
 // Lazy page examples (code-splitting)
 const NotFound = lazy(() => import('./pages/NotFound/notfound'));
@@ -10,6 +11,7 @@ const NotFound = lazy(() => import('./pages/NotFound/notfound'));
 const routes: RouteObject[] = [
   ...homeRoutes,
   ...authRoutes,
+  ...adminRoutes,
   { path: '*', element: <NotFound /> },
 ];
 

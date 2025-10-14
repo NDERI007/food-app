@@ -10,12 +10,13 @@ import {
   type OtpSchemaType,
 } from '@utils/schemas/auth';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '@utils/hooks/useAuth';
 
 export default function Login() {
   const [step, setStep] = useState<1 | 2>(1);
   const [email, setEmail] = useState('');
   const [disabled, setDisabled] = useState(false);
-
+  const { checkAuth } = useAuth();
   const navigate = useNavigate();
   // Step 1 form (email)
   const {
@@ -70,10 +71,21 @@ export default function Login() {
         { email, code: data.otp },
         { withCredentials: true },
       );
+      // 2️⃣ Hydrate AuthContext from server session
+      const user = await checkAuth();
+
+      if (!user) {
+        toast.error('Authentication failed. Please try again.');
+        return;
+      }
 
       toast.success('Logged in successfully!');
       // no need to reset forms here — redirect will unmount this component
-      navigate('/dashboard');
+      if (user.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
         const backendMsg = (err.response?.data as { error?: string })?.error;
