@@ -5,13 +5,20 @@ interface Category {
   id: string;
   name: string;
 }
-
+export interface ImageVariants {
+  id: string;
+  lqip: string;
+  variants: {
+    avif: Record<number, string>;
+    jpg: Record<number, string>;
+  };
+}
 interface MenuItem {
   id: string;
   name: string;
   description: string;
   price: number;
-  image_url: string | null;
+  image: ImageVariants | null;
   available: boolean;
   category_id: string | null;
 }

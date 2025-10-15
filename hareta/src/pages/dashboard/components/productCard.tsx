@@ -1,4 +1,3 @@
-// ProductCard.tsx
 import { memo, useState } from 'react';
 import { useCartStore } from '@utils/hooks/useCrt';
 import { ImageOff, Plus } from 'lucide-react';

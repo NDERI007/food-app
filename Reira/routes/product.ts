@@ -3,6 +3,7 @@ import multer from "multer";
 import { v4 as uuidv4 } from "uuid";
 import supabase from "@config/supabase";
 import { withAuth } from "middleware/auth";
+import { deleteImageVariantS, uploadImageVariants } from "@utils/imageVariants";
 
 const router = express.Router();
 
@@ -12,7 +13,7 @@ router.use(withAuth());
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
+    fileSize: 3 * 1024 * 1024, // 5MB limit
   },
   fileFilter: (req, file, cb) => {
     // Accept only image files
@@ -23,51 +24,6 @@ const upload = multer({
     }
   },
 });
-
-// Helper function to upload image to Supabase Storage
-async function uploadImageToSupabase(
-  file: Express.Multer.File
-): Promise<string | null> {
-  try {
-    const fileExt = file.originalname.split(".").pop();
-    const fileName = `${uuidv4()}.${fileExt}`;
-    const filePath = `menu-items/${fileName}`;
-
-    // Upload to Supabase Storage
-    const { error } = await supabase.storage
-      .from("airi") // Make sure this bucket exists in your Supabase project
-      .upload(filePath, file.buffer, {
-        contentType: file.mimetype,
-        upsert: false,
-      });
-
-    if (error) {
-      console.error("Error uploading image:", error);
-      return null;
-    }
-
-    // Get the public URL
-    const { data } = supabase.storage.from("airi").getPublicUrl(filePath);
-
-    return data.publicUrl;
-  } catch (error) {
-    console.error("Error in uploadImageToSupabase:", error);
-    return null;
-  }
-}
-
-// Helper function to delete image from Supabase Storage
-async function deleteImageFromSupabase(imageUrl: string): Promise<void> {
-  try {
-    // Extract file path from URL
-    const urlParts = imageUrl.split("/");
-    const filePath = `menu-items/${urlParts[urlParts.length - 1]}`;
-
-    await supabase.storage.from("airi").remove([filePath]);
-  } catch (error) {
-    console.error("Error deleting image:", error);
-  }
-}
 
 // Routes
 
@@ -114,9 +70,9 @@ router.post("/menu-items", upload.single("image"), async (req, res) => {
     const { name, description, price, available, category_id } = req.body;
 
     // Upload image if provided
-    let imageUrl = null;
+    let imageData = null;
     if (req.file) {
-      imageUrl = await uploadImageToSupabase(req.file);
+      imageData = await uploadImageVariants(req.file);
     }
 
     // Insert into database
@@ -127,7 +83,7 @@ router.post("/menu-items", upload.single("image"), async (req, res) => {
           name,
           description: description || null,
           price: parseFloat(price),
-          image_url: imageUrl,
+          image: imageData,
           available: available === "true",
           category_id: category_id || null,
         },
@@ -152,21 +108,21 @@ router.put("/menu-items/:id", upload.single("image"), async (req, res) => {
     // First, get the existing item to check for old image
     const { data: existingItem, error: fetchError } = await supabase
       .from("menu_items")
-      .select("image_url")
+      .select("image")
       .eq("id", id)
       .single();
 
     if (fetchError) throw fetchError;
 
     // Upload new image if provided
-    let imageUrl = existingItem?.image_url;
+    let imageData = existingItem?.image;
     if (req.file) {
       // Delete old image if exists
-      if (existingItem?.image_url) {
-        await deleteImageFromSupabase(existingItem.image_url);
+      if (existingItem?.image) {
+        await deleteImageVariantS(existingItem.image);
       }
       // Upload new image
-      imageUrl = await uploadImageToSupabase(req.file);
+      imageData = await uploadImageVariants(req.file);
     }
 
     // Update in database
@@ -180,7 +136,7 @@ router.put("/menu-items/:id", upload.single("image"), async (req, res) => {
 
     // Only update image_url if a new image was uploaded
     if (req.file) {
-      updateData.image_url = imageUrl;
+      updateData.image = imageData;
     }
 
     const { data, error } = await supabase
@@ -227,15 +183,15 @@ router.delete("/menu-items/:id", async (req, res) => {
     // Get item to check for image
     const { data: item, error: fetchError } = await supabase
       .from("menu_items")
-      .select("image_url")
+      .select("image")
       .eq("id", id)
       .single();
 
     if (fetchError) throw fetchError;
 
     // Delete image from storage if exists
-    if (item?.image_url) {
-      await deleteImageFromSupabase(item.image_url);
+    if (item?.image) {
+      await deleteImageVariantS(item.image);
     }
 
     // Delete from database

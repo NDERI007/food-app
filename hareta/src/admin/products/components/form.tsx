@@ -102,6 +102,14 @@ const AdminProducts: React.FC = () => {
       alert('Error saving menu item. Please try again.');
     }
   };
+  const getPreviewImage = (item: any) => {
+    return (
+      item.images?.variants?.jpg?.[400] ||
+      item.images?.variants?.avif?.[400] ||
+      item.images?.lqip ||
+      null
+    );
+  };
 
   const handleEdit = (item: any) => {
     setEditingId(item.id);
@@ -113,7 +121,7 @@ const AdminProducts: React.FC = () => {
       category_id: item.category_id || '',
       image: null,
     });
-    setImagePreview(item.image_url);
+    setImagePreview(getPreviewImage(item));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -214,24 +222,39 @@ const AdminProducts: React.FC = () => {
             />
           </div>
 
+          {/* Image Upload */}
           <div className='w-full'>
             <label
               htmlFor='image'
-              className='flex h-40 w-full cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 transition hover:bg-gray-100'
+              className={`group relative flex aspect-square w-full cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 transition duration-200 ease-in-out hover:border-green-500 hover:bg-green-50 ${
+                imagePreview ? 'overflow-hidden' : ''
+              }`}
             >
-              <div className='flex flex-col items-center justify-center pt-5 pb-6'>
-                <UploadCloud
-                  className='mb-3 h-10 w-10 text-gray-400'
-                  strokeWidth={1.5}
-                />
-                <p className='text-sm font-medium text-gray-600'>
-                  Add your files here
-                </p>
-                <p className='mt-1 text-xs text-gray-500'>
-                  Max file size up to 5 MB
-                </p>
-              </div>
-
+              {imagePreview ? (
+                <>
+                  <img
+                    src={imagePreview}
+                    alt='Preview'
+                    className='absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105'
+                  />
+                  <div className='absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity duration-300 group-hover:opacity-100'>
+                    <p className='rounded-md bg-white/80 px-3 py-1 text-sm font-medium text-gray-800'>
+                      Change Image
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <div className='flex flex-col items-center justify-center text-gray-500'>
+                  <UploadCloud
+                    className='mb-3 h-10 w-10 text-gray-400'
+                    strokeWidth={1.5}
+                  />
+                  <p className='text-sm font-medium text-gray-600'>
+                    Click or drag to upload
+                  </p>
+                  <p className='mt-1 text-xs text-gray-400'>Max size: 3MB</p>
+                </div>
+              )}
               <input
                 id='image'
                 type='file'
@@ -240,16 +263,6 @@ const AdminProducts: React.FC = () => {
                 className='hidden'
               />
             </label>
-
-            {imagePreview && (
-              <div className='mt-4 flex justify-center'>
-                <img
-                  src={imagePreview}
-                  alt='Preview'
-                  className='h-40 w-40 rounded-lg object-cover shadow'
-                />
-              </div>
-            )}
           </div>
 
           <div className='flex gap-3'>
@@ -287,65 +300,186 @@ const AdminProducts: React.FC = () => {
             {menuItems.map((item) => (
               <div
                 key={item.id}
-                className='overflow-hidden rounded-lg border border-gray-200 bg-white shadow transition hover:shadow-lg'
+                className='group relative flex flex-col overflow-hidden rounded-2xl bg-gradient-to-br from-orange-50 to-yellow-50 shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-xl'
               >
-                {item.image_url ? (
-                  <img
-                    src={item.image_url}
-                    alt={item.name}
-                    className='h-48 w-full object-cover'
-                  />
+                {/* Image */}
+                {item.image ? (
+                  <div className='relative overflow-hidden'>
+                    <picture>
+                      <source
+                        srcSet={item.image?.variants?.avif?.[400]}
+                        type='image/avif'
+                      />
+                      <img
+                        src={item.image?.variants?.jpg?.[400]}
+                        alt={item.name}
+                        className='h-48 w-full object-cover transition-transform duration-300 group-hover:scale-105'
+                      />
+                    </picture>
+
+                    {/* Availability badge */}
+                    <span
+                      className={`absolute top-3 left-3 rounded-full px-3 py-1 text-xs font-medium backdrop-blur-md ${
+                        item.available
+                          ? 'bg-green-100/80 text-green-700'
+                          : 'bg-red-100/80 text-red-700'
+                      }`}
+                    >
+                      {item.available ? 'Available' : 'Unavailable'}
+                    </span>
+
+                    {/* Desktop: floating admin controls */}
+                    <div className='absolute top-3 right-3 hidden gap-2 opacity-0 transition-opacity duration-300 group-hover:opacity-100 sm:flex'>
+                      <button
+                        onClick={() => toggleAvailability(item)}
+                        className='rounded-full bg-white/80 p-2 text-sky-600 shadow hover:bg-sky-50 hover:text-sky-700'
+                        title='Toggle Availability'
+                      >
+                        <svg
+                          xmlns='http://www.w3.org/2000/svg'
+                          className='h-4 w-4'
+                          fill='none'
+                          viewBox='0 0 24 24'
+                          stroke='currentColor'
+                          strokeWidth={1.5}
+                        >
+                          <path
+                            strokeLinecap='round'
+                            strokeLinejoin='round'
+                            d='M12 6v6l4 2'
+                          />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => handleEdit(item)}
+                        className='rounded-full bg-white/80 p-2 text-yellow-600 shadow hover:bg-yellow-50 hover:text-yellow-700'
+                        title='Edit'
+                      >
+                        <svg
+                          xmlns='http://www.w3.org/2000/svg'
+                          className='h-4 w-4'
+                          fill='none'
+                          viewBox='0 0 24 24'
+                          stroke='currentColor'
+                          strokeWidth={1.5}
+                        >
+                          <path
+                            strokeLinecap='round'
+                            strokeLinejoin='round'
+                            d='M16.862 4.487a2.118 2.118 0 013 3L7.5 19.849l-4 1 1-4L16.862 4.487z'
+                          />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => deleteMenuItem(item.id)}
+                        className='rounded-full bg-white/80 p-2 text-red-600 shadow hover:bg-red-50 hover:text-red-700'
+                        title='Delete'
+                      >
+                        <svg
+                          xmlns='http://www.w3.org/2000/svg'
+                          className='h-4 w-4'
+                          fill='none'
+                          viewBox='0 0 24 24'
+                          stroke='currentColor'
+                          strokeWidth={1.5}
+                        >
+                          <path
+                            strokeLinecap='round'
+                            strokeLinejoin='round'
+                            d='M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4H9v3m10 0H5'
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
                 ) : (
                   <div className='flex h-48 items-center justify-center bg-gray-100 text-gray-400'>
                     No Image
                   </div>
                 )}
-                <div className='p-4'>
-                  <div className='mb-2 flex items-start justify-between'>
-                    <h3 className='text-lg font-bold text-gray-800'>
-                      {item.name}
-                    </h3>
-                    <p className='font-semibold text-green-600'>
+
+                {/* Content */}
+                <div className='flex flex-col p-5'>
+                  <h3 className='text-lg font-semibold text-gray-800'>
+                    {item.name}
+                  </h3>
+                  <p className='mt-2 line-clamp-2 text-sm text-gray-600'>
+                    {item.description || 'No description available.'}
+                  </p>
+
+                  <div className='mt-4 flex items-center justify-between'>
+                    <p className='text-lg font-bold text-amber-600'>
                       ${item.price.toFixed(2)}
                     </p>
                   </div>
-                  <p className='mb-3 text-sm text-gray-600'>
-                    {item.description || 'No description available'}
-                  </p>
-                  <div className='flex items-center justify-between border-t pt-3'>
-                    <span
-                      className={`rounded-full px-3 py-1 text-sm font-medium ${
-                        item.available
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-red-100 text-red-700'
-                      }`}
+                </div>
+
+                {/* Mobile: fixed admin controls */}
+                <div className='flex items-center justify-around border-t border-gray-200 bg-white/80 px-2 py-2 text-sm text-gray-600 sm:hidden'>
+                  <button
+                    onClick={() => toggleAvailability(item)}
+                    className='flex flex-col items-center gap-0.5'
+                  >
+                    <svg
+                      xmlns='http://www.w3.org/2000/svg'
+                      className='h-4 w-4 text-sky-500'
+                      fill='none'
+                      viewBox='0 0 24 24'
+                      stroke='currentColor'
+                      strokeWidth={1.5}
                     >
-                      {item.available ? 'Available' : 'Unavailable'}
-                    </span>
-                    <div className='flex gap-2'>
-                      <button
-                        onClick={() => toggleAvailability(item)}
-                        className='rounded-lg bg-sky-500 px-3 py-1 text-sm text-white hover:bg-sky-600'
-                      >
-                        Toggle
-                      </button>
-                      <button
-                        onClick={() => handleEdit(item)}
-                        className='rounded-lg bg-yellow-400 px-3 py-1 text-sm text-black hover:bg-yellow-500'
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => deleteMenuItem(item.id)}
-                        className='rounded-lg bg-red-600 px-3 py-1 text-sm text-white hover:bg-red-700'
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
+                      <path
+                        strokeLinecap='round'
+                        strokeLinejoin='round'
+                        d='M12 6v6l4 2'
+                      />
+                    </svg>
+                    <span className='text-xs'>Toggle</span>
+                  </button>
+                  <button
+                    onClick={() => handleEdit(item)}
+                    className='flex flex-col items-center gap-0.5'
+                  >
+                    <svg
+                      xmlns='http://www.w3.org/2000/svg'
+                      className='h-4 w-4 text-yellow-500'
+                      fill='none'
+                      viewBox='0 0 24 24'
+                      stroke='currentColor'
+                      strokeWidth={1.5}
+                    >
+                      <path
+                        strokeLinecap='round'
+                        strokeLinejoin='round'
+                        d='M16.862 4.487a2.118 2.118 0 013 3L7.5 19.849l-4 1 1-4L16.862 4.487z'
+                      />
+                    </svg>
+                    <span className='text-xs'>Edit</span>
+                  </button>
+                  <button
+                    onClick={() => deleteMenuItem(item.id)}
+                    className='flex flex-col items-center gap-0.5'
+                  >
+                    <svg
+                      xmlns='http://www.w3.org/2000/svg'
+                      className='h-4 w-4 text-red-500'
+                      fill='none'
+                      viewBox='0 0 24 24'
+                      stroke='currentColor'
+                      strokeWidth={1.5}
+                    >
+                      <path
+                        strokeLinecap='round'
+                        strokeLinejoin='round'
+                        d='M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4H9v3m10 0H5'
+                      />
+                    </svg>
+                    <span className='text-xs'>Delete</span>
+                  </button>
                 </div>
               </div>
             ))}
+
             {menuItems.length === 0 && (
               <p className='col-span-full text-center text-gray-500'>
                 No products found.
