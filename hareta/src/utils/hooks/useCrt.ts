@@ -1,21 +1,19 @@
-// stores/useCartStore.ts
+import type {
+  ImageVariants,
+  MenuItem,
+  ProductVariant,
+} from '@utils/schemas/menu';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export interface SelectedChoice {
-  optionId: string;
-  choiceId: string;
-}
-
 export interface CartItem {
-  id: string;
-  name: string;
-  price: number;
+  cartItemId: string; // Unique ID, e.g., "prod1-variant2" or just "prod2"
+  product_id: string;
+  variantId?: string; // Optional, only exists if it's a variant
+  name: string; // e.g., "Pizza (Large)" or "Water Bottle"
+  price: number; // The final price of this specific item
+  image: ImageVariants | string | null;
   quantity: number;
-  image?: string;
-  description?: string;
-  selectedChoices?: SelectedChoice[];
-  cartItemId: string; // Unique identifier for this specific variation
 }
 
 interface CartStore {
@@ -25,9 +23,9 @@ interface CartStore {
 
   // Cart Actions
   addItem: (
-    product: Omit<CartItem, 'quantity' | 'cartItemId'>,
+    product: MenuItem,
     quantity?: number,
-    selectedChoices?: SelectedChoice[],
+    selectedVariant?: ProductVariant,
   ) => void;
   removeItem: (cartItemId: string) => void;
   updateQuantity: (cartItemId: string, quantity: number) => void;
@@ -43,33 +41,6 @@ interface CartStore {
   totalPrice: () => number;
 }
 
-// Helper to calculate price with option deltas
-function calculateItemPrice(
-  basePrice: number,
-  product: any,
-  selectedChoices?: SelectedChoice[],
-): number {
-  if (!selectedChoices || !product.options) return basePrice;
-
-  let totalPrice = basePrice;
-
-  selectedChoices.forEach((selected) => {
-    const option = product.options.find(
-      (opt: any) => opt.id === selected.optionId,
-    );
-    if (option) {
-      const choice = option.choices.find(
-        (c: any) => c.id === selected.choiceId,
-      );
-      if (choice && choice.priceDelta) {
-        totalPrice += choice.priceDelta;
-      }
-    }
-  });
-
-  return totalPrice;
-}
-
 export const useCartStore = create<CartStore>()(
   persist(
     (set, get) => ({
@@ -78,48 +49,44 @@ export const useCartStore = create<CartStore>()(
       isOpen: false,
 
       // Add item to cart with quantity and options
-      addItem: (product, quantity = 1, selectedChoices = []) =>
-        set((state) => {
-          // Generate unique ID for this specific variation
-          const cartItemId = `${product.id}-${JSON.stringify(selectedChoices || [])}`;
+      addItem: (product, quantity = 1, selectedVariant) => {
+        // 1. Determine the unique ID and details for the cart item
+        const isVariant = !!selectedVariant;
+        const cartItemId = isVariant
+          ? `${product.id}-${selectedVariant.id}`
+          : product.id;
 
-          // Find existing item with same product + same choices
-          const existingItem = state.items.find(
-            (item) => item.cartItemId === cartItemId,
+        const existingItem = get().items.find(
+          (item) => item.cartItemId === cartItemId,
+        );
+
+        // 2. If the item already exists, just update its quantity
+        if (existingItem) {
+          const updatedItems = get().items.map((item) =>
+            item.cartItemId === cartItemId
+              ? { ...item, quantity: item.quantity + quantity }
+              : item,
           );
+          set({ items: updatedItems });
+          return; // Stop execution
+        }
 
-          // Calculate final price including option deltas
-          const finalPrice = calculateItemPrice(
-            product.price,
-            product,
-            selectedChoices,
-          );
+        // 3. If it's a new item, create it
+        const newItem: CartItem = {
+          cartItemId,
+          product_id: product.id,
+          variantId: isVariant ? selectedVariant.id : undefined,
+          name: isVariant
+            ? `${product.name} (${selectedVariant.size_name})` // e.g., "Pizza (Large)"
+            : product.name,
+          // Price is now direct, not calculated!
+          price: isVariant ? selectedVariant.price : product.price,
+          image: product.image,
+          quantity,
+        };
 
-          if (existingItem) {
-            // Same product + same choices = increment quantity
-            return {
-              items: state.items.map((item) =>
-                item.cartItemId === cartItemId
-                  ? { ...item, quantity: item.quantity + quantity }
-                  : item,
-              ),
-            };
-          }
-
-          // New item or different variation
-          return {
-            items: [
-              ...state.items,
-              {
-                ...product,
-                price: finalPrice, // Use calculated price
-                quantity,
-                selectedChoices,
-                cartItemId,
-              },
-            ],
-          };
-        }),
+        set({ items: [...get().items, newItem] });
+      },
 
       // Remove item completely from cart
       removeItem: (cartItemId) =>

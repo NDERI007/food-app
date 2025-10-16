@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import axios from 'axios';
-import { useAdminStore } from '@utils/hooks/productStore';
+import { useAdminStore } from '@utils/hooks/adminStore';
 import { UploadCloud } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useCategories, useMenuItems } from '@utils/hooks/productStore';
+import { ProductVariantsManager } from './prodManager';
 
 // Zod schema for validation
 const menuItemSchema = z.object({
@@ -28,18 +31,19 @@ const menuItemSchema = z.object({
 type MenuItemFormData = z.infer<typeof menuItemSchema>;
 
 const AdminProducts: React.FC = () => {
-  const {
-    menuItems,
-    categories,
-    loading,
-    fetchMenuItems,
-    fetchCategories,
-    deleteMenuItem,
-    toggleAvailability,
-  } = useAdminStore();
+  const { deleteMenuItem, toggleAvailability } = useAdminStore();
+
+  const queryClient = useQueryClient();
+
+  const { data: menuItems = [], isLoading: loadingItems } = useMenuItems();
+  const { data: categories = [], isLoading: loadingCategories } =
+    useCategories();
 
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [managingVariantsFor, setManagingVariantsFor] = useState<string | null>(
+    null,
+  );
 
   const {
     register,
@@ -58,11 +62,6 @@ const AdminProducts: React.FC = () => {
       image: null,
     },
   });
-
-  useEffect(() => {
-    fetchMenuItems();
-    fetchCategories();
-  }, [fetchMenuItems, fetchCategories]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -96,7 +95,8 @@ const AdminProducts: React.FC = () => {
       }
 
       resetForm();
-      await fetchMenuItems();
+      // 🔁 Refresh cached list
+      queryClient.invalidateQueries({ queryKey: ['menu-items'] });
     } catch (error) {
       console.error('Error saving menu item:', error);
       alert('Error saving menu item. Please try again.');
@@ -137,18 +137,20 @@ const AdminProducts: React.FC = () => {
     });
     setImagePreview(null);
   };
+  // Show loading while either query is still fetching
+  const loading = loadingItems || loadingCategories;
 
   return (
-    <div className='mx-auto max-w-6xl p-6'>
+    <div className='mx-auto max-w-6xl p-3 sm:p-6'>
       {/* Form */}
-      <div className='mb-8 rounded-xl bg-white p-6 shadow'>
-        <h2 className='mb-4 text-xl font-semibold'>
+      <div className='mb-6 rounded-xl bg-white p-4 shadow sm:mb-8 sm:p-6'>
+        <h2 className='mb-3 text-lg font-semibold sm:mb-4 sm:text-xl'>
           {editingId ? 'Edit Product' : 'Add New Product'}
         </h2>
 
         <form onSubmit={handleSubmit(onSubmit)} className='space-y-6'>
           {/* Name, Price, Category */}
-          <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
+          <div className='grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3'>
             <div>
               <label className='mb-1 block font-medium text-gray-700'>
                 Product Name *
@@ -156,7 +158,7 @@ const AdminProducts: React.FC = () => {
               <input
                 type='text'
                 {...register('name')}
-                className='w-full rounded-lg border border-gray-300 p-2 focus:ring-2 focus:ring-green-500 focus:outline-none'
+                className='w-full rounded-lg border border-gray-300 p-2 text-sm focus:ring-2 focus:ring-green-500 focus:outline-none sm:text-base'
               />
               {errors.name && (
                 <p className='mt-1 text-sm text-red-600'>
@@ -173,7 +175,7 @@ const AdminProducts: React.FC = () => {
                 type='number'
                 step='0.01'
                 {...register('price')}
-                className='w-full rounded-lg border border-gray-300 p-2 focus:ring-2 focus:ring-green-500 focus:outline-none'
+                className='w-full rounded-lg border border-gray-300 p-2 text-sm focus:ring-2 focus:ring-green-500 focus:outline-none sm:text-base'
               />
               {errors.price && (
                 <p className='mt-1 text-sm text-red-600'>
@@ -218,7 +220,7 @@ const AdminProducts: React.FC = () => {
             </label>
             <textarea
               {...register('description')}
-              className='min-h-[100px] w-full rounded-lg border border-gray-300 p-2 focus:ring-2 focus:ring-green-500 focus:outline-none'
+              className='min-h-[80px] w-full rounded-lg border border-gray-300 p-2 text-sm focus:ring-2 focus:ring-green-500 focus:outline-none sm:min-h-[100px] sm:text-base'
             />
           </div>
 
@@ -265,11 +267,11 @@ const AdminProducts: React.FC = () => {
             </label>
           </div>
 
-          <div className='flex gap-3'>
+          <div className='flex flex-col gap-3 sm:flex-row'>
             <button
               type='submit'
               disabled={isSubmitting || loading}
-              className='rounded-lg bg-green-600 px-6 py-2 text-white transition hover:bg-green-700 disabled:bg-gray-400'
+              className='w-full rounded-lg bg-green-600 px-6 py-2 text-sm text-white transition hover:bg-green-700 disabled:bg-gray-400 sm:w-auto sm:text-base'
             >
               {isSubmitting || loading
                 ? 'Saving...'
@@ -281,7 +283,7 @@ const AdminProducts: React.FC = () => {
               <button
                 type='button'
                 onClick={resetForm}
-                className='rounded-lg bg-gray-500 px-6 py-2 text-white transition hover:bg-gray-600'
+                className='rounded-lg bg-gray-500 px-6 py-2 text-white transition hover:bg-gray-600 sm:w-auto sm:text-base'
               >
                 Cancel
               </button>
@@ -296,7 +298,7 @@ const AdminProducts: React.FC = () => {
         {loading ? (
           <p>Loading...</p>
         ) : (
-          <div className='grid gap-6 sm:grid-cols-2 lg:grid-cols-3'>
+          <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3'>
             {menuItems.map((item) => (
               <div
                 key={item.id}
@@ -331,7 +333,7 @@ const AdminProducts: React.FC = () => {
                     {/* Desktop: floating admin controls */}
                     <div className='absolute top-3 right-3 hidden gap-2 opacity-0 transition-opacity duration-300 group-hover:opacity-100 sm:flex'>
                       <button
-                        onClick={() => toggleAvailability(item)}
+                        onClick={() => toggleAvailability(item, queryClient)}
                         className='rounded-full bg-white/80 p-2 text-sky-600 shadow hover:bg-sky-50 hover:text-sky-700'
                         title='Toggle Availability'
                       >
@@ -371,7 +373,7 @@ const AdminProducts: React.FC = () => {
                         </svg>
                       </button>
                       <button
-                        onClick={() => deleteMenuItem(item.id)}
+                        onClick={() => deleteMenuItem(item.id, queryClient)}
                         className='rounded-full bg-white/80 p-2 text-red-600 shadow hover:bg-red-50 hover:text-red-700'
                         title='Delete'
                       >
@@ -387,6 +389,27 @@ const AdminProducts: React.FC = () => {
                             strokeLinecap='round'
                             strokeLinejoin='round'
                             d='M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4H9v3m10 0H5'
+                          />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => setManagingVariantsFor(item.id)}
+                        className='rounded-full bg-white/80 p-2 text-purple-600 shadow hover:bg-purple-50 hover:text-purple-700'
+                        title='Manage Variants'
+                      >
+                        {/* A simple icon for variants */}
+                        <svg
+                          xmlns='http://www.w3.org/2000/svg'
+                          className='h-4 w-4'
+                          fill='none'
+                          viewBox='0 0 24 24'
+                          stroke='currentColor'
+                          strokeWidth={1.5}
+                        >
+                          <path
+                            strokeLinecap='round'
+                            strokeLinejoin='round'
+                            d='M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10'
                           />
                         </svg>
                       </button>
@@ -409,7 +432,7 @@ const AdminProducts: React.FC = () => {
 
                   <div className='mt-4 flex items-center justify-between'>
                     <p className='text-lg font-bold text-amber-600'>
-                      ${item.price.toFixed(2)}
+                      KES{item.price.toFixed(2)}
                     </p>
                   </div>
                 </div>
@@ -417,7 +440,7 @@ const AdminProducts: React.FC = () => {
                 {/* Mobile: fixed admin controls */}
                 <div className='flex items-center justify-around border-t border-gray-200 bg-white/80 px-2 py-2 text-sm text-gray-600 sm:hidden'>
                   <button
-                    onClick={() => toggleAvailability(item)}
+                    onClick={() => toggleAvailability(item, queryClient)}
                     className='flex flex-col items-center gap-0.5'
                   >
                     <svg
@@ -457,7 +480,7 @@ const AdminProducts: React.FC = () => {
                     <span className='text-xs'>Edit</span>
                   </button>
                   <button
-                    onClick={() => deleteMenuItem(item.id)}
+                    onClick={() => deleteMenuItem(item.id, queryClient)}
                     className='flex flex-col items-center gap-0.5'
                   >
                     <svg
@@ -476,6 +499,27 @@ const AdminProducts: React.FC = () => {
                     </svg>
                     <span className='text-xs'>Delete</span>
                   </button>
+                  <button
+                    onClick={() => setManagingVariantsFor(item.id)}
+                    className='flex flex-col items-center gap-0.5'
+                  >
+                    {/* A simple icon for variants */}
+                    <svg
+                      xmlns='http://www.w3.org/2000/svg'
+                      className='h-4 w-4 text-purple-500'
+                      fill='none'
+                      viewBox='0 0 24 24'
+                      stroke='currentColor'
+                      strokeWidth={1.5}
+                    >
+                      <path
+                        strokeLinecap='round'
+                        strokeLinejoin='round'
+                        d='M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10'
+                      />
+                    </svg>
+                    <span className='text-xs'>Variants</span>
+                  </button>
                 </div>
               </div>
             ))}
@@ -488,6 +532,25 @@ const AdminProducts: React.FC = () => {
           </div>
         )}
       </div>
+      {managingVariantsFor && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm'>
+          <div className='relative w-[95%] max-w-lg rounded-2xl border border-[#d9e0d0] bg-[#faf8f2] p-4 shadow-2xl sm:w-[90%] sm:p-6'>
+            {/* Close button */}
+            <button
+              onClick={() => setManagingVariantsFor(null)}
+              className='absolute top-4 right-3 flex h-8 w-8 items-center justify-center rounded-full bg-[#3a7d44]/10 text-xl font-bold text-[#3a7d44] transition hover:bg-[#3a7d44]/20 hover:text-[#2c5b36]'
+              aria-label='Close'
+            >
+              ×
+            </button>
+
+            {/* Modal content */}
+            <div className='mt-2'>
+              <ProductVariantsManager productId={managingVariantsFor} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,17 +1,20 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useAdminStore } from '@utils/hooks/productStore';
+import { useAdminStore } from '@utils/hooks/adminStore';
 import { Plus, Trash2, X, Loader2 } from 'lucide-react';
+import type { Category } from '@utils/schemas/menu';
+import { useCategories } from '@utils/hooks/productStore';
+import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 
 const PALETTES = [
-  { start: '#FB7185', end: '#F59E0B', accent: '#FB7185' }, // pink -> orange
-  { start: '#6366F1', end: '#A78BFA', accent: '#6366F1' }, // indigo -> purple
-  { start: '#10B981', end: '#06B6D4', accent: '#10B981' }, // green -> teal
-  { start: '#F97316', end: '#FB7185', accent: '#F97316' }, // orange -> pink
-  { start: '#06B6D4', end: '#3B82F6', accent: '#06B6D4' }, // cyan -> blue
-  { start: '#34D399', end: '#84CC16', accent: '#34D399' }, // emerald -> lime
+  { start: '#FB7185', end: '#F59E0B', accent: '#FB7185' },
+  { start: '#6366F1', end: '#A78BFA', accent: '#6366F1' },
+  { start: '#10B981', end: '#06B6D4', accent: '#10B981' },
+  { start: '#F97316', end: '#FB7185', accent: '#F97316' },
+  { start: '#06B6D4', end: '#3B82F6', accent: '#06B6D4' },
+  { start: '#34D399', end: '#84CC16', accent: '#34D399' },
 ];
 
-/** Deterministic palette from UUID (uses last 8 hex chars) */
 function pickPaletteFromUUID(id: string) {
   if (!id) return PALETTES[0];
   try {
@@ -24,7 +27,6 @@ function pickPaletteFromUUID(id: string) {
   }
 }
 
-/** Convert hex to rgba string with provided alpha */
 function hexToRgba(hex: string, alpha = 1) {
   const h = hex.replace('#', '');
   const bigint = parseInt(
@@ -43,64 +45,57 @@ function hexToRgba(hex: string, alpha = 1) {
 }
 
 const CategoriesPage: React.FC = () => {
-  const {
-    categories,
-    loading,
-    fetchCategories,
-    addCategories,
-    deleteCategory,
-  } = useAdminStore();
+  // adminStore provides mutation actions
+  const addCategory = useAdminStore((s) => s.addCategory);
+  const deleteCategory = useAdminStore((s) => s.deleteCategory);
+  const queryClient = useQueryClient();
+  // React Query hook — provides cached categories + loading
+  const { data: categories = [], isLoading: loading } = useCategories();
 
   const [showDialog, setShowDialog] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // For inline delete confirmation popover
+  // Inline delete confirmation state
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // containerRef used to detect clicks outside popovers and close them
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    fetchCategories();
-  }, [fetchCategories]);
-
-  // Close pending delete popover when user clicks outside the container (or anywhere)
+  // Close pending delete popover when user clicks outside (keeps your previous behavior)
   useEffect(() => {
     function handleDocClick(e: MouseEvent) {
+      if (!pendingDeleteId) return; // Only handle clicks if there's a pending delete
+
       const target = e.target as HTMLElement | null;
       if (!target) {
         setPendingDeleteId(null);
         return;
       }
-
-      // if click is inside a popover or on a delete button, keep it
       if (
         target.closest('[data-popover]') ||
         target.closest('[data-delete-button]')
       ) {
         return;
       }
-
-      // otherwise close
       setPendingDeleteId(null);
     }
-
     document.addEventListener('click', handleDocClick);
     return () => document.removeEventListener('click', handleDocClick);
-  }, []);
+  }, [pendingDeleteId]);
 
-  const handleAddCategory = async (e: React.FormEvent | any) => {
+  const handleAddCategory = async (e?: React.FormEvent | any) => {
     e?.preventDefault?.();
     if (!newCategoryName.trim()) return;
     try {
       setSubmitting(true);
-      await addCategories(newCategoryName.trim());
+      await addCategory(newCategoryName.trim(), queryClient);
+      toast.success('Category created successfully!');
       setNewCategoryName('');
       setShowDialog(false);
     } catch (err) {
       console.error('Error creating category:', err);
+      toast.error('Failed to create category.');
     } finally {
       setSubmitting(false);
     }
@@ -109,10 +104,12 @@ const CategoriesPage: React.FC = () => {
   const handleConfirmDelete = async (id: string) => {
     try {
       setDeletingId(id);
-      await deleteCategory(id);
+      await deleteCategory(id, queryClient);
+      toast.success('Category deleted.');
       setPendingDeleteId(null);
     } catch (err) {
       console.error('Error deleting category:', err);
+      toast.error('Failed to delete category.');
     } finally {
       setDeletingId(null);
     }
@@ -187,15 +184,10 @@ const CategoriesPage: React.FC = () => {
               gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
             }}
           >
-            {categories.map((category) => {
-              const pal = pickPaletteFromUUID(category.id);
-
-              // light gradient background derived from palette
+            {categories.map((category: Category) => {
+              const pal = pickPaletteFromUUID(category.id || '');
               const bgGradient = `linear-gradient(90deg, ${hexToRgba(pal.start, 0.06)}, ${hexToRgba(pal.end, 0.06)})`;
-
-              // gradient for underline (solid gradient)
               const underlineGradient = `linear-gradient(90deg, ${pal.start}, ${pal.end})`;
-
               const isPending = pendingDeleteId === category.id;
               const isDeleting = deletingId === category.id;
 
@@ -211,7 +203,6 @@ const CategoriesPage: React.FC = () => {
                   role='button'
                   aria-label={`Category ${category.name}`}
                 >
-                  {/* ripple */}
                   <span
                     aria-hidden
                     className='ripple pointer-events-none absolute inset-0 scale-0 transform transition duration-500'
@@ -228,25 +219,19 @@ const CategoriesPage: React.FC = () => {
                         {category.name}
                       </div>
 
-                      {/* small gradient underline that expands on hover */}
                       <div
                         className='small-underline mt-2 h-1 rounded-full transition-all duration-300'
-                        style={{
-                          width: '0%',
-                          background: underlineGradient,
-                        }}
+                        style={{ width: '0%', background: underlineGradient }}
                       />
                     </div>
 
                     <div className='ml-auto hidden truncate text-xs text-gray-400 md:block'>
-                      {category.id.slice(0, 8)}
+                      {category.id?.slice(0, 8)}
                     </div>
                   </div>
 
-                  {/* Delete button (opens inline confirmation popover) */}
                   <div className='relative ml-3 flex items-center gap-2'>
                     <button
-                      // mark attribute so outside-click handler won't immediately close the popover when we click the button
                       data-delete-button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -262,7 +247,6 @@ const CategoriesPage: React.FC = () => {
                       <Trash2 size={16} />
                     </button>
 
-                    {/* Inline confirmation popover */}
                     {isPending && (
                       <div
                         data-popover
@@ -306,7 +290,6 @@ const CategoriesPage: React.FC = () => {
                     )}
                   </div>
 
-                  {/* absolute large underline that scales on hover (gradient) */}
                   <div
                     aria-hidden
                     className='chip-underline absolute right-3 bottom-2 left-4 h-1 rounded-full transition-all duration-300'
@@ -323,7 +306,6 @@ const CategoriesPage: React.FC = () => {
         </div>
       )}
 
-      {/* Add Category Dialog */}
       {showDialog && (
         <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4'>
           <div className='w-full max-w-md rounded-xl bg-white p-6 shadow-xl'>
@@ -400,25 +382,20 @@ const CategoriesPage: React.FC = () => {
         </div>
       )}
 
-      {/* Local CSS for hover/ripple/underline behavior. Move into global CSS if you prefer. */}
       <style>{`
         .group:hover .chip-underline,
         .group:focus-within .chip-underline {
           transform: scaleX(1);
         }
-
         .group:hover .ripple,
         .group:focus-within .ripple {
           transform: scale(1);
           opacity: 0.06;
         }
-
         .group:hover .small-underline,
         .group:focus-within .small-underline {
           width: 100% !important;
         }
-
-        /* ensure popover visually appears over other chips */
         [data-popover] { z-index: 60; }
       `}</style>
     </div>

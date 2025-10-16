@@ -1,112 +1,176 @@
-import { create } from 'zustand';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
+import { useEffect } from 'react';
+import type { Category, MenuItem, ProductVariant } from '@utils/schemas/menu';
+import { supabase } from '@utils/supabase/Client';
+import { toast } from 'sonner';
 
-interface Category {
-  id: string;
-  name: string;
+/* ----------------------------- API FETCHERS ----------------------------- */
+const fetchMenuItems = async (
+  categoryId: string | null,
+): Promise<MenuItem[]> => {
+  // Start with the base URL
+  let url = '/api/prod/menu-items';
+
+  // If a category is selected (and it's not 'all'), add it as a query parameter
+  if (categoryId && categoryId !== 'all') {
+    url += `?category_id=${categoryId}`;
+  }
+
+  const { data } = await axios.get(url);
+  return data;
+};
+
+const fetchCategories = async (): Promise<Category[]> => {
+  const { data } = await axios.get('/api/prod/categories');
+  return data;
+};
+
+// Fetch a single menu item (with variants)
+const fetchMenuItemById = async (
+  id: string,
+): Promise<MenuItem & { product_variants: ProductVariant[] }> => {
+  const { data } = await axios.get(`/api/prod/menu-items/${id}`);
+  return data;
+};
+
+// Fetch variants for a single product (used when showing variants dynamically)
+const fetchProductVariants = async (
+  productId: string,
+): Promise<ProductVariant[]> => {
+  const { data } = await axios.get(
+    `/api/prod/menu-items/${productId}/variants`,
+  );
+  return data;
+};
+/* ----------------------------- QUERY HOOKS ----------------------------- */
+export function useMenuItems(categoryId: string | null) {
+  return useQuery({
+    // The query key now includes the categoryId.
+    // This is crucial for caching!
+    queryKey: ['menu-items', categoryId],
+
+    // Pass the categoryId to the fetch function
+    queryFn: () => fetchMenuItems(categoryId),
+
+    staleTime: 1000 * 60 * 5, // 5 mins cache
+  });
 }
-export interface ImageVariants {
-  id: string;
-  lqip: string;
-  variants: {
-    avif: Record<number, string>;
-    jpg: Record<number, string>;
-  };
-}
-interface MenuItem {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  image: ImageVariants | null;
-  available: boolean;
-  category_id: string | null;
+
+export function useCategories() {
+  return useQuery({
+    queryKey: ['categories'],
+    queryFn: fetchCategories,
+    staleTime: 1000 * 60 * 10,
+  });
 }
 
-interface AdminState {
-  menuItems: MenuItem[];
-  categories: Category[];
-  loading: boolean;
-  fetchMenuItems: () => Promise<void>;
-  fetchCategories: () => Promise<void>;
-  addCategories: (name: string) => Promise<void>;
-  deleteCategory: (id: string) => Promise<void>;
-  deleteMenuItem: (id: string) => Promise<void>;
-  toggleAvailability: (item: MenuItem) => Promise<void>;
+/**
+ * Fetch product variants separately (if you want to show variants only on demand)
+ */
+export function useProductVariants(productId: string) {
+  return useQuery({
+    queryKey: ['product-variants', productId],
+    queryFn: () => fetchProductVariants(productId),
+    enabled: !!productId,
+  });
 }
 
-export const useAdminStore = create<AdminState>((set, get) => ({
-  menuItems: [],
-  categories: [],
-  loading: false,
+/**
+ * Listen to updates for a single product in realtime.
+ * Keeps the cache in sync without refetching the entire list.
+ */
+export function useMenuItem(id: string) {
+  const queryClient = useQueryClient();
 
-  fetchMenuItems: async () => {
-    set({ loading: true });
-    try {
-      const res = await axios.get('/api/prod/menu-items');
-      set({ menuItems: res.data });
-    } catch (err) {
-      console.error('Error fetching menu items:', err);
-    } finally {
-      set({ loading: false });
-    }
-  },
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['menu-item', id],
+    queryFn: () => fetchMenuItemById(id),
+    enabled: !!id,
+  });
 
-  fetchCategories: async () => {
-    try {
-      const res = await axios.get('/api/prod/categories');
-      set({ categories: res.data });
-    } catch (err) {
-      console.error('Error fetching categories:', err);
-    }
-  },
+  useEffect(() => {
+    if (!id) return;
 
-  addCategories: async (name: string) => {
-    try {
-      const res = await axios.post('/api/prod/categories', { name });
-      set({ categories: [...get().categories, res.data] });
-    } catch (err) {
-      console.error('Error adding category:', err);
-      throw err;
-    }
-  },
+    // Subscribe to updates only for this specific menu item
+    const channel = supabase
+      .channel(`menu-item-${id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'menu_items',
+          filter: `id=eq.${id}`,
+        },
+        (payload) => {
+          console.log('Realtime update for item:', payload);
 
-  deleteCategory: async (id: string) => {
-    try {
-      await axios.delete(`/api/prod/categories/${id}`);
-      set({
-        categories: get().categories.filter((cat) => cat.id !== id),
-      });
-    } catch (err) {
-      console.error('Error deleting category:', err);
+          // Update cached data in React Query
+          queryClient.setQueryData(['menu-item', id], payload.new);
 
-      throw err;
-    }
-  },
+          // Optionally, also patch it in the "menu-items" list cache if present
+          queryClient.setQueryData<MenuItem[]>(['menu-items'], (old) =>
+            old
+              ? old.map((item) =>
+                  item.id === id ? (payload.new as MenuItem) : item,
+                )
+              : old,
+          );
+        },
+      )
+      /*Watch if the product is deleted */
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'menu_items',
+          filter: `id=eq.${id}`,
+        },
+        (payload) => {
+          console.log('Product deleted:', payload.old);
 
-  deleteMenuItem: async (id) => {
-    try {
-      await axios.delete(`/api/prod/menu-items/${id}`);
-      set({
-        menuItems: get().menuItems.filter((item) => item.id !== id),
-      });
-    } catch (err) {
-      console.error('Error deleting item:', err);
-    }
-  },
+          // Remove the query data
+          queryClient.removeQueries({ queryKey: ['menu-item', id] });
 
-  toggleAvailability: async (item) => {
-    try {
-      await axios.patch(`/api/prod/menu-items/${item.id}/availability`, {
-        available: !item.available,
-      });
-      set({
-        menuItems: get().menuItems.map((i) =>
-          i.id === item.id ? { ...i, available: !i.available } : i,
-        ),
-      });
-    } catch (err) {
-      console.error('Error toggling availability:', err);
-    }
-  },
-}));
+          toast.warning('This product was deleted');
+          // Example: navigate('/admin/products');
+        },
+      )
+      /*Invalidate only when a variant is added or removed */
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'product_variants',
+          filter: `product_id=eq.${id}`,
+        },
+        () => {
+          console.log('Variant added');
+          queryClient.invalidateQueries({ queryKey: ['menu-item', id] });
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'product_variants',
+          filter: `product_id=eq.${id}`,
+        },
+        () => {
+          console.log('Variant removed');
+          queryClient.invalidateQueries({ queryKey: ['menu-item', id] });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [id, queryClient]);
+
+  return { data, isLoading, error };
+}

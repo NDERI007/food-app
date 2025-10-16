@@ -3,8 +3,8 @@ import { useRef, useState, useEffect } from 'react';
 
 type Category = {
   id: string;
-  label: string;
-  icon: React.ReactNode;
+  name: string;
+  icon?: React.ReactNode;
 };
 
 type CategoryFilterProps = {
@@ -80,7 +80,7 @@ export default function CategoryFilter({
           >
             <div className='h-14 w-14'>{cat.icon}</div>
             <span className='text-[ #274e13] text-sm font-medium'>
-              {cat.label}
+              {cat.name}
             </span>
           </button>
         ))}

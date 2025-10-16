@@ -1,11 +1,11 @@
-import { Toaster } from "sonner";
-import { Suspense } from "react";
+import { Toaster } from 'sonner';
+import { Suspense } from 'react';
 
 function App() {
   return (
     <>
       <Suspense fallback={<div>Loading…</div>}>
-        <Toaster />
+        <Toaster richColors position='top-right' />
       </Suspense>
     </>
   );
