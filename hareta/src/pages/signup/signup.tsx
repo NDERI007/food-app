@@ -10,11 +10,13 @@ import {
   type emailSchemaType,
   type OtpSchemaType,
 } from '@utils/schemas/auth';
+import { useAuth } from '@utils/hooks/useAuth';
 
 export default function Signup() {
   const [step, setStep] = useState<1 | 2>(1);
   const [email, setEmail] = useState('');
   const [disabled, setDisabled] = useState(false);
+  const { checkAuth } = useAuth();
 
   const navigate = useNavigate();
 
@@ -71,6 +73,13 @@ export default function Signup() {
         { email, code: data.otp },
         { withCredentials: true },
       );
+      // Hydrate AuthContext from server session
+      const user = await checkAuth();
+
+      if (!user) {
+        toast.error('Authentication failed. Please try again.');
+        return;
+      }
 
       toast.success('Account created successfully!');
       navigate('/dashboard');

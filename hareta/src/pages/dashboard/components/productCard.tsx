@@ -1,6 +1,6 @@
 import { memo, useState, useMemo, useEffect } from 'react';
 import { useCartStore } from '@utils/hooks/useCrt';
-import { ImageOff, Plus, Loader2 } from 'lucide-react';
+import { ImageOff, Plus, Loader2, Check } from 'lucide-react';
 import { useMenuItem } from '@utils/hooks/productStore';
 import type { MenuItem, ProductVariant } from '@utils/schemas/menu';
 import QuantitySelector from './quantitySel';
@@ -106,12 +106,12 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
                 <source
                   srcSet={`${imageData.variants.avif[400]} 400w, ${imageData.variants.avif[800]} 800w`}
                   type='image/avif'
-                  sizes='(max-width: 640px) 200px, (max-width: 1024px) 300px, 400px'
+                  sizes='(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 300px'
                 />
                 <source
                   srcSet={`${imageData.variants.jpg[400]} 400w, ${imageData.variants.jpg[800]} 800w`}
                   type='image/jpeg'
-                  sizes='(max-width: 640px) 200px, (max-width: 1024px) 300px, 400px'
+                  sizes='(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 300px'
                 />
                 <img
                   src={imageData.variants.jpg[400]}
@@ -243,24 +243,37 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
 
                   {/* Variants Selection */}
                   {hasVariants && (
-                    <div className='grid grid-cols-1 gap-2 sm:grid-cols-2'>
-                      {variants.map((variant) => (
-                        <button
-                          key={variant.id}
-                          // Pass the entire object to state
-                          onClick={() => setSelectedVariant(variant)}
-                          disabled={!variant.is_available}
-                          className={`... ${
-                            // Compare by ID for selection state
-                            selectedVariant?.id === variant.id
-                              ? 'border-green-600 bg-green-50'
-                              : '...'
-                          }`}
-                        >
-                          <span>{variant.size_name}</span>
-                          <span>KES {variant.price.toFixed(2)}</span>
-                        </button>
-                      ))}
+                    <div className='space-y-3'>
+                      <label className='text-sm font-medium text-gray-700'>
+                        Select Size
+                      </label>
+                      <div className='flex flex-wrap gap-2'>
+                        {variants.map((variant) => (
+                          <button
+                            key={variant.id}
+                            onClick={() => setSelectedVariant(variant)}
+                            disabled={!variant.is_available}
+                            className={`relative rounded-full px-4 py-2 text-sm font-medium transition ${
+                              selectedVariant?.id === variant.id
+                                ? 'bg-green-600 text-white shadow-sm'
+                                : variant.is_available
+                                  ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                  : 'cursor-not-allowed bg-gray-50 text-gray-400 line-through'
+                            }`}
+                          >
+                            <span>{variant.size_name}</span>
+                            {selectedVariant?.id === variant.id && (
+                              <Check className='ml-1.5 inline-block h-4 w-4' />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                      <div className='text-sm text-gray-500'>
+                        Price:{' '}
+                        <span className='font-semibold text-green-600'>
+                          KES {currentPrice.toFixed(2)}
+                        </span>
+                      </div>
                     </div>
                   )}
 

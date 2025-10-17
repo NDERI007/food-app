@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 import Navbar from './components/dashNav';
 import Sidebar from './components/sideBar';
 import CartDrawer from './components/cartDrawer';
@@ -6,7 +7,7 @@ import CategoryFilter from './components/category';
 import ProductCard from './components/productCard';
 import { useCartStore } from '@utils/hooks/useCrt';
 import { useMenuItems, useCategories } from '@utils/hooks/productStore';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ShoppingBag, AlertCircle } from 'lucide-react';
 
 function Dashboard() {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -22,55 +23,122 @@ function Dashboard() {
     error: productsError,
   } = useMenuItems(activeCategory);
 
-  // --- 2. STATE MANAGEMENT LAYER ---
+  // State management
   const toggleCart = useCartStore((state) => state.toggleCart);
   const totalItems = useCartStore((state) => state.totalItems());
 
-  // Combine loading states for a simpler check in the UI
+  // Combine loading states
   const isLoading = isCategoriesLoading || isProductsLoading;
 
-  // --- 3. PRESENTATION LAYER ---
+  // Handle category change
+  const handleCategoryChange = (categoryId: string | null) => {
+    setActiveCategory(categoryId);
+  };
+
   return (
     <div className='flex min-h-screen flex-col bg-gray-50'>
+      {/* Navigation */}
       <Navbar
         onToggleSidebar={() => setSidebarOpen(!isSidebarOpen)}
         onToggleCart={toggleCart}
         cartItemCount={totalItems}
       />
+
+      {/* Sidebar */}
       <Sidebar open={isSidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+      {/* Cart Drawer */}
       <CartDrawer />
 
-      <main className='flex-1 p-4 sm:p-6'>
-        <CategoryFilter
-          categories={categories || []}
-          activeCategory={activeCategory || 'all'}
-          onSelect={setActiveCategory}
-        />
+      {/* Main Content */}
+      <main className='flex-1 px-4 py-6 sm:px-6 lg:px-8'>
+        <div className='mx-auto max-w-7xl'>
+          {/* Category Filter */}
+          <div className='mb-6'>
+            <CategoryFilter
+              categories={categories || []}
+              activeCategory={activeCategory || 'all'}
+              onSelect={handleCategoryChange}
+            />
+          </div>
 
-        {/* --- REFACTORED PRODUCT DISPLAY LOGIC --- */}
-        <div className='mt-6'>
+          {/* Products Section */}
           {isLoading ? (
-            // A. LOADING STATE
-            <div className='flex h-64 items-center justify-center'>
-              <Loader2 className='h-8 w-8 animate-spin text-green-600' />
+            // Loading State
+            <div className='flex h-64 flex-col items-center justify-center gap-3'>
+              <Loader2 className='h-10 w-10 animate-spin text-green-600' />
+              <p className='text-sm text-gray-600'>Loading products...</p>
             </div>
           ) : productsError ? (
-            // B. ERROR STATE
-            <div className='flex h-64 items-center justify-center rounded-lg bg-red-50 p-4 text-center text-red-600'>
-              <p>Could not load products. Please try again later.</p>
+            // Error State with Sonner Toast
+            <div className='flex h-64 flex-col items-center justify-center gap-4 rounded-xl bg-white p-6 shadow-sm'>
+              <div className='flex h-16 w-16 items-center justify-center rounded-full bg-red-100'>
+                <AlertCircle className='h-8 w-8 text-red-600' />
+              </div>
+              <div className='text-center'>
+                <h3 className='mb-1 text-lg font-semibold text-gray-900'>
+                  Unable to Load Products
+                </h3>
+                <p className='text-sm text-gray-600'>
+                  We're having trouble loading the products. Please try again.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  window.location.reload();
+                  toast.error('Failed to load products. Refreshing...');
+                }}
+                className='rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-green-700'
+              >
+                Retry
+              </button>
             </div>
           ) : !products || products.length === 0 ? (
-            // C. EMPTY STATE
-            <div className='flex h-64 items-center justify-center rounded-lg bg-gray-100 text-center text-gray-500'>
-              <p>No products found in this category.</p>
+            // Empty State
+            <div className='flex h-64 flex-col items-center justify-center gap-4 rounded-xl bg-white p-6 shadow-sm'>
+              <div className='flex h-16 w-16 items-center justify-center rounded-full bg-gray-100'>
+                <ShoppingBag className='h-8 w-8 text-gray-400' />
+              </div>
+              <div className='text-center'>
+                <h3 className='mb-1 text-lg font-semibold text-gray-900'>
+                  No Products Found
+                </h3>
+                <p className='text-sm text-gray-600'>
+                  {activeCategory === 'all'
+                    ? "We don't have any products available at the moment."
+                    : 'Try selecting a different category.'}
+                </p>
+              </div>
+              {activeCategory !== 'all' && (
+                <button
+                  onClick={() => {
+                    setActiveCategory('all');
+                    toast.info('Showing all products');
+                  }}
+                  className='text-sm font-medium text-green-600 hover:text-green-700'
+                >
+                  View All Products
+                </button>
+              )}
             </div>
           ) : (
-            // D. SUCCESS STATE
-            <div className='grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4'>
-              {products.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
+            // Success State - Responsive Grid
+            <>
+              {/* Product Count Header */}
+              <div className='mb-4 flex items-center justify-between'>
+                <p className='text-sm text-gray-600'>
+                  {products.length}{' '}
+                  {products.length === 1 ? 'product' : 'products'} found
+                </p>
+              </div>
+
+              {/* Responsive Product Grid */}
+              <div className='grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'>
+                {products.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+            </>
           )}
         </div>
       </main>

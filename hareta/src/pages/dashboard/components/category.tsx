@@ -40,7 +40,7 @@ export default function CategoryFilter({
       el.removeEventListener('scroll', checkScroll);
       window.removeEventListener('resize', checkScroll);
     };
-  }, []);
+  }, [categories.length]);
 
   const scroll = (dir: 'left' | 'right') => {
     if (!scrollRef.current) return;
@@ -52,49 +52,67 @@ export default function CategoryFilter({
   };
 
   return (
-    <div className='relative flex items-center'>
-      {/* Left Arrow */}
+    <div className='relative'>
+      {/* Left Arrow - Hidden on mobile, visible on desktop when scrollable */}
       {canScrollLeft && (
         <button
           onClick={() => scroll('left')}
-          className='absolute left-0 z-10 flex h-full w-8 items-center justify-center bg-gradient-to-r from-gray-100/90 to-transparent'
+          className='absolute top-1/2 left-0 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white shadow-lg transition hover:bg-gray-50 md:flex'
+          aria-label='Scroll left'
         >
-          <ChevronLeft className='h-5 w-5' />
+          <ChevronLeft className='h-5 w-5 text-gray-700' />
         </button>
       )}
 
       {/* Scrollable categories */}
       <div
         ref={scrollRef}
-        className='scrollbar-hide flex gap-3 overflow-x-auto scroll-smooth px-10 py-4'
+        className='scrollbar-hide flex gap-2 overflow-x-auto scroll-smooth py-4 sm:gap-3 md:px-12'
+        style={{
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+        }}
       >
         {categories.map((cat) => (
           <button
             key={cat.id}
             onClick={() => onSelect(cat.id)}
-            className={`flex min-w-[80px] flex-col items-center gap-1 rounded-lg px-4 py-2 ${
+            className={`flex shrink-0 flex-col items-center gap-1.5 rounded-xl px-3 py-2.5 transition sm:min-w-[90px] sm:px-4 sm:py-3 ${
               activeCategory === cat.id
-                ? 'bg-green-600 text-white'
-                : 'bg-[rgb(245,240,225)] text-gray-700 hover:bg-gray-100'
+                ? 'bg-green-600 text-white shadow-md'
+                : 'bg-[#f5f0e1] text-gray-700 hover:bg-gray-100 active:bg-gray-200'
             }`}
           >
-            <div className='h-14 w-14'>{cat.icon}</div>
-            <span className='text-[ #274e13] text-sm font-medium'>
-              {cat.name}
-            </span>
+            {/* Icon */}
+            {cat.icon && (
+              <div className='flex h-10 w-10 items-center justify-center sm:h-12 sm:w-12 md:h-14 md:w-14'>
+                {cat.icon}
+              </div>
+            )}
+
+            {/* Name */}
+            <span className='text-xs font-medium sm:text-sm'>{cat.name}</span>
           </button>
         ))}
       </div>
 
-      {/* Right Arrow */}
+      {/* Right Arrow - Hidden on mobile, visible on desktop when scrollable */}
       {canScrollRight && (
         <button
           onClick={() => scroll('right')}
-          className='absolute right-0 z-10 flex h-full w-8 items-center justify-center bg-gradient-to-l from-gray-100/90 to-transparent'
+          className='absolute top-1/2 right-0 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white shadow-lg transition hover:bg-gray-50 md:flex'
+          aria-label='Scroll right'
         >
-          <ChevronRight className='h-5 w-5' />
+          <ChevronRight className='h-5 w-5 text-gray-700' />
         </button>
       )}
+
+      {/* Add this CSS to your global styles or component */}
+      <style>{`
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
     </div>
   );
 }

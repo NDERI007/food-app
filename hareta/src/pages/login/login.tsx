@@ -71,7 +71,7 @@ export default function Login() {
         { email, code: data.otp },
         { withCredentials: true },
       );
-      // 2️⃣ Hydrate AuthContext from server session
+      // Hydrate AuthContext from server session
       const user = await checkAuth();
 
       if (!user) {
