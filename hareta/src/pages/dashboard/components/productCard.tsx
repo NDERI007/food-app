@@ -1,6 +1,6 @@
 import { memo, useState, useMemo, useEffect } from 'react';
 import { useCartStore } from '@utils/hooks/useCrt';
-import { ImageOff, Plus, Loader2, Check } from 'lucide-react';
+import { ImageOff, Plus, Loader2, Check, Heart, Clock } from 'lucide-react';
 import { useProductVariants } from '@utils/hooks/productStore';
 import type { MenuItem, ProductVariant } from '@utils/schemas/menu';
 import QuantitySelector from './quantitySel';
@@ -17,6 +17,7 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
   );
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
 
   const addItem = useCartStore((state) => state.addItem);
 
@@ -53,6 +54,12 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
     closeModal();
   }
 
+  function toggleFavorite(e: React.MouseEvent) {
+    e.stopPropagation();
+    setIsFavorite(!isFavorite);
+    // TODO: Implement favorite API call
+  }
+
   const currentPrice = selectedVariant?.price ?? product.price;
   const subtotal = currentPrice * quantity;
 
@@ -76,39 +83,33 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
 
   return (
     <>
+      {/* Minimalist Card Design */}
       <div
-        className={`group relative flex flex-col rounded-xl bg-white p-3 shadow transition hover:shadow-lg sm:p-4 ${
+        className={`group overflow-hidden rounded-xl bg-white shadow-sm transition hover:shadow-md ${
           product.available ? 'cursor-pointer' : 'cursor-not-allowed'
         }`}
         onClick={openModal}
       >
         {/* Image Container */}
-        <div className='relative w-full overflow-hidden rounded-xl bg-gray-100'>
-          {/* Out of Stock Badge */}
-          {!product.available && (
-            <div className='absolute top-2 right-2 z-10 rounded-full bg-red-500 px-3 py-1 text-xs font-semibold text-white shadow-md'>
-              Out of Stock
-            </div>
+        <div className='relative h-48 overflow-hidden bg-gray-100'>
+          {/* LQIP blur placeholder */}
+          {!error && imageData?.lqip && (
+            <div
+              className={`absolute inset-0 transition-opacity duration-500 ${
+                loaded ? 'opacity-0' : 'opacity-100'
+              }`}
+              style={{
+                backgroundImage: `url(${imageData.lqip})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                filter: 'blur(10px)',
+                transform: 'scale(1.1)',
+              }}
+            />
           )}
 
-          {/* Grayscale wrapper for unavailable products */}
+          {/* Main Image */}
           <div className={!product.available ? 'grayscale' : ''}>
-            {/* LQIP blur placeholder */}
-            {!error && imageData?.lqip && (
-              <div
-                className={`absolute inset-0 transition-opacity duration-500 ${
-                  loaded ? 'opacity-0' : 'opacity-100'
-                }`}
-                style={{
-                  backgroundImage: `url(${imageData.lqip})`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                  filter: 'blur(10px)',
-                  transform: 'scale(1.1)',
-                }}
-              />
-            )}
-
             {!error ? (
               hasImageVariants ? (
                 <picture>
@@ -128,7 +129,7 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
                     loading='lazy'
                     onLoad={() => setLoaded(true)}
                     onError={() => setError(true)}
-                    className={`h-32 w-full rounded-xl object-cover transition-all duration-500 sm:h-36 md:h-40 ${
+                    className={`h-full w-full object-cover transition-all duration-500 ${
                       loaded ? 'scale-100 opacity-100' : 'scale-105 opacity-0'
                     }`}
                   />
@@ -140,60 +141,82 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
                   loading='lazy'
                   onLoad={() => setLoaded(true)}
                   onError={() => setError(true)}
-                  className={`h-32 w-full rounded-xl object-cover transition-all duration-500 sm:h-36 md:h-40 ${
+                  className={`h-full w-full object-cover transition-all duration-500 ${
                     loaded ? 'scale-100 opacity-100' : 'scale-105 opacity-0'
                   }`}
                 />
               )
             ) : (
-              <div className='flex h-32 items-center justify-center text-gray-400 sm:h-36 md:h-40'>
+              <div className='flex h-full items-center justify-center text-gray-400'>
                 <ImageOff size={32} />
               </div>
             )}
           </div>
-        </div>
 
-        {/* Name */}
-        <div className='mt-3 flex-1'>
-          <h3
-            className={`line-clamp-2 text-sm font-medium sm:text-base ${
-              !product.available ? 'text-gray-400' : ''
-            }`}
+          {/* Unavailable Overlay */}
+          {!product.available && (
+            <div className='absolute inset-0 flex items-center justify-center bg-black/50'>
+              <span className='rounded-full bg-white px-4 py-1.5 text-sm font-medium text-gray-900'>
+                Unavailable
+              </span>
+            </div>
+          )}
+
+          {/* Favorite Button */}
+          <button
+            onClick={toggleFavorite}
+            className='absolute top-3 right-3 rounded-full bg-white/90 p-2 backdrop-blur-sm transition hover:bg-white'
           >
-            {product.name}
-          </h3>
+            <Heart
+              className={`h-4 w-4 ${
+                isFavorite ? 'fill-red-500 text-red-500' : 'text-gray-600'
+              }`}
+            />
+          </button>
         </div>
 
-        {/* Price + Action */}
-        <div className='mt-3 flex items-center justify-between'>
-          <div>
-            <span
-              className={`text-sm font-semibold sm:text-base ${
-                product.available
-                  ? 'text-green-600'
-                  : 'text-gray-400 line-through'
-              }`}
-            >
+        {/* Content */}
+        <div className='p-4'>
+          {/* Title and Price */}
+          <div className='mb-2 flex items-start justify-between gap-2'>
+            <h3 className='line-clamp-2 flex-1 text-lg font-semibold text-gray-900'>
+              {product.name}
+            </h3>
+            <span className='text-lg font-bold text-green-600'>
               {displayPrice}
             </span>
           </div>
 
+          {/* Description */}
+          {product.description && (
+            <p className='mb-3 line-clamp-2 text-sm text-gray-600'>
+              {product.description}
+            </p>
+          )}
+
+          {/* Metadata (Prep Time, etc.) */}
+          <div className='mb-4 flex items-center gap-3 text-xs text-gray-500'>
+            <span className='flex items-center gap-1'>
+              <Clock className='h-3.5 w-3.5' />
+              15-20 min
+            </span>
+          </div>
+
+          {/* Add to Cart Button */}
           <button
             onClick={(e) => {
               e.stopPropagation();
               openModal();
             }}
             disabled={!product.available}
-            className={`flex items-center justify-center rounded-full p-2 transition-colors ${
+            className={`flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition ${
               product.available
-                ? 'bg-green-100 text-green-600 hover:bg-green-200'
-                : 'cursor-not-allowed bg-gray-100 text-gray-400'
+                ? 'bg-green-600 text-white hover:bg-green-700'
+                : 'cursor-not-allowed bg-gray-200 text-gray-500'
             }`}
-            aria-label={
-              product.available ? 'Add to cart' : 'Product unavailable'
-            }
           >
-            <Plus size={16} className='sm:h-5 sm:w-5' />
+            <Plus className='h-4 w-4' />
+            Add to Cart
           </button>
         </div>
       </div>
@@ -203,7 +226,7 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
         <div className='fixed inset-0 z-50 flex items-center justify-center p-4'>
           {/* Backdrop */}
           <div
-            className='absolute inset-0 bg-black/50'
+            className='absolute inset-0 bg-black/50 backdrop-blur-sm'
             onClick={closeModal}
             aria-hidden
           />
@@ -264,6 +287,13 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
                 </div>
 
                 <div className='flex flex-col gap-4 md:col-span-2'>
+                  {/* Description in Modal */}
+                  {product.description && (
+                    <p className='text-sm text-gray-600'>
+                      {product.description}
+                    </p>
+                  )}
+
                   {/* Variants Selection */}
                   {hasVariants && (
                     <div className='space-y-3'>
@@ -276,12 +306,12 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
                             key={variant.id}
                             onClick={() => setSelectedVariant(variant)}
                             disabled={!variant.is_available}
-                            className={`relative rounded-full px-4 py-2 text-sm font-medium transition ${
+                            className={`relative rounded-lg px-4 py-2 text-sm font-medium transition ${
                               selectedVariant?.id === variant.id
                                 ? 'bg-green-600 text-white shadow-sm'
                                 : variant.is_available
-                                  ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                  : 'cursor-not-allowed bg-gray-50 text-gray-400 line-through'
+                                  ? 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                                  : 'cursor-not-allowed border border-gray-200 bg-gray-50 text-gray-400 line-through'
                             }`}
                           >
                             <span>{variant.size_name}</span>
@@ -291,7 +321,7 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
                           </button>
                         ))}
                       </div>
-                      <div className='text-sm text-gray-500'>
+                      <div className='text-sm text-gray-600'>
                         Price:{' '}
                         <span className='font-semibold text-green-600'>
                           KES {currentPrice.toFixed(2)}
@@ -301,7 +331,7 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
                   )}
 
                   {/* Quantity + Price summary */}
-                  <div className='flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between'>
+                  <div className='flex flex-col gap-3 border-t border-gray-200 pt-4 sm:flex-row sm:items-center sm:justify-between'>
                     <QuantitySelector
                       quantity={quantity}
                       setQuantity={setQuantity}

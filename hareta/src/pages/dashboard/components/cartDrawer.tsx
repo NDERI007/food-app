@@ -1,7 +1,18 @@
 import { useCartStore } from '@utils/hooks/useCrt';
-import { X, Plus, Minus, Trash2 } from 'lucide-react';
+import {
+  X,
+  Plus,
+  Minus,
+  Trash2,
+  ShoppingCart,
+  ArrowRight,
+  Clock,
+} from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export default function CartDrawer() {
+  const navigate = useNavigate();
+
   // Read all state directly from Zustand - no props needed!
   const isOpen = useCartStore((state) => state.isOpen);
   const closeCart = useCartStore((state) => state.closeCart);
@@ -40,156 +51,210 @@ export default function CartDrawer() {
     return choiceLabels.length > 0 ? choiceLabels.join(', ') : null;
   };
 
+  // Helper to get image URL with variants support
+  const getImageUrl = (image: any) => {
+    if (!image) return '';
+
+    // If image is a string, return it directly
+    if (typeof image === 'string') return image;
+
+    // If image is an object with variants, return the appropriate size
+    const imageData = image;
+    const hasImageVariants = imageData?.variants?.jpg;
+
+    if (hasImageVariants) {
+      return imageData.variants.jpg[400] || imageData.variants.jpg[800] || '';
+    }
+
+    return '';
+  };
+
+  const handleCheckout = () => {
+    closeCart();
+    navigate('/checkout');
+  };
+
+  const handleClearCart = () => {
+    if (window.confirm('Are you sure you want to clear your cart?')) {
+      clearCart();
+    }
+  };
+
   return (
     <>
       {/* Backdrop */}
       {isOpen && (
-        <div className='fixed inset-0 z-40 bg-black/50' onClick={closeCart} />
+        <div
+          className='fixed inset-0 z-40 bg-black/50 backdrop-blur-sm'
+          onClick={closeCart}
+        />
       )}
 
       {/* Drawer */}
       <div
-        className={`fixed inset-y-0 right-0 z-50 w-full max-w-md transform bg-white shadow-lg transition-transform duration-300 ${
+        className={`fixed inset-y-0 right-0 z-50 w-full max-w-md transform bg-white shadow-xl transition-transform duration-300 ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
-        {/* Header */}
-        <div className='flex items-center justify-between border-b p-4'>
-          <h2 className='text-lg font-bold'>Your Cart ({totalItems})</h2>
-          <button
-            onClick={closeCart}
-            className='rounded p-1 transition hover:bg-gray-100'
-            aria-label='Close cart'
-          >
-            <X className='h-5 w-5' />
-          </button>
-        </div>
-
-        {/* Cart Items */}
-        <div
-          className='flex-1 overflow-y-auto p-4'
-          style={{ maxHeight: 'calc(100vh - 180px)' }}
-        >
-          {items.length === 0 ? (
-            <div className='mt-16 flex flex-col items-center justify-center text-center text-gray-500'>
-              <div className='mb-4 text-6xl'>🛒</div>
-              <p className='text-lg font-medium'>Your cart is empty</p>
-              <p className='mt-2 text-sm'>
-                Add some delicious items to get started!
-              </p>
+        <div className='flex h-full flex-col'>
+          {/* Header */}
+          <div className='flex-shrink-0 border-b border-gray-200 bg-white p-4'>
+            <div className='flex items-center justify-between'>
+              <div>
+                <h2 className='text-xl font-bold text-gray-900'>Your Cart</h2>
+                <p className='text-sm text-gray-500'>
+                  {totalItems} {totalItems === 1 ? 'item' : 'items'}
+                </p>
+              </div>
+              <button
+                onClick={closeCart}
+                className='rounded-full p-2 transition hover:bg-gray-100'
+                aria-label='Close cart'
+              >
+                <X className='h-5 w-5 text-gray-600' />
+              </button>
             </div>
-          ) : (
-            <div className='space-y-4'>
-              {items.map((item) => {
-                const choices = formatChoices(item);
+          </div>
 
-                return (
-                  <div
-                    key={item.cartItemId}
-                    className='flex gap-3 border-b pb-4 last:border-b-0'
-                  >
-                    {item.image && (
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className='h-20 w-20 flex-shrink-0 rounded object-cover'
-                      />
-                    )}
+          {/* Items */}
+          <div className='flex-1 overflow-y-auto bg-[#fefaef] p-4'>
+            {items.length === 0 ? (
+              <div className='flex h-full flex-col items-center justify-center text-center'>
+                <ShoppingCart className='mb-4 h-16 w-16 text-gray-300' />
+                <p className='text-lg font-medium text-gray-600'>
+                  Your cart is empty
+                </p>
+                <p className='mt-2 text-sm text-gray-500'>
+                  Add some delicious items to get started!
+                </p>
+              </div>
+            ) : (
+              <div className='space-y-3'>
+                {items.map((item) => {
+                  const choices = formatChoices(item);
+                  const imageUrl = getImageUrl(item.image);
 
-                    <div className='min-w-0 flex-1'>
-                      <div className='flex items-start justify-between gap-2'>
-                        <h3 className='text-sm font-semibold'>{item.name}</h3>
-                        <button
-                          onClick={() => removeItem(item.cartItemId)}
-                          className='flex-shrink-0 text-red-600 hover:text-red-700'
-                          aria-label='Remove item'
-                        >
-                          <Trash2 className='h-4 w-4' />
-                        </button>
+                  return (
+                    <div
+                      key={item.cartItemId}
+                      className='overflow-hidden rounded-xl bg-white shadow-sm transition hover:shadow-md'
+                    >
+                      <div className='flex gap-3 p-3'>
+                        {imageUrl && (
+                          <img
+                            src={imageUrl}
+                            alt={item.name}
+                            className='h-24 w-24 flex-shrink-0 rounded-lg object-cover'
+                          />
+                        )}
+                        <div className='flex min-w-0 flex-1 flex-col'>
+                          <h3 className='font-semibold text-gray-900'>
+                            {item.name}
+                          </h3>
+                          {choices && (
+                            <p className='mt-1 line-clamp-2 text-xs text-gray-500'>
+                              {choices}
+                            </p>
+                          )}
+                          {/* Prep time - you can add this to your cart items if needed */}
+                          <div className='mt-1 flex items-center gap-1 text-xs text-gray-500'>
+                            <Clock className='h-3 w-3' />
+                            15-20 min
+                          </div>
+                          <div className='mt-auto flex items-center justify-between pt-2'>
+                            <span className='text-lg font-bold text-green-600'>
+                              KES {item.price.toFixed(2)}
+                            </span>
+                            <button
+                              onClick={() => removeItem(item.cartItemId)}
+                              className='text-red-500 transition hover:text-red-600'
+                              aria-label='Remove item'
+                            >
+                              <Trash2 className='h-4 w-4' />
+                            </button>
+                          </div>
+                        </div>
                       </div>
-
-                      {/* Show selected options */}
-                      {choices && (
-                        <p className='mt-1 line-clamp-2 text-xs text-gray-600'>
-                          {choices}
-                        </p>
-                      )}
-
-                      <div className='mt-2 flex items-center justify-between'>
-                        <p className='text-sm font-bold text-green-600'>
-                          ${item.price.toFixed(2)}
-                        </p>
-
-                        {/* Quantity Controls */}
-                        <div className='flex items-center gap-2'>
-                          <button
-                            onClick={() =>
-                              updateQuantity(item.cartItemId, item.quantity - 1)
-                            }
-                            className='rounded border border-gray-300 p-1 transition hover:bg-gray-50'
-                            aria-label='Decrease quantity'
-                          >
-                            <Minus className='h-4 w-4' />
-                          </button>
-
-                          <span className='w-8 text-center text-sm font-medium'>
-                            {item.quantity}
+                      <div className='border-t border-gray-100 bg-gray-50 px-3 py-2'>
+                        <div className='flex items-center justify-between'>
+                          <span className='text-sm text-gray-600'>
+                            Quantity
                           </span>
-
-                          <button
-                            onClick={() =>
-                              updateQuantity(item.cartItemId, item.quantity + 1)
-                            }
-                            className='rounded border border-gray-300 p-1 transition hover:bg-gray-50'
-                            aria-label='Increase quantity'
-                          >
-                            <Plus className='h-4 w-4' />
-                          </button>
+                          <div className='flex items-center gap-3'>
+                            <button
+                              onClick={() =>
+                                updateQuantity(
+                                  item.cartItemId,
+                                  item.quantity - 1,
+                                )
+                              }
+                              className='rounded-md bg-white p-1.5 shadow-sm transition hover:bg-gray-100'
+                              aria-label='Decrease quantity'
+                            >
+                              <Minus className='h-3.5 w-3.5 text-gray-700' />
+                            </button>
+                            <span className='w-8 text-center font-medium text-gray-900'>
+                              {item.quantity}
+                            </span>
+                            <button
+                              onClick={() =>
+                                updateQuantity(
+                                  item.cartItemId,
+                                  item.quantity + 1,
+                                )
+                              }
+                              className='rounded-md bg-white p-1.5 shadow-sm transition hover:bg-gray-100'
+                              aria-label='Increase quantity'
+                            >
+                              <Plus className='h-3.5 w-3.5 text-gray-700' />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          {items.length > 0 && (
+            <div className='flex-shrink-0 border-t border-gray-200 bg-white p-4'>
+              <div className='mb-3 space-y-2 rounded-lg bg-gray-50 p-3'>
+                <div className='flex justify-between text-sm'>
+                  <span className='text-gray-600'>Subtotal</span>
+                  <span className='font-medium text-gray-900'>
+                    KES {totalPrice.toFixed(2)}
+                  </span>
+                </div>
+                <div className='flex justify-between text-sm'>
+                  <span className='text-gray-600'>Delivery</span>
+                  <span className='font-medium text-green-600'>Free</span>
+                </div>
+                <div className='flex justify-between border-t border-gray-200 pt-2'>
+                  <span className='font-semibold text-gray-900'>Total</span>
+                  <span className='text-xl font-bold text-green-600'>
+                    KES {totalPrice.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={handleCheckout}
+                className='mb-2 flex w-full items-center justify-center gap-2 rounded-lg bg-green-600 py-3 font-medium text-white transition hover:bg-green-700'
+              >
+                Checkout
+                <ArrowRight className='h-4 w-4' />
+              </button>
+              <button
+                onClick={handleClearCart}
+                className='w-full text-sm text-red-600 transition hover:text-red-700'
+              >
+                Clear Cart
+              </button>
             </div>
           )}
         </div>
-
-        {/* Footer */}
-        {items.length > 0 && (
-          <div className='border-t bg-gray-50 p-4'>
-            <div className='mb-3 flex justify-between text-lg font-bold'>
-              <span>Total:</span>
-              <span className='text-green-600'>${totalPrice.toFixed(2)}</span>
-            </div>
-
-            <button
-              onClick={() => {
-                // Handle checkout
-                console.log('Proceeding to checkout with items:', items);
-                // Close cart and navigate to checkout
-                closeCart();
-                // navigate('/checkout');
-              }}
-              className='w-full rounded-lg bg-green-600 py-3 font-medium text-white transition hover:bg-green-700'
-            >
-              Proceed to Checkout
-            </button>
-
-            <button
-              onClick={() => {
-                if (
-                  window.confirm('Are you sure you want to clear your cart?')
-                ) {
-                  clearCart();
-                }
-              }}
-              className='mt-2 w-full py-2 text-sm text-red-600 hover:text-red-700'
-            >
-              Clear Cart
-            </button>
-          </div>
-        )}
       </div>
     </>
   );

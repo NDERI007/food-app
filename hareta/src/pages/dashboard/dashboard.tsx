@@ -36,7 +36,7 @@ function Dashboard() {
   };
 
   return (
-    <div className='flex min-h-screen flex-col bg-gray-50'>
+    <div className='flex min-h-screen flex-col'>
       {/* Navigation */}
       <Navbar
         onToggleSidebar={() => setSidebarOpen(!isSidebarOpen)}
@@ -124,14 +124,6 @@ function Dashboard() {
           ) : (
             // Success State - Responsive Grid
             <>
-              {/* Product Count Header */}
-              <div className='mb-4 flex items-center justify-between'>
-                <p className='text-sm text-gray-600'>
-                  {products.length}{' '}
-                  {products.length === 1 ? 'product' : 'products'} found
-                </p>
-              </div>
-
               {/* Responsive Product Grid */}
               <div className='grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'>
                 {products.map((product) => (

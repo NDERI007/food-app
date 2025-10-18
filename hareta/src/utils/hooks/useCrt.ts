@@ -12,10 +12,9 @@ export interface CartItem {
   variantId?: string; // Optional, only exists if it's a variant
   name: string; // e.g., "Pizza (Large)" or "Water Bottle"
   price: number; // The final price of this specific item
-  image: ImageVariants | string | null;
+  image: ImageVariants | null;
   quantity: number;
 }
-
 interface CartStore {
   // State
   items: CartItem[];
