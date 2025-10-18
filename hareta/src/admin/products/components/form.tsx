@@ -31,7 +31,6 @@ type MenuItemFormData = z.infer<typeof menuItemSchema>;
 const AdminProducts: React.FC = () => {
   const { deleteMenuItem, toggleAvailability } = useAdminStore();
   const queryClient = useQueryClient();
-
   const { data: menuItems = [], isLoading: loadingItems } = useMenuItems();
   const { data: categories = [], isLoading: loadingCategories } =
     useCategories();
@@ -225,24 +224,6 @@ const AdminProducts: React.FC = () => {
                     >
                       {item.available ? 'Available' : 'Unavailable'}
                     </span>
-
-                    {/* Desktop: Floating controls */}
-                    <div className='absolute top-3 right-3 hidden gap-2 opacity-0 transition-opacity duration-300 group-hover:opacity-100 sm:flex'>
-                      <button
-                        onClick={() => handleEdit(item)}
-                        className='rounded-full bg-white/90 p-2 text-blue-600 shadow-lg hover:bg-blue-50'
-                        title='Edit'
-                      >
-                        <Edit className='h-4 w-4' />
-                      </button>
-                      <button
-                        onClick={() => deleteMenuItem(item.id, queryClient)}
-                        className='rounded-full bg-white/90 p-2 text-red-600 shadow-lg hover:bg-red-50'
-                        title='Delete'
-                      >
-                        <Trash2 className='h-4 w-4' />
-                      </button>
-                    </div>
                   </div>
                 ) : (
                   <div className='flex h-48 items-center justify-center bg-gray-100 text-gray-400'>
@@ -266,35 +247,54 @@ const AdminProducts: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Mobile: Bottom action bar */}
-                <div className='flex items-center justify-around border-t border-gray-200 py-2 text-sm sm:hidden'>
-                  <button
-                    onClick={() => toggleAvailability(item, queryClient)}
-                    className='flex flex-col items-center gap-1 px-2'
-                  >
-                    <span className='text-xs text-gray-600'>Toggle</span>
-                  </button>
-                  <button
-                    onClick={() => handleEdit(item)}
-                    className='flex flex-col items-center gap-1 px-2'
-                  >
-                    <Edit className='h-4 w-4 text-blue-500' />
-                    <span className='text-xs text-gray-600'>Edit</span>
-                  </button>
-                  <button
-                    onClick={() => setManagingVariantsFor(item.id)}
-                    className='flex flex-col items-center gap-1 px-2'
-                  >
-                    <Package className='h-4 w-4 text-purple-500' />
-                    <span className='text-xs text-gray-600'>Variants</span>
-                  </button>
-                  <button
-                    onClick={() => deleteMenuItem(item.id, queryClient)}
-                    className='flex flex-col items-center gap-1 px-2'
-                  >
-                    <Trash2 className='h-4 w-4 text-red-500' />
-                    <span className='text-xs text-gray-600'>Delete</span>
-                  </button>
+                {/* Action Buttons - Two rows */}
+                <div className='mt-4 space-y-2'>
+                  {/* Top row: Toggle and Variants */}
+                  <div className='flex gap-2'>
+                    <button
+                      onClick={() => toggleAvailability(item, queryClient)}
+                      className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-xs font-medium transition ${
+                        item.available
+                          ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                          : 'bg-red-100 text-red-700 hover:bg-red-200'
+                      }`}
+                      title='Toggle Availability'
+                    >
+                      <span>
+                        {item.available ? 'Available' : 'Unavailable'}
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={() => setManagingVariantsFor(item.id)}
+                      className='flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-purple-100 px-3 py-2.5 text-xs font-medium text-purple-700 transition hover:bg-purple-200'
+                      title='Manage Variants'
+                    >
+                      <Package className='h-3.5 w-3.5' />
+                      <span>Variants</span>
+                    </button>
+                  </div>
+
+                  {/* Bottom row: Edit and Delete */}
+                  <div className='flex gap-2'>
+                    <button
+                      onClick={() => handleEdit(item)}
+                      className='flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-100 px-3 py-2.5 text-xs font-medium text-blue-700 transition hover:bg-blue-200'
+                      title='Edit Product'
+                    >
+                      <Edit className='h-3.5 w-3.5' />
+                      <span>Edit</span>
+                    </button>
+
+                    <button
+                      onClick={() => deleteMenuItem(item.id, queryClient)}
+                      className='flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-red-100 px-3 py-2.5 text-xs font-medium text-red-700 transition hover:bg-red-200'
+                      title='Delete Product'
+                    >
+                      <Trash2 className='h-3.5 w-3.5' />
+                      <span>Delete</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

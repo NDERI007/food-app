@@ -1,7 +1,7 @@
 import { memo, useState, useMemo, useEffect } from 'react';
 import { useCartStore } from '@utils/hooks/useCrt';
 import { ImageOff, Plus, Loader2, Check } from 'lucide-react';
-import { useMenuItem } from '@utils/hooks/productStore';
+import { useProductVariants } from '@utils/hooks/productStore';
 import type { MenuItem, ProductVariant } from '@utils/schemas/menu';
 import QuantitySelector from './quantitySel';
 
@@ -15,15 +15,16 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(
     null,
   );
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
 
   const addItem = useCartStore((state) => state.addItem);
 
   // Fetch full product details (including variants) only when modal opens
-  const { data: productDetails, isLoading: loadingDetails } = useMenuItem(
+  const { data: variants = [], isLoading: loadingDetails } = useProductVariants(
     isOpen ? product.id : '',
   );
 
-  const variants = productDetails?.product_variants || [];
   const hasVariants = variants.length > 0;
 
   useEffect(() => {
@@ -36,6 +37,7 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
   }, [isOpen, hasVariants, variants, selectedVariant]);
 
   function openModal() {
+    if (!product.available) return;
     setIsOpen(true);
   }
 
@@ -46,14 +48,14 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
   }
 
   function handleAddFromModal() {
-    if (hasVariants && !selectedVariant) return; // Should not happen if button is disabled
-
+    if (hasVariants && !selectedVariant) return;
     addItem(product, quantity, selectedVariant ?? undefined);
-
     closeModal();
   }
+
   const currentPrice = selectedVariant?.price ?? product.price;
   const subtotal = currentPrice * quantity;
+
   // Calculate display price based on variants
   const displayPrice = useMemo(() => {
     if (product.variants && product.variants.length > 0) {
@@ -62,14 +64,10 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
       const maxPrice = Math.max(...prices);
 
       if (minPrice === maxPrice) return `KES ${minPrice.toFixed(2)}`;
-      // A slightly cleaner way to show a range
       return `From KES ${minPrice.toFixed(2)}`;
     }
     return `KES ${product.price.toFixed(2)}`;
   }, [product.variants, product.price]);
-
-  const [loaded, setLoaded] = useState(false);
-  const [error, setError] = useState(false);
 
   // Get image object if available
   const imageData = typeof product.image === 'object' ? product.image : null;
@@ -79,42 +77,65 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
   return (
     <>
       <div
-        className='group relative flex cursor-pointer flex-col rounded-xl bg-white p-3 shadow transition hover:shadow-lg sm:p-4'
+        className={`group relative flex flex-col rounded-xl bg-white p-3 shadow transition hover:shadow-lg sm:p-4 ${
+          product.available ? 'cursor-pointer' : 'cursor-not-allowed'
+        }`}
         onClick={openModal}
       >
-        {/* Image */}
+        {/* Image Container */}
         <div className='relative w-full overflow-hidden rounded-xl bg-gray-100'>
-          {/* LQIP blur placeholder */}
-          {!error && imageData?.lqip && (
-            <div
-              className={`absolute inset-0 transition-opacity duration-500 ${
-                loaded ? 'opacity-0' : 'opacity-100'
-              }`}
-              style={{
-                backgroundImage: `url(${imageData.lqip})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                filter: 'blur(10px)',
-                transform: 'scale(1.1)',
-              }}
-            />
+          {/* Out of Stock Badge */}
+          {!product.available && (
+            <div className='absolute top-2 right-2 z-10 rounded-full bg-red-500 px-3 py-1 text-xs font-semibold text-white shadow-md'>
+              Out of Stock
+            </div>
           )}
 
-          {!error ? (
-            hasImageVariants ? (
-              <picture>
-                <source
-                  srcSet={`${imageData.variants.avif[400]} 400w, ${imageData.variants.avif[800]} 800w`}
-                  type='image/avif'
-                  sizes='(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 300px'
-                />
-                <source
-                  srcSet={`${imageData.variants.jpg[400]} 400w, ${imageData.variants.jpg[800]} 800w`}
-                  type='image/jpeg'
-                  sizes='(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 300px'
-                />
+          {/* Grayscale wrapper for unavailable products */}
+          <div className={!product.available ? 'grayscale' : ''}>
+            {/* LQIP blur placeholder */}
+            {!error && imageData?.lqip && (
+              <div
+                className={`absolute inset-0 transition-opacity duration-500 ${
+                  loaded ? 'opacity-0' : 'opacity-100'
+                }`}
+                style={{
+                  backgroundImage: `url(${imageData.lqip})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  filter: 'blur(10px)',
+                  transform: 'scale(1.1)',
+                }}
+              />
+            )}
+
+            {!error ? (
+              hasImageVariants ? (
+                <picture>
+                  <source
+                    srcSet={`${imageData.variants.avif[400]} 400w, ${imageData.variants.avif[800]} 800w`}
+                    type='image/avif'
+                    sizes='(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 300px'
+                  />
+                  <source
+                    srcSet={`${imageData.variants.jpg[400]} 400w, ${imageData.variants.jpg[800]} 800w`}
+                    type='image/jpeg'
+                    sizes='(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 300px'
+                  />
+                  <img
+                    src={imageData.variants.jpg[400]}
+                    alt={product.name}
+                    loading='lazy'
+                    onLoad={() => setLoaded(true)}
+                    onError={() => setError(true)}
+                    className={`h-32 w-full rounded-xl object-cover transition-all duration-500 sm:h-36 md:h-40 ${
+                      loaded ? 'scale-100 opacity-100' : 'scale-105 opacity-0'
+                    }`}
+                  />
+                </picture>
+              ) : (
                 <img
-                  src={imageData.variants.jpg[400]}
+                  src={typeof product.image === 'string' ? product.image : ''}
                   alt={product.name}
                   loading='lazy'
                   onLoad={() => setLoaded(true)}
@@ -123,29 +144,22 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
                     loaded ? 'scale-100 opacity-100' : 'scale-105 opacity-0'
                   }`}
                 />
-              </picture>
+              )
             ) : (
-              <img
-                src={typeof product.image === 'string' ? product.image : ''}
-                alt={product.name}
-                loading='lazy'
-                onLoad={() => setLoaded(true)}
-                onError={() => setError(true)}
-                className={`h-32 w-full rounded-xl object-cover transition-all duration-500 sm:h-36 md:h-40 ${
-                  loaded ? 'scale-100 opacity-100' : 'scale-105 opacity-0'
-                }`}
-              />
-            )
-          ) : (
-            <div className='flex h-32 items-center justify-center text-gray-400 sm:h-36 md:h-40'>
-              <ImageOff size={32} />
-            </div>
-          )}
+              <div className='flex h-32 items-center justify-center text-gray-400 sm:h-36 md:h-40'>
+                <ImageOff size={32} />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Name */}
         <div className='mt-3 flex-1'>
-          <h3 className='line-clamp-2 text-sm font-medium sm:text-base'>
+          <h3
+            className={`line-clamp-2 text-sm font-medium sm:text-base ${
+              !product.available ? 'text-gray-400' : ''
+            }`}
+          >
             {product.name}
           </h3>
         </div>
@@ -153,7 +167,13 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
         {/* Price + Action */}
         <div className='mt-3 flex items-center justify-between'>
           <div>
-            <span className='text-sm font-semibold text-green-600 sm:text-base'>
+            <span
+              className={`text-sm font-semibold sm:text-base ${
+                product.available
+                  ? 'text-green-600'
+                  : 'text-gray-400 line-through'
+              }`}
+            >
               {displayPrice}
             </span>
           </div>
@@ -163,8 +183,15 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
               e.stopPropagation();
               openModal();
             }}
-            className='flex items-center justify-center rounded-full bg-green-100 p-2 text-green-600 transition-colors hover:bg-green-200'
-            aria-label='Add to cart'
+            disabled={!product.available}
+            className={`flex items-center justify-center rounded-full p-2 transition-colors ${
+              product.available
+                ? 'bg-green-100 text-green-600 hover:bg-green-200'
+                : 'cursor-not-allowed bg-gray-100 text-gray-400'
+            }`}
+            aria-label={
+              product.available ? 'Add to cart' : 'Product unavailable'
+            }
           >
             <Plus size={16} className='sm:h-5 sm:w-5' />
           </button>
@@ -203,7 +230,7 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
                   Loading details...
                 </span>
               </div>
-            ) : productDetails ? (
+            ) : (
               <div className='mt-4 grid gap-4 sm:gap-6 md:grid-cols-3'>
                 {/* Image */}
                 <div className='flex justify-center md:block'>
@@ -237,10 +264,6 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
                 </div>
 
                 <div className='flex flex-col gap-4 md:col-span-2'>
-                  <p className='text-sm text-gray-700'>
-                    {productDetails.description || 'No description available.'}
-                  </p>
-
                   {/* Variants Selection */}
                   {hasVariants && (
                     <div className='space-y-3'>
@@ -313,10 +336,6 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
                     </button>
                   </div>
                 </div>
-              </div>
-            ) : (
-              <div className='flex items-center justify-center py-8 text-gray-500'>
-                <p>Failed to load product details</p>
               </div>
             )}
           </div>

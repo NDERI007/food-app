@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAdminStore } from '@utils/hooks/adminStore';
-import { useMenuItem } from '@utils/hooks/productStore';
+import { useProductVariants } from '@utils/hooks/productStore';
 import type { ProductVariant } from '@utils/schemas/menu';
 import { VariantForm } from './variant-form';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
@@ -16,9 +16,7 @@ export const ProductVariantsManager: React.FC<{ productId: string }> = ({
   const [editingVariant, setEditingVariant] = useState<ProductVariant | null>(
     null,
   );
-  const { data: product, isLoading } = useMenuItem(productId);
-
-  const variants = product?.product_variants || [];
+  const { data: variants = [], isLoading } = useProductVariants(productId);
 
   const handleAddNew = () => {
     setEditingVariant(null);

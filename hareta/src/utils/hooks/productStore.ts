@@ -3,11 +3,10 @@ import axios from 'axios';
 import { useEffect } from 'react';
 import type { Category, MenuItem, ProductVariant } from '@utils/schemas/menu';
 import { supabase } from '@utils/supabase/Client';
-import { toast } from 'sonner';
 
 /* ----------------------------- API FETCHERS ----------------------------- */
 const fetchMenuItems = async (
-  categoryId: string | null,
+  categoryId?: string | null,
 ): Promise<MenuItem[]> => {
   // Start with the base URL
   let url = '/api/prod/menu-items';
@@ -26,14 +25,6 @@ const fetchCategories = async (): Promise<Category[]> => {
   return data;
 };
 
-// Fetch a single menu item (with variants)
-const fetchMenuItemById = async (
-  id: string,
-): Promise<MenuItem & { product_variants: ProductVariant[] }> => {
-  const { data } = await axios.get(`/api/prod/menu-items/${id}`);
-  return data;
-};
-
 // Fetch variants for a single product (used when showing variants dynamically)
 const fetchProductVariants = async (
   productId: string,
@@ -44,19 +35,97 @@ const fetchProductVariants = async (
   return data;
 };
 /* ----------------------------- QUERY HOOKS ----------------------------- */
-export function useMenuItems(categoryId: string | null) {
-  return useQuery({
-    // The query key now includes the categoryId.
-    // This is crucial for caching!
-    queryKey: ['menu-items', categoryId],
+export function useMenuItems(categoryId?: string | null) {
+  const queryClient = useQueryClient();
 
-    // Pass the categoryId to the fetch function
+  const query = useQuery({
+    queryKey: ['menu-items', categoryId || 'all'],
     queryFn: () => fetchMenuItems(categoryId),
-
-    staleTime: 1000 * 60 * 5, // 5 mins cache
+    staleTime: 1000 * 60 * 5,
   });
-}
 
+  useEffect(() => {
+    console.log('Setting up realtime subscription for menu items');
+
+    const channel = supabase
+      .channel('menu_items_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'menu_items',
+        },
+        (payload) => {
+          console.log('🔄 Realtime: Menu item changed:', payload);
+
+          // Get all query keys that match ['menu-items', ...]
+          const queries = queryClient.getQueriesData<MenuItem[]>({
+            queryKey: ['menu-items'],
+          });
+
+          console.log('📊 Updating queries:', queries.length);
+
+          // Update each matching query
+          queries.forEach(([queryKey]) => {
+            queryClient.setQueryData<MenuItem[]>(queryKey, (old) => {
+              if (!old) return old;
+
+              if (payload.eventType === 'DELETE') {
+                console.log('❌ Removing item:', payload.old.id);
+                return old.filter((item) => item.id !== payload.old.id);
+              }
+
+              if (payload.eventType === 'INSERT') {
+                const newItem = payload.new as MenuItem;
+                console.log('➕ Adding item:', newItem.id);
+
+                // Check if item already exists (avoid duplicates)
+                const exists = old.some((item) => item.id === newItem.id);
+                if (exists) return old;
+
+                // If we're viewing a specific category, only add if it matches
+                const categoryFilter = queryKey[1];
+                if (
+                  categoryFilter &&
+                  categoryFilter !== 'all' &&
+                  newItem.category_id !== categoryFilter
+                ) {
+                  return old;
+                }
+
+                return [...old, newItem];
+              }
+
+              // UPDATE
+              if (payload.eventType === 'UPDATE') {
+                const updatedItem = payload.new as MenuItem;
+                console.log('Updating item:', updatedItem.name);
+
+                return old.map((item) =>
+                  item.id === updatedItem.id
+                    ? { ...item, ...updatedItem }
+                    : item,
+                );
+              }
+
+              return old;
+            });
+          });
+        },
+      )
+      .subscribe((status) => {
+        console.log('Realtime subscription status:', status);
+      });
+
+    return () => {
+      console.log('Cleaning up realtime subscription');
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
+  return query;
+}
 export function useCategories() {
   return useQuery({
     queryKey: ['categories'],
@@ -69,100 +138,33 @@ export function useCategories() {
  * Fetch product variants separately (if you want to show variants only on demand)
  */
 export function useProductVariants(productId: string) {
-  return useQuery({
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
     queryKey: ['product-variants', productId],
     queryFn: () => fetchProductVariants(productId),
     enabled: !!productId,
-  });
-}
-
-/**
- * Listen to updates for a single product in realtime.
- * Keeps the cache in sync without refetching the entire list.
- */
-export function useMenuItem(id: string) {
-  const queryClient = useQueryClient();
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['menu-item', id],
-    queryFn: () => fetchMenuItemById(id),
-    enabled: !!id,
+    staleTime: 1000 * 60 * 5,
   });
 
   useEffect(() => {
-    if (!id) return;
+    if (!productId) return;
 
-    // Subscribe to updates only for this specific menu item
     const channel = supabase
-      .channel(`menu-item-${id}`)
+      .channel(`product-variants-${productId}`)
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'menu_items',
-          filter: `id=eq.${id}`,
-        },
-        (payload) => {
-          console.log('Realtime update for item:', payload);
-
-          // Update cached data in React Query
-          queryClient.setQueryData(['menu-item', id], payload.new);
-
-          // Optionally, also patch it in the "menu-items" list cache if present
-          queryClient.setQueryData<MenuItem[]>(['menu-items'], (old) =>
-            old
-              ? old.map((item) =>
-                  item.id === id ? (payload.new as MenuItem) : item,
-                )
-              : old,
-          );
-        },
-      )
-      /*Watch if the product is deleted */
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'menu_items',
-          filter: `id=eq.${id}`,
-        },
-        (payload) => {
-          console.log('Product deleted:', payload.old);
-
-          // Remove the query data
-          queryClient.removeQueries({ queryKey: ['menu-item', id] });
-
-          toast.warning('This product was deleted');
-          // Example: navigate('/admin/products');
-        },
-      )
-      /*Invalidate only when a variant is added or removed */
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
+          event: '*', // Listen to INSERT, UPDATE, DELETE
           schema: 'public',
           table: 'product_variants',
-          filter: `product_id=eq.${id}`,
+          filter: `product_id=eq.${productId}`,
         },
         () => {
-          console.log('Variant added');
-          queryClient.invalidateQueries({ queryKey: ['menu-item', id] });
-        },
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'product_variants',
-          filter: `product_id=eq.${id}`,
-        },
-        () => {
-          console.log('Variant removed');
-          queryClient.invalidateQueries({ queryKey: ['menu-item', id] });
+          console.log('Variant changed, refetching...');
+          queryClient.invalidateQueries({
+            queryKey: ['product-variants', productId],
+          });
         },
       )
       .subscribe();
@@ -170,7 +172,7 @@ export function useMenuItem(id: string) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [id, queryClient]);
+  }, [productId, queryClient]);
 
-  return { data, isLoading, error };
+  return query;
 }

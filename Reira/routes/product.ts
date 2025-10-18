@@ -6,13 +6,11 @@ import { deleteImageVariantS, uploadImageVariants } from "@utils/imageVariants";
 
 const router = express.Router();
 
-router.use(withAuth());
-
 // Configure multer for memory storage
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 3 * 1024 * 1024, // 5MB limit
+    fileSize: 3 * 1024 * 1024, // 3MB limit
   },
   fileFilter: (req, file, cb) => {
     // Accept only image files
@@ -25,9 +23,6 @@ const upload = multer({
 });
 
 // Routes
-
-// Get all menu items
-// GET /api/menu-items
 // GET /api/menu-items?category_id=some_id
 router.get("/menu-items", async (req, res) => {
   try {
@@ -57,36 +52,6 @@ router.get("/menu-items", async (req, res) => {
   } catch (error) {
     console.error("Error fetching menu items:", error);
     res.status(500).json({ error: "Failed to fetch menu items" });
-  }
-});
-// Get single menu item
-// GET /menu-items/:id (full detail with variants)
-router.get("/menu-items/:id", async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    const { data, error } = await supabase
-      .from("menu_items")
-      .select(
-        `
-        *,
-        product_variants (
-          id,
-          size_name,
-          price,
-          is_available
-        )
-      `
-      )
-      .eq("id", id)
-      .single();
-
-    if (error) throw error;
-
-    res.json(data);
-  } catch (error) {
-    console.error("Error fetching product:", error);
-    res.status(500).json({ error: "Failed to fetch product" });
   }
 });
 

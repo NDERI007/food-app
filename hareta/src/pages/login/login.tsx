@@ -16,6 +16,7 @@ export default function Login() {
   const [step, setStep] = useState<1 | 2>(1);
   const [email, setEmail] = useState('');
   const [disabled, setDisabled] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
   const { checkAuth } = useAuth();
   const navigate = useNavigate();
   // Step 1 form (email)
@@ -65,6 +66,7 @@ export default function Login() {
   };
 
   const handleVerifyOtp = async (data: OtpSchemaType) => {
+    setIsVerifying(true);
     try {
       await axios.post(
         '/api/auth/verify-otp',
@@ -75,6 +77,7 @@ export default function Login() {
       const user = await checkAuth();
 
       if (!user) {
+        setIsVerifying(false);
         toast.error('Authentication failed. Please try again.');
         return;
       }
@@ -87,6 +90,7 @@ export default function Login() {
         navigate('/dashboard');
       }
     } catch (err: unknown) {
+      setIsVerifying(false);
       if (axios.isAxiosError(err)) {
         const backendMsg = (err.response?.data as { error?: string })?.error;
         toast.error(backendMsg || 'Failed to verify OTP');
@@ -133,7 +137,7 @@ export default function Login() {
             >
               {disabled ? 'Please wait...' : 'Continue'}
             </button>
-            {/* 👇 Add this section */}
+
             <p className='mt-6 text-center text-sm text-gray-600'>
               Don't have an account?{' '}
               <Link
@@ -163,6 +167,7 @@ export default function Login() {
                 className={`rounded-md border p-2 focus:outline-none ${
                   otpErrors.otp ? 'border-red-500' : 'border-gray-300'
                 }`}
+                disabled={isVerifying}
               />
               {otpErrors.otp && (
                 <p className='mt-1 text-sm text-red-500'>
@@ -180,17 +185,21 @@ export default function Login() {
                   setStep(1);
                   setEmail(''); // optional: clear email when going back
                 }}
+                disabled={isVerifying}
                 className='w-1/3 rounded-md bg-gray-200 px-4 py-2 text-gray-700 shadow-sm hover:bg-gray-300 active:scale-95'
               >
                 Back
               </button>
-
               {/* Verify button */}
               <button
                 type='submit'
-                className='flex-1 rounded-md bg-green-900 px-4 py-2 text-white shadow-md hover:bg-green-800 hover:shadow-lg active:scale-95 active:bg-green-950 active:shadow-inner'
+                disabled={isVerifying}
+                className='flex flex-1 items-center justify-center gap-2 rounded-md bg-green-900 px-4 py-2 text-white shadow-md hover:bg-green-800 hover:shadow-lg active:scale-95 active:bg-green-950 active:shadow-inner disabled:cursor-not-allowed disabled:bg-gray-400'
               >
-                Verify
+                {isVerifying && (
+                  <div className='h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent'></div>
+                )}
+                {isVerifying ? 'Verifying...' : 'Verify'}
               </button>
             </div>
           </form>
