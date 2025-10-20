@@ -54,8 +54,7 @@ export default function HeroStickyHeadline({ onSubmit }: HeroSearchBarProps) {
   } = usePlacesSearch({
     onSubmit: (place) => {
       // Save address to store
-      const address = place.main_text || '';
-      setDeliveryAddress(address, place, sessionToken);
+      setDeliveryAddress(place, sessionToken);
 
       // Call parent's onSubmit if provided
       onSubmit?.(place);
@@ -247,11 +246,7 @@ export default function HeroStickyHeadline({ onSubmit }: HeroSearchBarProps) {
           };
 
           // Save to store with properly formatted address
-          setDeliveryAddress(
-            data.room ? `${data.name}, ${data.room}` : data.name,
-            customPlace,
-            sessionToken,
-          );
+          setDeliveryAddress(customPlace, sessionToken);
           onSubmit?.(customPlace);
           navigate('/dashboard');
         }}

@@ -51,19 +51,15 @@ export default function AddressPage() {
     label: string,
   ) => {
     try {
-      // ✅ If no lat/lng, fetch from /api/place-details
       if (!address.lat || !address.lng) {
         const { data } = await axios.post(
           '/api/places/place-details',
           {
-            source: 'google', // default to google if from autocomplete
             placeId: address.place_id,
             main_text: address.main_text,
             secondary_text: address.secondary_text,
-            lat: address.lat,
-            lng: address.lng,
             sessionToken,
-            label, // if you're maintaining one from autocomplete
+            label,
           },
           {
             withCredentials: true,
@@ -83,7 +79,6 @@ export default function AddressPage() {
         lng: address.lng, // from Google result
       };
 
-      // ✅ Now upsert (always call upsert)
       const { data } = await axios.post('/api/addr/upsert', payload, {
         withCredentials: true,
       });

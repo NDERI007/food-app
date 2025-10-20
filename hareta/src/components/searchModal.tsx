@@ -1,18 +1,16 @@
 import { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Search, MapPin, Home } from 'lucide-react';
+import { X, Search, MapPin, Home, Loader2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { usePlacesSearch } from '@utils/hooks/placeSearch';
-import type { SavedAddress } from './addrChange';
+import type { SavedAddress } from '@utils/schemas/address';
 
-interface DeliveryAddressModalProps {
+interface AddressModalProps {
   show: boolean;
   onClose: () => void;
-  onSelect: (address: any) => void;
+  onSelect: (address: SavedAddress) => void;
   savedAddresses: SavedAddress[];
-  address: any;
-  handleSavedAddressSelect: (saved: SavedAddress) => void;
-  handleAddressSelect: (address: any) => void;
+  isLoading: boolean;
 }
 
 export default function AddressModal({
@@ -20,10 +18,8 @@ export default function AddressModal({
   onClose,
   onSelect,
   savedAddresses,
-  address,
-  handleSavedAddressSelect,
-  handleAddressSelect,
-}: DeliveryAddressModalProps) {
+  isLoading,
+}: AddressModalProps) {
   const sessionToken = useMemo(() => uuidv4(), [show]);
 
   const {
@@ -99,14 +95,11 @@ export default function AddressModal({
                       placeholder='Enter delivery address...'
                       className='w-full rounded-lg border border-gray-300 px-4 py-3 pr-12 focus:ring-2 focus:ring-green-500 focus:outline-none'
                     />
-                    <button
-                      type='button'
-                      className='absolute top-1/2 right-3 -translate-y-1/2 transform text-gray-500 hover:text-green-600'
-                    >
-                      <Search size={20} />
-                    </button>
+                    <Search
+                      size={20}
+                      className='absolute top-1/2 right-3 -translate-y-1/2 transform text-gray-500'
+                    />
                   </div>
-
                   {loading && (
                     <p className='mt-2 text-sm text-gray-400'>Searching...</p>
                   )}
@@ -124,7 +117,11 @@ export default function AddressModal({
                       {results.map((place, index) => (
                         <button
                           key={index}
-                          onMouseDown={() => selectPlace(place)}
+                          onMouseDown={() => {
+                            selectPlace(place);
+                            onSelect(place);
+                            onClose();
+                          }}
                           className='flex w-full items-center gap-2 px-4 py-3 text-left hover:bg-gray-50'
                         >
                           <MapPin size={16} className='text-gray-500' />
@@ -145,45 +142,51 @@ export default function AddressModal({
                 </AnimatePresence>
 
                 {/* Saved Addresses */}
-                {savedAddresses.length > 0 && !isOpen && (
+                {!isOpen && (
                   <div>
                     <p className='mb-2 text-sm text-gray-600'>
                       Saved Addresses:
                     </p>
                     <div className='space-y-2'>
-                      {savedAddresses.map((saved) => (
-                        <button
-                          key={saved.id}
-                          onClick={() => handleSavedAddressSelect(saved)}
-                          className='w-full rounded-lg bg-gray-50 px-4 py-3 text-left transition-colors hover:bg-gray-100'
-                        >
-                          <div className='flex items-center gap-3'>
-                            <div className='rounded-full bg-green-100 p-2'>
-                              <Home size={16} className='text-green-600' />
+                      {isLoading ? (
+                        <div className='flex items-center justify-center gap-2 rounded-lg bg-gray-50 px-4 py-3 text-gray-500'>
+                          <Loader2 className='h-4 w-4 animate-spin' />
+                          <span className='text-sm'>
+                            Loading your addresses...
+                          </span>
+                        </div>
+                      ) : savedAddresses.length > 0 ? (
+                        savedAddresses.map((saved) => (
+                          <button
+                            key={saved.id}
+                            onClick={() => {
+                              onSelect(saved);
+                              onClose();
+                            }}
+                            className='w-full rounded-lg bg-gray-50 px-4 py-3 text-left transition-colors hover:bg-gray-100'
+                          >
+                            <div className='flex items-center gap-3'>
+                              <div className='rounded-full bg-green-100 p-2'>
+                                <Home size={16} className='text-green-600' />
+                              </div>
+                              <div>
+                                <p className='font-medium text-gray-800'>
+                                  {saved.label}
+                                </p>
+                                <p className='text-sm text-gray-600'>
+                                  {saved.place_name}
+                                </p>
+                              </div>
                             </div>
-                            <div>
-                              <p className='font-medium text-gray-800'>
-                                {saved.label}
-                              </p>
-                              <p className='text-sm text-gray-600'>
-                                {saved.address}
-                              </p>
-                            </div>
-                          </div>
-                        </button>
-                      ))}
+                          </button>
+                        ))
+                      ) : (
+                        <div className='rounded-lg bg-gray-50 px-4 py-3 text-center text-sm text-gray-500'>
+                          <p>No saved addresses found.</p>
+                        </div>
+                      )}
                     </div>
                   </div>
-                )}
-
-                {/* Confirm Button */}
-                {address && (
-                  <button
-                    onClick={() => handleAddressSelect(address)}
-                    className='mt-4 w-full rounded-lg bg-green-600 py-3 text-white transition-colors hover:bg-green-700'
-                  >
-                    Confirm Delivery Address
-                  </button>
                 )}
               </div>
             </div>

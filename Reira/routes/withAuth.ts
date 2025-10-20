@@ -62,11 +62,10 @@ router.post("/send-otp", authLimiter, async (req, res) => {
 
   try {
     await sendOtpEmail(email, code);
-    // ✅ Only track a successful send attempt
     const newAttempts = await cache.incr(`otp_send_attempts:${email}`);
     await cache.expire(`otp_send_attempts:${email}`, ATTEMPT_WINDOW);
 
-    // ✅ Only reset verify attempts after a successful send
+    // Only reset verify attempts after a successful send
     await cache.del(`otp_verify_attempts:${email}`);
 
     res.json({ message: "OTP sent!", attempts: newAttempts });
@@ -181,7 +180,7 @@ router.post("/verify-otp", authLimiter, async (req, res) => {
       secure: process.env.NODE_ENV === "production",
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: SESSION_TTL * 1000,
-      path: "/", //✅ Always sent to every route on your domain
+      path: "/", //Always sent to every route on your domain
     });
     return res.status(200).json({ message: "Authenticated!" });
   } catch (err) {

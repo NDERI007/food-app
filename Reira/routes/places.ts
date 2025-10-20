@@ -106,7 +106,7 @@ router.post("/place-details", withAuth(), async (req, res) => {
       message: "Address fetched from Google and saved",
     });
   } catch (error) {
-    console.error("Error in /place-details endpoint:", error);
+    console.error("Error:", error);
     return res.status(500).json({
       error: "Internal server error",
       details: error instanceof Error ? error.message : "Unknown error",

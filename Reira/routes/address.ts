@@ -16,7 +16,7 @@ router.get("/look-up", async (req, res) => {
 
     const { data, error } = await supabase // Use service role client
       .from("addresses")
-      .select("id, label, place_name, address")
+      .select("id, label, place_name, address, lat, lng")
       .eq("user_id", userID);
 
     if (error) throw error;

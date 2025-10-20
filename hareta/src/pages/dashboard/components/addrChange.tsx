@@ -2,23 +2,16 @@ import React, { useState, useRef, useEffect } from 'react';
 import { MapPin, Home, Clock, Phone, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDeliveryStore } from '@utils/hooks/deliveryStore';
-import AddressModal from './searchModal';
-import type { Place } from '@utils/hooks/placeSearch';
+import axios from 'axios';
+import type { SavedAddress } from '@utils/schemas/address';
+import AddressModal from '@components/searchModal';
 
 // Type definitions
 type DeliveryOption = 'delivery' | 'pickup';
 
-export interface SavedAddress {
-  id: number;
-  label: string;
-  address: string;
-  city: string;
-}
-
 interface RestaurantInfo {
   name: string;
   address: string;
-  city: string;
   phone: string;
   hours: string;
   mapUrl: string;
@@ -26,7 +19,6 @@ interface RestaurantInfo {
 export const DeliveryPickupToggle: React.FC = () => {
   // Get delivery info from global store
   const {
-    address,
     place: currentPlace,
     sessionToken,
     deliveryOption: selectedOption,
@@ -37,24 +29,38 @@ export const DeliveryPickupToggle: React.FC = () => {
 
   const [showDropdown, setShowDropdown] = useState<boolean>(false);
   const [showModal, setShowModal] = useState<boolean>(false);
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [isLoadingAddresses, setIsLoadingAddresses] = useState<boolean>(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Mock restaurant location data - replace with your actual data
   const restaurantInfo: RestaurantInfo = {
     name: 'Restaurant Name',
     address: '123 Main Street, Downtown',
-    city: 'New York, NY 10001',
     phone: '0727922764',
     hours: '11:00 AM - 10:00 PM',
     mapUrl: 'https://maps.google.com/?q=123+Main+Street+New+York',
   };
 
-  // Mock saved addresses - replace with actual user data
-  const savedAddresses: SavedAddress[] = [
-    { id: 1, label: 'Home', address: '456 Oak Avenue', city: 'Apt 3B' },
-    { id: 2, label: 'Work', address: '789 Business Plaza', city: 'Floor 5' },
-  ];
+  useEffect(() => {
+    const fetchSavedAddresses = async () => {
+      // Only fetch when the modal is being opened
+      if (showModal) {
+        setIsLoadingAddresses(true);
+        try {
+          const { data } = await axios.get('/api/addr/look-up');
+          setSavedAddresses(data.addresses || []);
+        } catch (error) {
+          console.error('Failed to fetch saved addresses:', error);
+          toast.error('Could not load your saved addresses.');
+        } finally {
+          setIsLoadingAddresses(false);
+        }
+      }
+    };
 
+    fetchSavedAddresses();
+  }, [showModal]); // Dependency array ensures this runs when `showModal` changes
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -72,7 +78,7 @@ export const DeliveryPickupToggle: React.FC = () => {
 
   const handleOptionChange = (option: DeliveryOption): void => {
     setDeliveryOption(option);
-    if (option === 'delivery' && !address) {
+    if (option === 'delivery' && !currentPlace) {
       setShowModal(true);
       setShowDropdown(false);
     } else {
@@ -104,36 +110,6 @@ export const DeliveryPickupToggle: React.FC = () => {
       timerRef.current = null;
     }
   };
-
-  const handleAddressSelect = (selectedAddress: string): void => {
-    console.log('Selected address:', selectedAddress);
-    setShowModal(false);
-
-    // Save to global store
-    if (currentPlace) {
-      setDeliveryAddress(selectedAddress, currentPlace, sessionToken);
-    }
-  };
-
-  const handleSavedAddressSelect = (savedAddress: SavedAddress): void => {
-    setShowModal(false);
-    console.log('Selected saved address:', savedAddress);
-
-    // Create a place object from saved address and save to store
-    const place: Place = {
-      place_id: null,
-      name: savedAddress.label,
-      main_text: savedAddress.address,
-      secondary_text: savedAddress.city,
-      source: 'saved',
-      id: 0,
-      lat: null,
-      lng: null,
-    };
-
-    setDeliveryAddress(savedAddress.address, place, sessionToken);
-  };
-
   const openAddressModal = (): void => {
     // Generate NEW session token when user wants to change location
     changeLocation();
@@ -157,7 +133,7 @@ export const DeliveryPickupToggle: React.FC = () => {
               <div className='text-left'>
                 <div className='text-xs text-gray-500'>Deliver to</div>
                 <div className='max-w-[120px] truncate text-sm font-medium text-gray-800'>
-                  {address || 'Select address'}
+                  {currentPlace?.main_text || 'Select address'}
                 </div>
               </div>
             </>
@@ -218,12 +194,14 @@ export const DeliveryPickupToggle: React.FC = () => {
             <div className='p-3'>
               {selectedOption === 'delivery' ? (
                 <div>
-                  {address ? (
+                  {currentPlace ? (
                     <div>
                       <p className='mb-1 text-xs text-gray-500'>
                         Current delivery address:
                       </p>
-                      <p className='mb-3 text-sm text-gray-800'>{address}</p>
+                      <p className='mb-3 text-sm text-gray-800'>
+                        {currentPlace.main_text}
+                      </p>
                       <button
                         onClick={openAddressModal}
                         className='w-full rounded-lg bg-green-600 px-3 py-2 text-sm text-white transition-colors hover:bg-green-700'
@@ -297,13 +275,10 @@ export const DeliveryPickupToggle: React.FC = () => {
         onClose={() => setShowModal(false)}
         onSelect={(place) => {
           // when user selects an address from search
-          const newAddress = place.description || place.main_text || '';
-          setDeliveryAddress(newAddress, place, sessionToken);
+          setDeliveryAddress(place, sessionToken);
         }}
         savedAddresses={savedAddresses}
-        address={address}
-        handleSavedAddressSelect={handleSavedAddressSelect}
-        handleAddressSelect={handleAddressSelect}
+        isLoading={isLoadingAddresses}
       />
     </>
   );
