@@ -3,6 +3,7 @@ import placesRoutes from "./routes/places";
 import authRoutes from "./routes/withAuth";
 import addrRoutes from "./routes/address";
 import prodRoutes from "./routes/product";
+import feedbackRoutes from "./routes/feedback";
 
 const router = Router();
 
@@ -11,5 +12,6 @@ router.use("/places", placesRoutes);
 router.use("/auth", authRoutes);
 router.use("/addr", addrRoutes);
 router.use("/prod", prodRoutes);
+router.use("/feedback", feedbackRoutes);
 
 export default router;

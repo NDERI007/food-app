@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { MessageCircle } from 'lucide-react';
 import EmojiRating from '@components/emojiRating';
+import { toast } from 'sonner';
+import axios from 'axios';
 
 interface SurveyData {
   overallRating: number;
@@ -21,21 +23,77 @@ export default function FeedbackButton() {
     setSurveyData((prev) => ({ ...prev, overallRating: rating }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Survey submitted:', surveyData);
-    setSubmitted(true);
 
-    // Reset form after short delay
-    setTimeout(() => {
-      setIsOpen(false);
-      setSubmitted(false);
-      setSurveyData({
-        overallRating: 0,
-        improvements: '',
-        additionalComments: '',
-      });
-    }, 2000);
+    if (!surveyData.overallRating || !surveyData.improvements.trim()) {
+      toast.warning('Please complete all required fields before submitting.');
+      return;
+    }
+
+    const submitFeedback = async () => {
+      try {
+        setSubmitted(true);
+
+        const { overallRating, improvements, additionalComments } = surveyData;
+
+        const response = await axios.post('/api/feedback/insert', {
+          overall_rating: overallRating,
+          improvements,
+          additional_comments: additionalComments,
+        });
+
+        if (response.data?.success) {
+          toast.success('Thank you for your feedback!');
+          setSubmitted(true);
+
+          setTimeout(() => {
+            setIsOpen(false);
+            setSubmitted(false);
+            setSurveyData({
+              overallRating: 0,
+              improvements: '',
+              additionalComments: '',
+            });
+          }, 2000);
+        } else {
+          toast.error(
+            response.data?.message || 'Something went wrong. Try again.',
+          );
+        }
+      } catch (error: unknown) {
+        console.error('Error submitting feedback:', error);
+
+        if (axios.isAxiosError(error)) {
+          if (error.response) {
+            // 4xx or 5xx error from server
+            const msg =
+              error.response.data?.message ||
+              `Server error (${error.response.status})`;
+            toast.error(msg);
+          } else if (error.request) {
+            // Network or timeout error
+            toast.error('Network error. Please check your connection.', {
+              action: {
+                label: 'Retry',
+                onClick: () => {
+                  toast.dismiss(); // remove the previous toast
+                  submitFeedback(); // reattempt submission
+                },
+              },
+            });
+          } else {
+            toast.error('Unexpected setup error. Please try again.');
+          }
+        } else {
+          toast.error('An unknown error occurred.');
+        }
+      } finally {
+        setSubmitted(false);
+      }
+    };
+
+    await submitFeedback();
   };
 
   return (
@@ -128,6 +186,7 @@ export default function FeedbackButton() {
                   <button
                     type='submit'
                     disabled={
+                      submitted ||
                       surveyData.overallRating === 0 ||
                       !surveyData.improvements.trim()
                     }

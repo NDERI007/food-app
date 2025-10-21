@@ -39,7 +39,7 @@ export default function AddressPage() {
       }
 
       setError(message);
-      toast.error(message); // optional, can remove if you prefer silent handling
+      toast.error(message);
     } finally {
       setLoading(false);
     }

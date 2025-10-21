@@ -1,5 +1,7 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { useCartStore } from '@utils/hooks/useCrt';
+import { useDeliveryStore } from '@utils/hooks/deliveryStore';
 
 interface User {
   email: string;
@@ -33,14 +35,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { authenticated, user } = response.data;
       if (authenticated && user) {
         setUser(user);
+
+        // Initialize user-specific stores
+        useCartStore.getState().setUserId(user.email);
+        useDeliveryStore.getState().setUserId(user.email);
+
         return user;
       } else {
         setUser(null);
+
+        // Switch to guest storage
+        useCartStore.getState().setUserId(null);
+        useDeliveryStore.getState().setUserId(null);
+
         return null;
       }
     } catch (error) {
       console.error('Auth check failed:', error);
       setUser(null);
+
+      // Switch to guest storage on error
+      useCartStore.getState().setUserId(null);
+      useDeliveryStore.getState().setUserId(null);
     } finally {
       setIsLoading(false);
     }
@@ -49,6 +65,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Login (called after successful OTP verification)
   const login = useCallback((email: string, role: string) => {
     setUser({ email, role });
+
+    // Initialize user-specific stores
+    useCartStore.getState().setUserId(email);
+    useDeliveryStore.getState().setUserId(email);
   }, []);
 
   // Logout
@@ -62,17 +82,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           headers: { 'Content-Type': 'application/json' },
         },
       );
+
       if (response.status >= 200 && response.status < 300) {
         setUser(null);
+
+        // Switch to guest storage and clear data
+        useCartStore.getState().setUserId(null);
+        useDeliveryStore.getState().setUserId(null);
+        useCartStore.getState().clearCart();
+        useDeliveryStore.getState().clearDelivery();
       } else {
-        // non-2xx — still clear user locally, but log it
         console.warn('Logout returned non-2xx status', response.status);
         setUser(null);
+
+        // Still clear stores
+        useCartStore.getState().setUserId(null);
+        useDeliveryStore.getState().setUserId(null);
       }
     } catch (error) {
       console.error('Logout failed:', error);
-      // clear user locally even if remote logout fails
       setUser(null);
+
+      // Clear stores even on error
+      useCartStore.getState().setUserId(null);
+      useDeliveryStore.getState().setUserId(null);
     }
   }, []);
 

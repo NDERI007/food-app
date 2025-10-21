@@ -4,21 +4,25 @@ import type {
   ProductVariant,
 } from '@utils/schemas/menu';
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 export interface CartItem {
-  cartItemId: string; // Unique ID, e.g., "prod1-variant2" or just "prod2"
+  cartItemId: string;
   product_id: string;
-  variantId?: string; // Optional, only exists if it's a variant
-  name: string; // e.g., "Pizza (Large)" or "Water Bottle"
-  price: number; // The final price of this specific item
+  variantId?: string;
+  name: string;
+  price: number;
   image: ImageVariants | null;
   quantity: number;
 }
+
 interface CartStore {
-  // State
   items: CartItem[];
   isOpen: boolean;
+  userId: string | null;
+
+  // User context management
+  setUserId: (userId: string | null) => void;
 
   // Cart Actions
   addItem: (
@@ -40,16 +44,59 @@ interface CartStore {
   totalPrice: () => number;
 }
 
+// Custom storage that uses user-specific keys
+const createUserStorage = (baseName: string) => {
+  return createJSONStorage(() => ({
+    getItem: (_name) => {
+      const state = localStorage.getItem('cart-user-id');
+      const userId = state ? JSON.parse(state) : null;
+      const key = userId ? `${baseName}-${userId}` : `${baseName}-guest`;
+      return localStorage.getItem(key);
+    },
+    setItem: (_name, value) => {
+      const state = localStorage.getItem('cart-user-id');
+      const userId = state ? JSON.parse(state) : null;
+      const key = userId ? `${baseName}-${userId}` : `${baseName}-guest`;
+      localStorage.setItem(key, value);
+    },
+    removeItem: (_name) => {
+      const state = localStorage.getItem('cart-user-id');
+      const userId = state ? JSON.parse(state) : null;
+      const key = userId ? `${baseName}-${userId}` : `${baseName}-guest`;
+      localStorage.removeItem(key);
+    },
+  }));
+};
+
 export const useCartStore = create<CartStore>()(
   persist(
     (set, get) => ({
-      // Initial State
       items: [],
       isOpen: false,
+      userId: null,
 
-      // Add item to cart with quantity and options
+      // Set user ID and reload data from user-specific storage
+      setUserId: (userId) => {
+        // Store userId separately for storage helper
+        localStorage.setItem('cart-user-id', JSON.stringify(userId));
+
+        // Clear current items
+        set({ userId, items: [] });
+
+        // Force re-hydration from new user's storage
+        const key = userId ? `cart-storage-${userId}` : 'cart-storage-guest';
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          try {
+            const data = JSON.parse(stored);
+            set({ items: data.state?.items || [] });
+          } catch (e) {
+            console.error('Failed to load user cart:', e);
+          }
+        }
+      },
+
       addItem: (product, quantity = 1, selectedVariant) => {
-        // 1. Determine the unique ID and details for the cart item
         const isVariant = !!selectedVariant;
         const cartItemId = isVariant
           ? `${product.id}-${selectedVariant.id}`
@@ -59,7 +106,6 @@ export const useCartStore = create<CartStore>()(
           (item) => item.cartItemId === cartItemId,
         );
 
-        // 2. If the item already exists, just update its quantity
         if (existingItem) {
           const updatedItems = get().items.map((item) =>
             item.cartItemId === cartItemId
@@ -67,18 +113,16 @@ export const useCartStore = create<CartStore>()(
               : item,
           );
           set({ items: updatedItems });
-          return; // Stop execution
+          return;
         }
 
-        // 3. If it's a new item, create it
         const newItem: CartItem = {
           cartItemId,
           product_id: product.id,
           variantId: isVariant ? selectedVariant.id : undefined,
           name: isVariant
-            ? `${product.name} (${selectedVariant.size_name})` // e.g., "Pizza (Large)"
+            ? `${product.name} (${selectedVariant.size_name})`
             : product.name,
-          // Price is now direct, not calculated!
           price: isVariant ? selectedVariant.price : product.price,
           image: product.image,
           quantity,
@@ -87,13 +131,11 @@ export const useCartStore = create<CartStore>()(
         set({ items: [...get().items, newItem] });
       },
 
-      // Remove item completely from cart
       removeItem: (cartItemId) =>
         set((state) => ({
           items: state.items.filter((item) => item.cartItemId !== cartItemId),
         })),
 
-      // Update item quantity (or remove if quantity is 0)
       updateQuantity: (cartItemId, quantity) =>
         set((state) => {
           if (quantity <= 0) {
@@ -103,7 +145,6 @@ export const useCartStore = create<CartStore>()(
               ),
             };
           }
-
           return {
             items: state.items.map((item) =>
               item.cartItemId === cartItemId ? { ...item, quantity } : item,
@@ -111,25 +152,16 @@ export const useCartStore = create<CartStore>()(
           };
         }),
 
-      // Clear entire cart
       clearCart: () => set({ items: [] }),
-
-      // Toggle cart drawer
       toggleCart: () => set((state) => ({ isOpen: !state.isOpen })),
-
-      // Open cart drawer
       openCart: () => set({ isOpen: true }),
-
-      // Close cart drawer
       closeCart: () => set({ isOpen: false }),
 
-      // Get total number of items
       totalItems: () => {
         const state = get();
         return state.items.reduce((total, item) => total + item.quantity, 0);
       },
 
-      // Get total price
       totalPrice: () => {
         const state = get();
         return state.items.reduce(
@@ -139,7 +171,8 @@ export const useCartStore = create<CartStore>()(
       },
     }),
     {
-      name: 'cart-storage', // localStorage key
+      name: 'cart-storage',
+      storage: createUserStorage('cart-storage'),
       partialize: (state) => ({ items: state.items }),
     },
   ),
