@@ -1,32 +1,19 @@
-import React, { createContext, useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useCartStore } from '@utils/hooks/useCrt';
 import { useDeliveryStore } from '@utils/hooks/deliveryStore';
+import { type User, type AuthContextType, AuthContext } from './AuthContext';
 
-interface User {
-  email: string;
-  role: string;
+interface AuthProviderProps {
+  children: React.ReactNode;
 }
 
-export interface AuthContextType {
-  user: User | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  checkAuth: () => Promise<User | null>;
-  logout: () => Promise<void>;
-  login: (email: string, role: string) => void;
-}
-
-export const AuthContext = createContext<AuthContextType | undefined>(
-  undefined,
-);
-
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Check authentication status
-  const checkAuth = useCallback(async () => {
+  const checkAuth = useCallback(async (): Promise<User | null> => {
     try {
       const response = await axios.get('/api/auth/context-verif', {
         withCredentials: true,
@@ -36,7 +23,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (authenticated && user) {
         setUser(user);
 
-        // Initialize user-specific stores
         useCartStore.getState().setUserId(user.email);
         useDeliveryStore.getState().setUserId(user.email);
 
@@ -44,7 +30,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setUser(null);
 
-        // Switch to guest storage
         useCartStore.getState().setUserId(null);
         useDeliveryStore.getState().setUserId(null);
 
@@ -54,19 +39,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('Auth check failed:', error);
       setUser(null);
 
-      // Switch to guest storage on error
       useCartStore.getState().setUserId(null);
       useDeliveryStore.getState().setUserId(null);
+
+      return null;
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  // Login (called after successful OTP verification)
+  // Login
   const login = useCallback((email: string, role: string) => {
     setUser({ email, role });
-
-    // Initialize user-specific stores
     useCartStore.getState().setUserId(email);
     useDeliveryStore.getState().setUserId(email);
   }, []);
@@ -74,8 +58,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Logout
   const logout = useCallback(async () => {
     try {
-      const response = await axios.post(
-        'api/auth/logout',
+      await axios.post(
+        '/api/auth/logout',
         {},
         {
           withCredentials: true,
@@ -83,38 +67,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         },
       );
 
-      if (response.status >= 200 && response.status < 300) {
-        setUser(null);
-
-        // Switch to guest storage and clear data
-        useCartStore.getState().setUserId(null);
-        useDeliveryStore.getState().setUserId(null);
-        useCartStore.getState().clearCart();
-        useDeliveryStore.getState().clearDelivery();
-      } else {
-        console.warn('Logout returned non-2xx status', response.status);
-        setUser(null);
-
-        // Still clear stores
-        useCartStore.getState().setUserId(null);
-        useDeliveryStore.getState().setUserId(null);
-      }
+      setUser(null);
+      useCartStore.getState().setUserId(null);
+      useDeliveryStore.getState().setUserId(null);
+      useCartStore.getState().clearCart();
+      useDeliveryStore.getState().clearDelivery();
     } catch (error) {
       console.error('Logout failed:', error);
       setUser(null);
-
-      // Clear stores even on error
       useCartStore.getState().setUserId(null);
       useDeliveryStore.getState().setUserId(null);
     }
   }, []);
 
-  // Check auth on mount
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
 
-  const value = {
+  const value: AuthContextType = {
     user,
     isAuthenticated: !!user,
     isLoading,

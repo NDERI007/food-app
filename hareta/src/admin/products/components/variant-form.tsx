@@ -6,6 +6,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { ProductVariant } from '@utils/schemas/menu';
 import { useAdminStore } from '@utils/hooks/adminStore';
 import { Check, Loader2 } from 'lucide-react';
+import axios from 'axios';
+import { toast } from 'sonner';
 
 const variantSchema = z.object({
   size_name: z.string().min(1, 'Size name is required'),
@@ -61,9 +63,19 @@ export const VariantForm: React.FC<VariantFormProps> = ({
         await addVariant(productId, values, queryClient);
       }
       onClose?.();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Variant save failed:', error);
-      alert('Failed to save variant');
+
+      // Better error handling
+      if (axios.isAxiosError(error)) {
+        const message =
+          error.response?.data?.message || error.response?.data?.error;
+        toast.error(message || 'Failed to save variant. Please try again.');
+      } else if (error instanceof Error) {
+        toast.error(error.message);
+      } else {
+        toast.error('An unexpected error occurred');
+      }
     }
   };
 

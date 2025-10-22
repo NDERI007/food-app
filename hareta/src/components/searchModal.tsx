@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Search, MapPin, Home, Loader2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
@@ -20,7 +20,8 @@ export default function AddressModal({
   savedAddresses,
   isLoading,
 }: AddressModalProps) {
-  const sessionToken = useMemo(() => uuidv4(), [show]);
+  const sessionTokenRef = useRef(uuidv4());
+  const sessionToken = sessionTokenRef.current;
 
   const {
     query,

@@ -1,22 +1,33 @@
 import React from 'react';
 import AdminProducts from './components/form';
+import { Package } from 'lucide-react';
 
 const ProductsPage: React.FC = () => {
   return (
-    <div className='min-h-screen bg-gray-50 p-3 sm:p-6'>
-      <header className='mb-4 border-b pb-3 sm:mb-6 sm:pb-4'>
-        <h1 className='text-2xl font-semibold text-gray-800 sm:text-3xl'>
-          Products
-        </h1>
-        <p className='text-sm text-gray-500 sm:text-base'>
-          Add or manage your menu items here.
-        </p>
+    <div className='min-h-screen bg-gray-900 text-gray-100'>
+      {/* Header */}
+      <header className='mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8'>
+        <div className='flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center'>
+          <div>
+            <h1 className='text-3xl font-bold text-gray-300'>Products</h1>
+            <p className='mt-1 text-sm text-gray-400'>
+              Add or manage your menu items here.
+            </p>
+          </div>
+
+          {/* Optional decorative icon */}
+          <div className='hidden items-center justify-center rounded-full bg-purple-700/10 p-3 sm:flex'>
+            <Package className='h-6 w-6 text-purple-400' />
+          </div>
+        </div>
       </header>
 
-      {/* AdminProducts component would go here */}
-      <div className='py-8 text-center text-gray-400'>
-        <AdminProducts />
-      </div>
+      {/* Main Content */}
+      <main className='mx-auto max-w-7xl px-4 pb-12 sm:px-6 lg:px-8'>
+        <div className='rounded-2xl bg-gray-950/50 p-4 shadow-lg ring-1 ring-purple-800/30 backdrop-blur-sm sm:p-6'>
+          <AdminProducts />
+        </div>
+      </main>
     </div>
   );
 };

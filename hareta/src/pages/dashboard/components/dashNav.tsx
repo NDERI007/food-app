@@ -1,6 +1,6 @@
 import { ShoppingCart, Menu } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { DeliveryPickupToggle } from './addrChange';
+import DeliveryPickupToggle from './addrChange';
 import { useAuth } from '@utils/hooks/useAuth';
 
 type NavbarProps = {

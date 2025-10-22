@@ -2,9 +2,10 @@ import sharp from 'sharp';
 import fs from 'fs';
 import path from 'path';
 
+type ImageFormat = 'avif' | 'jpg' | 'jpeg';
 interface Format {
-  ext: string;
-  options?: sharp.JpegOptions | sharp.WebpOptions | sharp.AvifOptions;
+  ext: ImageFormat;
+  options?: sharp.JpegOptions | sharp.AvifOptions;
 }
 
 interface ImageMeta {
@@ -47,7 +48,9 @@ async function generateProductImages(
         pipeline = pipeline.resize({ width });
       }
 
-      await pipeline.toFormat(ext as any, options).toFile(outPath);
+      await pipeline
+        .toFormat(ext as keyof sharp.FormatEnum, options)
+        .toFile(outPath);
 
       formatsMeta.push({ ext, file: outFileName });
       console.log(`✅ Generated ${outPath}`);

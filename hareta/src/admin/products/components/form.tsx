@@ -9,6 +9,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCategories, useMenuItems } from '@utils/hooks/productStore';
 import { ProductVariantsManager } from './prodManager';
 import { toast } from 'sonner';
+import type { MenuItem } from '@utils/schemas/menu';
 
 // Zod schema for validation
 const menuItemSchema = z.object({
@@ -35,6 +36,7 @@ const AdminProducts: React.FC = () => {
   const { data: categories = [], isLoading: loadingCategories } =
     useCategories();
 
+  const [isOpen, setIsOpen] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [managingVariantsFor, setManagingVariantsFor] = useState<string | null>(
@@ -100,16 +102,16 @@ const AdminProducts: React.FC = () => {
     }
   };
 
-  const getPreviewImage = (item: any) => {
+  const getPreviewImage = (item: MenuItem) => {
     return (
-      item.images?.variants?.jpg?.[400] ||
-      item.images?.variants?.avif?.[400] ||
-      item.images?.lqip ||
+      item.image?.variants?.jpg?.[400] ||
+      item.image?.variants?.avif?.[400] ||
+      item.image?.lqip ||
       null
     );
   };
 
-  const handleEdit = (item: any) => {
+  const handleEdit = (item: MenuItem) => {
     setEditingId(item.id);
     reset({
       name: item.name,
@@ -145,20 +147,12 @@ const AdminProducts: React.FC = () => {
   const loading = loadingItems || loadingCategories;
 
   return (
-    <div className='mx-auto max-w-7xl p-3 sm:p-6'>
-      {/* Header with Add Button */}
-      <div className='mb-6 flex items-center justify-between'>
-        <div>
-          <h1 className='text-2xl font-bold text-gray-900 sm:text-3xl'>
-            Products
-          </h1>
-          <p className='mt-1 text-sm text-gray-600'>
-            Manage your product catalog
-          </p>
-        </div>
+    <div className='mx-auto min-h-screen max-w-7xl bg-gray-900 p-3 text-gray-100 sm:p-6'>
+      {/* Header */}
+      <div className='mb-6 flex items-center justify-end'>
         <button
           onClick={handleAddNew}
-          className='flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-green-700 sm:px-6'
+          className='inline-flex items-center gap-2 rounded-lg bg-purple-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-purple-600 sm:px-6'
         >
           <Plus className='h-4 w-4 sm:h-5 sm:w-5' />
           <span className='hidden sm:inline'>Add Product</span>
@@ -167,161 +161,181 @@ const AdminProducts: React.FC = () => {
       </div>
 
       {/* Product Grid */}
-      <div className='rounded-xl bg-white p-4 shadow sm:p-6'>
+      {/* Product Grid */}
+      <div className='mx-auto max-w-6xl rounded-xl border border-gray-700 bg-gray-800 p-4 shadow-inner sm:p-6'>
         {loading ? (
           <div className='flex h-64 items-center justify-center'>
             <div className='text-center'>
-              <div className='mx-auto h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-green-600'></div>
-              <p className='mt-2 text-sm text-gray-600'>Loading products...</p>
+              <div className='mx-auto h-8 w-8 animate-spin rounded-full border-4 border-gray-600 border-t-purple-600'></div>
+              <p className='mt-2 text-sm text-gray-400'>Loading products...</p>
             </div>
           </div>
         ) : menuItems.length === 0 ? (
           <div className='flex h-64 flex-col items-center justify-center gap-3 text-center'>
-            <Package className='h-12 w-12 text-gray-400' />
+            <Package className='h-12 w-12 text-gray-500' />
             <div>
-              <h3 className='text-lg font-semibold text-gray-900'>
+              <h3 className='text-lg font-semibold text-gray-100'>
                 No products yet
               </h3>
-              <p className='mt-1 text-sm text-gray-600'>
+              <p className='mt-1 text-sm text-gray-400'>
                 Get started by adding your first product
               </p>
             </div>
             <button
               onClick={handleAddNew}
-              className='mt-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700'
+              className='mt-2 rounded-lg bg-purple-700 px-4 py-2 text-sm font-medium text-white hover:bg-purple-600'
             >
               Add Your First Product
             </button>
           </div>
         ) : (
-          <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4'>
-            {menuItems.map((item) => (
-              <div
-                key={item.id}
-                className='group relative flex flex-col overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200 transition hover:shadow-md'
-              >
-                {/* Image */}
-                {item.image ? (
-                  <div className='relative overflow-hidden'>
-                    <picture>
-                      <source
-                        srcSet={item.image?.variants?.avif?.[400]}
-                        type='image/avif'
-                      />
-                      <img
-                        src={item.image?.variants?.jpg?.[400]}
-                        alt={item.name}
-                        className='h-48 w-full object-cover transition-transform duration-300 group-hover:scale-105'
-                      />
-                    </picture>
+          <div className='grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 md:gap-5 xl:grid-cols-4'>
+            {menuItems.map((item) => {
+              return (
+                <div
+                  key={item.id}
+                  className='group relative flex flex-col overflow-hidden rounded-xl bg-gray-800 shadow ring-1 ring-gray-700 transition hover:shadow-lg sm:flex-col'
+                >
+                  {/* Top section */}
+                  <div className='flex flex-row sm:flex-col'>
+                    {/* Image */}
+                    <div className='relative w-32 flex-shrink-0 overflow-hidden sm:h-40 sm:w-full'>
+                      {item.image ? (
+                        <picture>
+                          <source
+                            srcSet={item.image?.variants?.avif?.[400]}
+                            type='image/avif'
+                          />
+                          <img
+                            src={item.image?.variants?.jpg?.[400]}
+                            alt={item.name}
+                            className='h-full w-full object-cover transition-transform duration-300 group-hover:scale-105'
+                          />
+                        </picture>
+                      ) : (
+                        <div className='flex h-full w-full items-center justify-center bg-gray-700 text-gray-500'>
+                          <Package className='h-10 w-10' />
+                        </div>
+                      )}
 
-                    <span
-                      className={`absolute top-3 left-3 rounded-full px-3 py-1 text-xs font-medium backdrop-blur-md ${
+                      <span
+                        className={`absolute top-2 left-2 rounded-full px-2.5 py-0.5 text-[10px] font-medium backdrop-blur-md ${
+                          item.available
+                            ? 'bg-green-900/70 text-green-200'
+                            : 'bg-red-900/70 text-red-300'
+                        }`}
+                      >
+                        {item.available ? 'Available' : 'Unavailable'}
+                      </span>
+                    </div>
+
+                    {/* Content */}
+                    <div className='flex flex-1 flex-col justify-between p-3 sm:p-4'>
+                      <div>
+                        <h3 className='line-clamp-1 text-sm font-semibold text-gray-100 sm:text-base'>
+                          {item.name}
+                        </h3>
+                        <p className='mt-0.5 line-clamp-2 text-xs text-gray-400 sm:text-sm'>
+                          {item.description || 'No description available.'}
+                        </p>
+                      </div>
+
+                      <div className='mt-2 flex items-center justify-between'>
+                        <p className='text-sm font-bold text-green-400 sm:text-base'>
+                          KES {item.price.toFixed(2)}
+                        </p>
+                        <button
+                          onClick={() => setIsOpen(!isOpen)}
+                          className='rounded p-1 text-gray-400 hover:bg-gray-700 hover:text-gray-100 sm:hidden'
+                        >
+                          <svg
+                            xmlns='http://www.w3.org/2000/svg'
+                            className='h-5 w-5'
+                            fill='none'
+                            viewBox='0 0 24 24'
+                            stroke='currentColor'
+                            strokeWidth='2'
+                          >
+                            <path
+                              strokeLinecap='round'
+                              strokeLinejoin='round'
+                              d='M6 12h12M6 6h12M6 18h12'
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div
+                    className={`flex flex-col gap-2 bg-gray-900/50 p-3 text-xs text-gray-200 transition-all sm:flex-row sm:flex-wrap sm:justify-between sm:gap-2 ${
+                      isOpen
+                        ? 'visible max-h-40 opacity-100'
+                        : 'invisible max-h-0 opacity-0 sm:visible sm:max-h-none sm:opacity-100'
+                    }`}
+                  >
+                    <button
+                      onClick={() => toggleAvailability(item, queryClient)}
+                      className={`flex flex-1 items-center justify-center gap-1 rounded-lg px-3 py-2 transition ${
                         item.available
-                          ? 'bg-green-100/80 text-green-700'
-                          : 'bg-red-100/80 text-red-700'
+                          ? 'bg-green-800 text-green-200 hover:bg-green-700'
+                          : 'bg-red-800 text-red-200 hover:bg-red-700'
                       }`}
                     >
                       {item.available ? 'Available' : 'Unavailable'}
-                    </span>
-                  </div>
-                ) : (
-                  <div className='flex h-48 items-center justify-center bg-gray-100 text-gray-400'>
-                    <Package className='h-12 w-12' />
-                  </div>
-                )}
-
-                {/* Content */}
-                <div className='flex flex-1 flex-col p-4'>
-                  <h3 className='line-clamp-2 text-base font-semibold text-gray-900'>
-                    {item.name}
-                  </h3>
-                  <p className='mt-1 line-clamp-2 text-sm text-gray-600'>
-                    {item.description || 'No description available.'}
-                  </p>
-
-                  <div className='mt-auto pt-3'>
-                    <p className='text-lg font-bold text-green-600'>
-                      KES {item.price.toFixed(2)}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Action Buttons - Two rows */}
-                <div className='mt-4 space-y-2'>
-                  {/* Top row: Toggle and Variants */}
-                  <div className='flex gap-2'>
-                    <button
-                      onClick={() => toggleAvailability(item, queryClient)}
-                      className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-xs font-medium transition ${
-                        item.available
-                          ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                          : 'bg-red-100 text-red-700 hover:bg-red-200'
-                      }`}
-                      title='Toggle Availability'
-                    >
-                      <span>
-                        {item.available ? 'Available' : 'Unavailable'}
-                      </span>
                     </button>
 
                     <button
                       onClick={() => setManagingVariantsFor(item.id)}
-                      className='flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-purple-100 px-3 py-2.5 text-xs font-medium text-purple-700 transition hover:bg-purple-200'
-                      title='Manage Variants'
+                      className='flex flex-1 items-center justify-center gap-1 rounded-lg bg-purple-800 px-3 py-2 text-purple-200 hover:bg-purple-700'
                     >
                       <Package className='h-3.5 w-3.5' />
-                      <span>Variants</span>
+                      Variants
                     </button>
-                  </div>
 
-                  {/* Bottom row: Edit and Delete */}
-                  <div className='flex gap-2'>
                     <button
                       onClick={() => handleEdit(item)}
-                      className='flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-100 px-3 py-2.5 text-xs font-medium text-blue-700 transition hover:bg-blue-200'
-                      title='Edit Product'
+                      className='flex flex-1 items-center justify-center gap-1 rounded-lg bg-blue-800 px-3 py-2 text-blue-200 hover:bg-blue-700'
                     >
                       <Edit className='h-3.5 w-3.5' />
-                      <span>Edit</span>
+                      Edit
                     </button>
 
                     <button
                       onClick={() => deleteMenuItem(item.id, queryClient)}
-                      className='flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-red-100 px-3 py-2.5 text-xs font-medium text-red-700 transition hover:bg-red-200'
-                      title='Delete Product'
+                      className='flex flex-1 items-center justify-center gap-1 rounded-lg bg-red-800 px-3 py-2 text-red-200 hover:bg-red-700'
                     >
                       <Trash2 className='h-3.5 w-3.5' />
-                      <span>Delete</span>
+                      Delete
                     </button>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
 
-      {/* Slide-Over Panel */}
+      {/* Slide-over form */}
       {isSlideOverOpen && (
         <div className='fixed inset-0 z-50 overflow-hidden'>
           <div
-            className='absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity'
+            className='absolute inset-0 bg-black/70 backdrop-blur-sm'
             onClick={resetForm}
           />
-
           <div className='fixed inset-y-0 right-0 flex max-w-full pl-10'>
             <div className='w-screen max-w-md sm:max-w-lg'>
-              <div className='flex h-full flex-col overflow-y-auto bg-white shadow-2xl'>
+              <div className='flex h-full flex-col overflow-y-auto border-l border-gray-700 bg-gray-800 shadow-2xl'>
                 {/* Header */}
-                <div className='sticky top-0 z-10 border-b border-gray-200 bg-gray-50 px-4 py-4 sm:px-6'>
+                <div className='sticky top-0 z-10 border-b border-gray-700 bg-gray-900 px-4 py-4 sm:px-6'>
                   <div className='flex items-center justify-between'>
-                    <h2 className='text-lg font-semibold text-gray-900 sm:text-xl'>
+                    <h2 className='text-lg font-semibold text-gray-100 sm:text-xl'>
                       {editingId ? 'Edit Product' : 'Add New Product'}
                     </h2>
                     <button
                       onClick={resetForm}
-                      className='rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600'
+                      className='rounded-lg p-2 text-gray-400 hover:bg-gray-700 hover:text-gray-200'
                     >
                       <X className='h-5 w-5' />
                     </button>
@@ -331,148 +345,141 @@ const AdminProducts: React.FC = () => {
                 {/* Form */}
                 <form
                   onSubmit={handleSubmit(onSubmit)}
-                  className='flex-1 px-4 py-6 sm:px-6'
+                  className='flex-1 space-y-5 px-4 py-6 text-gray-200 sm:px-6'
                 >
-                  <div className='space-y-5'>
-                    {/* Product Name */}
+                  {/* Product Name */}
+                  <div>
+                    <label className='mb-1.5 block text-sm font-medium text-gray-300'>
+                      Product Name *
+                    </label>
+                    <input
+                      type='text'
+                      {...register('name')}
+                      className='w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-gray-100 focus:ring-2 focus:ring-purple-600 focus:outline-none'
+                      placeholder='e.g., Margherita Pizza'
+                    />
+                    {errors.name && (
+                      <p className='mt-1 text-xs text-red-400'>
+                        {errors.name.message}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Price & Category */}
+                  <div className='grid grid-cols-2 gap-4'>
                     <div>
-                      <label className='mb-1.5 block text-sm font-medium text-gray-700'>
-                        Product Name *
+                      <label className='mb-1.5 block text-sm font-medium text-gray-300'>
+                        Price *
                       </label>
                       <input
-                        type='text'
-                        {...register('name')}
-                        className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:outline-none'
-                        placeholder='e.g., Margherita Pizza'
-                      />
-                      {errors.name && (
-                        <p className='mt-1 text-xs text-red-600'>
-                          {errors.name.message}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Price & Category */}
-                    <div className='grid grid-cols-2 gap-4'>
-                      <div>
-                        <label className='mb-1.5 block text-sm font-medium text-gray-700'>
-                          Price *
-                        </label>
-                        <input
-                          type='number'
-                          step='0.01'
-                          {...register('price')}
-                          className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:outline-none'
-                          placeholder='0.00'
-                        />
-                        {errors.price && (
-                          <p className='mt-1 text-xs text-red-600'>
-                            {errors.price.message}
-                          </p>
-                        )}
-                      </div>
-
-                      <div>
-                        <label className='mb-1.5 block text-sm font-medium text-gray-700'>
-                          Category
-                        </label>
-                        <select
-                          {...register('category_id')}
-                          className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:outline-none'
-                        >
-                          <option value=''>Select category</option>
-                          {categories.map((cat) => (
-                            <option key={cat.id} value={cat.id}>
-                              {cat.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Description */}
-                    <div>
-                      <label className='mb-1.5 block text-sm font-medium text-gray-700'>
-                        Description
-                      </label>
-                      <textarea
-                        {...register('description')}
-                        rows={4}
-                        className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:outline-none'
-                        placeholder='Describe your product...'
+                        type='number'
+                        step='0.01'
+                        {...register('price')}
+                        className='w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-gray-100 focus:ring-2 focus:ring-purple-600 focus:outline-none'
+                        placeholder='0.00'
                       />
                     </div>
 
-                    {/* Image Upload */}
                     <div>
-                      <label className='mb-1.5 block text-sm font-medium text-gray-700'>
-                        Product Image
+                      <label className='mb-1.5 block text-sm font-medium text-gray-300'>
+                        Category
                       </label>
-                      <label
-                        htmlFor='image'
-                        className={`group relative flex aspect-square w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 transition hover:border-green-500 hover:bg-green-50 ${
-                          imagePreview ? 'overflow-hidden' : ''
-                        }`}
+                      <select
+                        {...register('category_id')}
+                        className='w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-gray-100 focus:ring-2 focus:ring-purple-600 focus:outline-none'
                       >
-                        {imagePreview ? (
-                          <>
-                            <img
-                              src={imagePreview}
-                              alt='Preview'
-                              className='absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105'
-                            />
-                            <div className='absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100'>
-                              <p className='rounded-md bg-white/90 px-3 py-1.5 text-sm font-medium text-gray-800'>
-                                Change Image
-                              </p>
-                            </div>
-                          </>
-                        ) : (
-                          <div className='flex flex-col items-center text-gray-500'>
-                            <UploadCloud className='mb-2 h-10 w-10 text-gray-400' />
-                            <p className='text-sm font-medium text-gray-600'>
-                              Click to upload
-                            </p>
-                            <p className='mt-1 text-xs text-gray-400'>
-                              Max size: 3MB
+                        <option value=''>Select category</option>
+                        {categories.map((cat) => (
+                          <option key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  <div>
+                    <label className='mb-1.5 block text-sm font-medium text-gray-300'>
+                      Description
+                    </label>
+                    <textarea
+                      {...register('description')}
+                      rows={4}
+                      className='w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-gray-100 focus:ring-2 focus:ring-purple-600 focus:outline-none'
+                      placeholder='Describe your product...'
+                    />
+                  </div>
+
+                  {/* Image Upload */}
+                  <div>
+                    <label className='mb-1.5 block text-sm font-medium text-gray-300'>
+                      Product Image
+                    </label>
+                    <label
+                      htmlFor='image'
+                      className={`group relative flex aspect-square w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-600 bg-gray-900 transition hover:border-purple-600 hover:bg-gray-800 ${
+                        imagePreview ? 'overflow-hidden' : ''
+                      }`}
+                    >
+                      {imagePreview ? (
+                        <>
+                          <img
+                            src={imagePreview}
+                            alt='Preview'
+                            className='absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105'
+                          />
+                          <div className='absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100'>
+                            <p className='rounded-md bg-white/20 px-3 py-1.5 text-sm font-medium text-gray-100'>
+                              Change Image
                             </p>
                           </div>
-                        )}
-                        <input
-                          id='image'
-                          type='file'
-                          accept='image/*'
-                          onChange={handleImageChange}
-                          className='hidden'
-                        />
-                      </label>
-                    </div>
-
-                    {/* Available Checkbox */}
-                    <div className='flex items-center gap-2'>
+                        </>
+                      ) : (
+                        <div className='flex flex-col items-center text-gray-400'>
+                          <UploadCloud className='mb-2 h-10 w-10 text-gray-500' />
+                          <p className='text-sm font-medium text-gray-300'>
+                            Click to upload
+                          </p>
+                          <p className='mt-1 text-xs text-gray-500'>
+                            Max size: 3MB
+                          </p>
+                        </div>
+                      )}
                       <input
-                        type='checkbox'
-                        id='available'
-                        {...register('available')}
-                        className='h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500'
+                        id='image'
+                        type='file'
+                        accept='image/*'
+                        onChange={handleImageChange}
+                        className='hidden'
                       />
-                      <label
-                        htmlFor='available'
-                        className='text-sm text-gray-700'
-                      >
-                        Available for order
-                      </label>
-                    </div>
+                    </label>
+                  </div>
+
+                  {/* Availability */}
+                  <div className='flex items-center gap-2'>
+                    <input
+                      type='checkbox'
+                      id='available'
+                      {...register('available')}
+                      className='h-4 w-4 rounded border-gray-600 bg-gray-800 text-purple-600 focus:ring-purple-600'
+                    />
+                    <label
+                      htmlFor='available'
+                      className='text-sm text-gray-300'
+                    >
+                      Available for order
+                    </label>
                   </div>
                 </form>
 
                 {/* Footer */}
-                <div className='sticky bottom-0 border-t border-gray-200 bg-gray-50 px-4 py-4 sm:px-6'>
+                <div className='sticky bottom-0 border-t border-gray-700 bg-gray-900 px-4 py-4 sm:px-6'>
                   <div className='flex gap-3'>
                     <button
                       type='button'
                       onClick={resetForm}
-                      className='flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-100'
+                      className='flex-1 rounded-lg border border-gray-600 bg-gray-800 px-4 py-2.5 text-sm font-medium text-gray-200 hover:bg-gray-700'
                     >
                       Cancel
                     </button>
@@ -480,7 +487,7 @@ const AdminProducts: React.FC = () => {
                       type='submit'
                       onClick={handleSubmit(onSubmit)}
                       disabled={isSubmitting}
-                      className='flex-1 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-green-700 disabled:bg-gray-400'
+                      className='flex-1 rounded-lg bg-purple-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-purple-600 disabled:bg-gray-500'
                     >
                       {isSubmitting
                         ? 'Saving...'
@@ -498,15 +505,15 @@ const AdminProducts: React.FC = () => {
 
       {/* Variants Manager Modal */}
       {managingVariantsFor && (
-        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm'>
-          <div className='relative w-full max-w-lg rounded-2xl bg-white p-4 shadow-2xl sm:p-6'>
+        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm'>
+          <div className='relative w-full max-w-lg rounded-2xl border border-gray-700 bg-gray-800 p-4 shadow-2xl sm:p-6'>
             <button
               onClick={() => setManagingVariantsFor(null)}
-              className='absolute top-4 right-4 rounded-full p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600'
+              className='absolute top-4 right-4 rounded-full p-1 text-gray-400 hover:bg-gray-700 hover:text-gray-200'
             >
               <X className='h-5 w-5' />
             </button>
-            <div className='mt-2'>
+            <div className='mt-2 text-gray-200'>
               <ProductVariantsManager productId={managingVariantsFor} />
             </div>
           </div>
