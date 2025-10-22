@@ -12,6 +12,7 @@ import {
   Edit2,
   Clock,
 } from 'lucide-react';
+import { getImageUrl } from '../../../utils/hooks/getImage';
 
 export default function OrderSummary() {
   const items = useCartStore((state) => state.items);
@@ -31,18 +32,6 @@ export default function OrderSummary() {
   );
   const deliveryFee = 0; // Free delivery
   const total = subtotal + deliveryFee;
-
-  // Helper to get image URL
-  const getImageUrl = (image: any) => {
-    if (!image) return '';
-    if (typeof image === 'string') return image;
-    const imageData = image;
-    const hasImageVariants = imageData?.variants?.jpg;
-    if (hasImageVariants) {
-      return imageData.variants.jpg[400] || imageData.variants.jpg[800] || '';
-    }
-    return '';
-  };
 
   const handlePlaceOrder = () => {
     if (!paymentMethod) {

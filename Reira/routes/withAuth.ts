@@ -264,7 +264,7 @@ router.post("/logout", async (req, res) => {
   const sessionId = req.cookies.sessionId;
   if (sessionId) {
     const signedId = signSessionId(sessionId);
-    await cache.del(`session:${signSessionId}`);
+    await cache.del(`session:${signedId}`);
     res.clearCookie("sessionId");
   }
   res.json({ message: "Logged out!" });

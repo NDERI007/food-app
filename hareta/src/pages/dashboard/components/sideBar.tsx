@@ -1,5 +1,6 @@
 import { useAuth } from '@utils/hooks/useAuth';
 import { Bookmark, X, Package, Heart, Settings, LogOut } from 'lucide-react';
+import type { ComponentType, SVGProps } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 type SidebarProps = {
@@ -30,7 +31,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
     path,
     onClick,
   }: {
-    icon: any;
+    icon: ComponentType<SVGProps<SVGSVGElement>>;
     label: string;
     path?: string;
     onClick?: () => void;

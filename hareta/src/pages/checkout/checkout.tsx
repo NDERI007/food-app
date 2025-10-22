@@ -19,6 +19,7 @@ import {
 import axios from 'axios';
 import type { SavedAddress } from '@utils/schemas/address';
 import AddressModal from '@components/searchModal';
+import { getImageUrl } from '../../utils/hooks/getImage';
 
 export default function CheckoutPage() {
   // Cart Store
@@ -65,35 +66,27 @@ export default function CheckoutPage() {
     hours: '11:00 AM – 10:00 PM',
   };
 
-  // Fetch saved addresses
   useEffect(() => {
+    if (!showModal) return;
+
+    let cancelled = false;
     const fetchSavedAddresses = async () => {
-      if (showModal) {
-        setIsLoading(true);
-        try {
-          const res = await axios.get<SavedAddress[]>('/api/addr/look-up');
-          setSavedAddresses(res.data);
-        } catch (err) {
-          console.error('Failed to fetch saved addresses:', err);
-        } finally {
-          setIsLoading(false);
-        }
+      setIsLoading(true);
+      try {
+        const res = await axios.get<SavedAddress[]>('/api/addr/look-up');
+        if (!cancelled) setSavedAddresses(res.data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (!cancelled) setIsLoading(false);
       }
     };
     fetchSavedAddresses();
-  }, [showModal]);
 
-  // Helper to get image URL
-  const getImageUrl = (image: any) => {
-    if (!image) return '';
-    if (typeof image === 'string') return image;
-    const imageData = image;
-    const hasImageVariants = imageData?.variants?.jpg;
-    if (hasImageVariants) {
-      return imageData.variants.jpg[400] || imageData.variants.jpg[800] || '';
-    }
-    return '';
-  };
+    return () => {
+      cancelled = true;
+    };
+  }, [showModal]);
 
   const handleChangeAddress = () => {
     changeLocation();
@@ -169,7 +162,7 @@ export default function CheckoutPage() {
     alert('Order placed successfully!');
 
     // Optionally clear cart after successful order
-    // clearCart();
+    clearCart();
   };
 
   if (items.length === 0) {

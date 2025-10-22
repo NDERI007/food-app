@@ -19,19 +19,19 @@ interface DeliveryState {
 // Custom storage for delivery
 const createDeliveryStorage = (baseName: string) => {
   return createJSONStorage(() => ({
-    getItem: (_name) => {
+    getItem: () => {
       const state = localStorage.getItem('delivery-user-id');
       const userId = state ? JSON.parse(state) : null;
       const key = userId ? `${baseName}-${userId}` : `${baseName}-guest`;
       return localStorage.getItem(key);
     },
-    setItem: (_name, value) => {
+    setItem: (_key, value) => {
       const state = localStorage.getItem('delivery-user-id');
       const userId = state ? JSON.parse(state) : null;
       const key = userId ? `${baseName}-${userId}` : `${baseName}-guest`;
       localStorage.setItem(key, value);
     },
-    removeItem: (_name) => {
+    removeItem: () => {
       const state = localStorage.getItem('delivery-user-id');
       const userId = state ? JSON.parse(state) : null;
       const key = userId ? `${baseName}-${userId}` : `${baseName}-guest`;

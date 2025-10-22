@@ -137,7 +137,7 @@ export const useAdminStore = create<AdminState>(() => ({
 
       // Realtime will confirm the change, but optimistic update gives instant feedback
     } catch (error) {
-      // 3. Rollback on error
+      console.error('Delete category failed:', error);
       queryClient.invalidateQueries({ queryKey: ['menu-items'] });
       toast.error('Failed to update availability');
     }

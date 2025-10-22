@@ -1,13 +1,6 @@
+import { getImageUrl } from '@utils/hooks/getImage';
 import { useCartStore } from '@utils/hooks/useCrt';
-import {
-  X,
-  Plus,
-  Minus,
-  Trash2,
-  ShoppingCart,
-  ArrowRight,
-  Clock,
-} from 'lucide-react';
+import { X, Plus, Minus, Trash2, ShoppingCart, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function CartDrawer() {
@@ -27,47 +20,6 @@ export default function CartDrawer() {
     (sum, item) => sum + item.price * item.quantity,
     0,
   );
-
-  // Helper to format selected choices for display
-  const formatChoices = (item: any) => {
-    if (!item.selectedChoices || item.selectedChoices.length === 0) return null;
-
-    const choiceLabels: string[] = [];
-
-    item.selectedChoices.forEach((selected: any) => {
-      const option = item.options?.find(
-        (opt: any) => opt.id === selected.optionId,
-      );
-      if (option) {
-        const choice = option.choices.find(
-          (c: any) => c.id === selected.choiceId,
-        );
-        if (choice) {
-          choiceLabels.push(choice.label);
-        }
-      }
-    });
-
-    return choiceLabels.length > 0 ? choiceLabels.join(', ') : null;
-  };
-
-  // Helper to get image URL with variants support
-  const getImageUrl = (image: any) => {
-    if (!image) return '';
-
-    // If image is a string, return it directly
-    if (typeof image === 'string') return image;
-
-    // If image is an object with variants, return the appropriate size
-    const imageData = image;
-    const hasImageVariants = imageData?.variants?.jpg;
-
-    if (hasImageVariants) {
-      return imageData.variants.jpg[400] || imageData.variants.jpg[800] || '';
-    }
-
-    return '';
-  };
 
   const handleCheckout = () => {
     closeCart();
@@ -131,9 +83,7 @@ export default function CartDrawer() {
             ) : (
               <div className='space-y-3'>
                 {items.map((item) => {
-                  const choices = formatChoices(item);
                   const imageUrl = getImageUrl(item.image);
-
                   return (
                     <div
                       key={item.cartItemId}
@@ -151,16 +101,6 @@ export default function CartDrawer() {
                           <h3 className='font-semibold text-gray-900'>
                             {item.name}
                           </h3>
-                          {choices && (
-                            <p className='mt-1 line-clamp-2 text-xs text-gray-500'>
-                              {choices}
-                            </p>
-                          )}
-                          {/* Prep time - you can add this to your cart items if needed */}
-                          <div className='mt-1 flex items-center gap-1 text-xs text-gray-500'>
-                            <Clock className='h-3 w-3' />
-                            15-20 min
-                          </div>
                           <div className='mt-auto flex items-center justify-between pt-2'>
                             <span className='text-lg font-bold text-green-600'>
                               KES {item.price.toFixed(2)}

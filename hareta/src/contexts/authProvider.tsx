@@ -58,14 +58,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Logout
   const logout = useCallback(async () => {
     try {
-      await axios.post(
-        '/api/auth/logout',
-        {},
-        {
-          withCredentials: true,
-          headers: { 'Content-Type': 'application/json' },
-        },
-      );
+      await axios.post('/api/auth/logout', null, {
+        withCredentials: true,
+        headers: { 'Content-Type': 'application/json' },
+      });
 
       setUser(null);
       useCartStore.getState().setUserId(null);
