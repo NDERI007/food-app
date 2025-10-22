@@ -1,11 +1,6 @@
+import type { Category } from '@utils/schemas/menu';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRef, useState, useEffect } from 'react';
-
-type Category = {
-  id: string;
-  name: string;
-  icon?: React.ReactNode;
-};
 
 type CategoryFilterProps = {
   categories: Category[];
@@ -22,7 +17,6 @@ export default function CategoryFilter({
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
 
-  // Check if arrows should be visible
   const checkScroll = () => {
     if (!scrollRef.current) return;
     const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
@@ -53,7 +47,7 @@ export default function CategoryFilter({
 
   return (
     <div className='relative'>
-      {/* Left Arrow - Hidden on mobile, visible on desktop when scrollable */}
+      {/* Left Arrow */}
       {canScrollLeft && (
         <button
           onClick={() => scroll('left')}
@@ -77,26 +71,32 @@ export default function CategoryFilter({
           <button
             key={cat.id}
             onClick={() => onSelect(cat.id)}
-            className={`flex shrink-0 flex-col items-center gap-1.5 rounded-xl px-3 py-2.5 transition sm:min-w-[90px] sm:px-4 sm:py-3 ${
+            className={`flex shrink-0 flex-col items-center gap-2 rounded-xl px-3 py-3 transition sm:min-w-[90px] sm:px-4 sm:py-3 ${
               activeCategory === cat.id
                 ? 'bg-green-600 text-white shadow-md'
-                : 'bg-[#f5f0e1] text-gray-700 hover:bg-gray-100 active:bg-gray-200'
+                : 'bg-[#f5f0e1] text-gray-800 hover:bg-gray-100 active:bg-gray-200'
             }`}
           >
-            {/* Icon */}
-            {cat.icon && (
-              <div className='flex h-10 w-10 items-center justify-center sm:h-12 sm:w-12 md:h-14 md:w-14'>
-                {cat.icon}
+            {/* Icon from bucket */}
+            {cat.icon_url && (
+              <div className='flex items-center justify-center p-2'>
+                <img
+                  src={cat.icon_url}
+                  alt={cat.name}
+                  className='h-8 w-8 object-contain md:h-12 md:w-12'
+                />
               </div>
             )}
 
             {/* Name */}
-            <span className='text-xs font-medium sm:text-sm'>{cat.name}</span>
+            <span className='text-xs font-normal sm:text-sm md:text-xs'>
+              {cat.name}
+            </span>
           </button>
         ))}
       </div>
 
-      {/* Right Arrow - Hidden on mobile, visible on desktop when scrollable */}
+      {/* Right Arrow */}
       {canScrollRight && (
         <button
           onClick={() => scroll('right')}
@@ -107,7 +107,6 @@ export default function CategoryFilter({
         </button>
       )}
 
-      {/* Add this CSS to your global styles or component */}
       <style>{`
         .scrollbar-hide::-webkit-scrollbar {
           display: none;
