@@ -1,6 +1,6 @@
 import { memo, useState, useMemo, useEffect } from 'react';
 import { useCartStore } from '@utils/hooks/useCrt';
-import { ImageOff, Plus, Loader2, Check, Heart, Clock } from 'lucide-react';
+import { ImageOff, Plus, Loader2, Check } from 'lucide-react';
 import { useProductVariants } from '@utils/hooks/productStore';
 import type { MenuItem, ProductVariant } from '@utils/schemas/menu';
 import QuantitySelector from './quantitySel';
@@ -17,7 +17,6 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
   );
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
-  const [isFavorite, setIsFavorite] = useState(false);
 
   const addItem = useCartStore((state) => state.addItem);
 
@@ -54,12 +53,6 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
     closeModal();
   }
 
-  function toggleFavorite(e: React.MouseEvent) {
-    e.stopPropagation();
-    setIsFavorite(!isFavorite);
-    // TODO: Implement favorite API call
-  }
-
   const currentPrice = selectedVariant?.price ?? product.price;
   const subtotal = currentPrice * quantity;
 
@@ -85,7 +78,7 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
     <>
       {/* Minimalist Card Design */}
       <div
-        className={`group overflow-hidden rounded-xl bg-white shadow-sm transition hover:shadow-md ${
+        className={`group overflow-hidden rounded-2xl bg-white shadow-sm transition hover:shadow-md ${
           product.available ? 'cursor-pointer' : 'cursor-not-allowed'
         }`}
         onClick={openModal}
@@ -161,31 +154,14 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
               </span>
             </div>
           )}
-
-          {/* Favorite Button */}
-          <button
-            onClick={toggleFavorite}
-            className='absolute top-3 right-3 rounded-full bg-white/90 p-2 backdrop-blur-sm transition hover:bg-white'
-          >
-            <Heart
-              className={`h-4 w-4 ${
-                isFavorite ? 'fill-red-500 text-red-500' : 'text-gray-600'
-              }`}
-            />
-          </button>
         </div>
 
         {/* Content */}
         <div className='p-4'>
-          {/* Title and Price */}
-          <div className='mb-2 flex items-start justify-between gap-2'>
-            <h3 className='line-clamp-2 flex-1 text-lg font-semibold text-gray-900'>
-              {product.name}
-            </h3>
-            <span className='text-lg font-bold text-green-600'>
-              {displayPrice}
-            </span>
-          </div>
+          {/* Title */}
+          <h3 className='mb-2 line-clamp-2 text-base font-semibold text-gray-900'>
+            {product.name}
+          </h3>
 
           {/* Description */}
           {product.description && (
@@ -194,30 +170,30 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
             </p>
           )}
 
-          {/* Metadata (Prep Time, etc.) */}
-          <div className='mb-4 flex items-center gap-3 text-xs text-gray-500'>
-            <span className='flex items-center gap-1'>
-              <Clock className='h-3.5 w-3.5' />
-              15-20 min
+          {/* Price and Add Button Row */}
+          <div className='flex items-center justify-between'>
+            {/* Price */}
+            <span className='text-lg font-bold text-green-600'>
+              {displayPrice}
             </span>
-          </div>
 
-          {/* Add to Cart Button */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              openModal();
-            }}
-            disabled={!product.available}
-            className={`flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition ${
-              product.available
-                ? 'bg-green-600 text-white hover:bg-green-700'
-                : 'cursor-not-allowed bg-gray-200 text-gray-500'
-            }`}
-          >
-            <Plus className='h-4 w-4' />
-            Add to Cart
-          </button>
+            {/* Circular Add Button */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                openModal();
+              }}
+              disabled={!product.available}
+              className={`rounded-full p-2 transition ${
+                product.available
+                  ? 'bg-green-600 text-white hover:scale-110 hover:bg-green-700'
+                  : 'cursor-not-allowed bg-gray-200 text-gray-400'
+              }`}
+              aria-label='Add to cart'
+            >
+              <Plus className='h-5 w-5' />
+            </button>
+          </div>
         </div>
       </div>
 

@@ -6,10 +6,15 @@ const router = express.Router();
 
 router.post("/insert", async (req, res) => {
   try {
-    const { overall_rating, improvements, additional_comments } = req.body;
+    const {
+      overall_rating,
+      improvements,
+      additional_comments,
+      what_you_liked,
+    } = req.body;
 
     // Validate required fields
-    if (!overall_rating || !improvements) {
+    if (!overall_rating) {
       return res.status(400).json({
         success: false,
         message: "Missing required fields (overall_rating, improvements)",
@@ -21,6 +26,7 @@ router.post("/insert", async (req, res) => {
         overall_rating,
         improvements,
         additional_comments,
+        what_you_liked,
       },
     ]);
 

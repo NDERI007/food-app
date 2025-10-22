@@ -5,7 +5,17 @@ import type { QueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 interface AdminState {
-  addCategory: (name: string, queryClient: QueryClient) => Promise<void>;
+  addCategory: (
+    name: string,
+    iconFile: File | null,
+    queryClient: QueryClient,
+  ) => Promise<void>;
+  updateCategory: (
+    id: string,
+    name: string,
+    iconFile: File | null,
+    queryClient: QueryClient,
+  ) => Promise<void>;
   deleteCategory: (id: string, queryClient: QueryClient) => Promise<void>;
   deleteMenuItem: (id: string, queryClient: QueryClient) => Promise<void>;
   toggleAvailability: (
@@ -34,20 +44,68 @@ interface AdminState {
 }
 
 export const useAdminStore = create<AdminState>(() => ({
-  addCategory: async (name, queryClient) => {
-    const res = await axios.post('/api/prod/categories', { name });
-    queryClient.setQueryData<Category[]>(['categories'], (old) =>
-      old ? [...old, res.data] : [res.data],
-    );
+  addCategory: async (name, iconFile, queryClient) => {
+    try {
+      const formData = new FormData();
+      formData.append('name', name);
+      if (iconFile) {
+        formData.append('icon', iconFile);
+      }
+
+      const res = await axios.post('/api/prod/categories', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      queryClient.setQueryData<Category[]>(['categories'], (old) =>
+        old ? [...old, res.data] : [res.data],
+      );
+
+      toast.success('Category created successfully');
+    } catch (error) {
+      toast.error('Failed to create category');
+      throw error;
+    }
+  },
+
+  updateCategory: async (id, name, iconFile, queryClient) => {
+    try {
+      const formData = new FormData();
+      formData.append('name', name);
+      if (iconFile) {
+        formData.append('icon', iconFile);
+      }
+
+      const res = await axios.put(`/api/prod/categories/${id}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      queryClient.setQueryData<Category[]>(['categories'], (old) =>
+        old ? old.map((cat) => (cat.id === id ? res.data : cat)) : old,
+      );
+
+      toast.success('Category updated successfully');
+    } catch (error) {
+      toast.error('Failed to update category');
+      throw error;
+    }
   },
 
   deleteCategory: async (id, queryClient) => {
-    await axios.delete(`/api/prod/categories/${id}`);
-    queryClient.setQueryData<Category[]>(['categories'], (old) =>
-      old ? old.filter((cat) => cat.id !== id) : old,
-    );
+    try {
+      await axios.delete(`/api/prod/categories/${id}`);
+      queryClient.setQueryData<Category[]>(['categories'], (old) =>
+        old ? old.filter((cat) => cat.id !== id) : old,
+      );
+      toast.success('Category deleted successfully');
+    } catch (error) {
+      toast.error('Failed to delete category');
+      throw error;
+    }
   },
-
   deleteMenuItem: async (id, queryClient) => {
     await axios.delete(`/api/prod/menu-items/${id}`);
     queryClient.setQueryData<MenuItem[]>(['menu-items'], (old) =>

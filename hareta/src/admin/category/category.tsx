@@ -1,405 +1,332 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { useAdminStore } from '@utils/hooks/adminStore';
-import { Plus, Trash2, X, Loader2 } from 'lucide-react';
-import type { Category } from '@utils/schemas/menu';
-import { useCategories } from '@utils/hooks/productStore';
-import { toast } from 'sonner';
+import React, { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { Upload, Plus, X, Save, FolderOpen } from 'lucide-react';
+import type { Category } from '@utils/schemas/menu';
+import { toast } from 'sonner';
+import { useAdminStore } from '@utils/hooks/adminStore';
+import { useCategories } from '@utils/hooks/productStore';
 
-const PALETTES = [
-  { start: '#FB7185', end: '#F59E0B', accent: '#FB7185' },
-  { start: '#6366F1', end: '#A78BFA', accent: '#6366F1' },
-  { start: '#10B981', end: '#06B6D4', accent: '#10B981' },
-  { start: '#F97316', end: '#FB7185', accent: '#F97316' },
-  { start: '#06B6D4', end: '#3B82F6', accent: '#06B6D4' },
-  { start: '#34D399', end: '#84CC16', accent: '#34D399' },
-];
-
-function pickPaletteFromUUID(id: string) {
-  if (!id) return PALETTES[0];
-  try {
-    const cleaned = id.replace(/-/g, '');
-    const last8 = cleaned.slice(-8);
-    const num = parseInt(last8, 16);
-    return PALETTES[num % PALETTES.length];
-  } catch {
-    return PALETTES[0];
-  }
-}
-
-function hexToRgba(hex: string, alpha = 1) {
-  const h = hex.replace('#', '');
-  const bigint = parseInt(
-    h.length === 3
-      ? h
-          .split('')
-          .map((c) => c + c)
-          .join('')
-      : h,
-    16,
-  );
-  const r = (bigint >> 16) & 255;
-  const g = (bigint >> 8) & 255;
-  const b = bigint & 255;
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-const CategoriesPage: React.FC = () => {
-  // adminStore provides mutation actions
-  const addCategory = useAdminStore((s) => s.addCategory);
-  const deleteCategory = useAdminStore((s) => s.deleteCategory);
+export default function CategoryManager() {
   const queryClient = useQueryClient();
-  // React Query hook — provides cached categories + loading
-  const { data: categories = [], isLoading: loading } = useCategories();
+  const { addCategory, updateCategory, deleteCategory } = useAdminStore();
 
-  const [showDialog, setShowDialog] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState('');
+  const { data: categories = [], isLoading } = useCategories();
+
+  const [showModal, setShowModal] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [formData, setFormData] = useState({ name: '' });
+  const [iconFile, setIconFile] = useState<File | null>(null);
+  const [iconPreview, setIconPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
-  // Inline delete confirmation state
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  const containerRef = useRef<HTMLDivElement | null>(null);
-
-  // Close pending delete popover when user clicks outside (keeps your previous behavior)
-  useEffect(() => {
-    function handleDocClick(e: MouseEvent) {
-      if (!pendingDeleteId) return; // Only handle clicks if there's a pending delete
-
-      const target = e.target as HTMLElement | null;
-      if (!target) {
-        setPendingDeleteId(null);
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast.error('Please upload an image file');
         return;
       }
-      if (
-        target.closest('[data-popover]') ||
-        target.closest('[data-delete-button]')
-      ) {
+      if (file.size > 3 * 1024 * 1024) {
+        toast.error('File size must be less than 3MB');
         return;
       }
-      setPendingDeleteId(null);
+      setIconFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => setIconPreview(reader.result as string);
+      reader.readAsDataURL(file);
     }
-    document.addEventListener('click', handleDocClick);
-    return () => document.removeEventListener('click', handleDocClick);
-  }, [pendingDeleteId]);
+  };
 
-  const handleAddCategory = async (e?: React.FormEvent | any) => {
-    e?.preventDefault?.();
-    if (!newCategoryName.trim()) return;
+  const openModal = (category: Category | null = null) => {
+    if (category) {
+      setEditingCategory(category);
+      setFormData({ name: category.name });
+      setIconPreview(category.icon_url || null);
+    } else {
+      setEditingCategory(null);
+      setFormData({ name: '' });
+      setIconPreview(null);
+    }
+    setIconFile(null);
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setEditingCategory(null);
+    setFormData({ name: '' });
+    setIconFile(null);
+    setIconPreview(null);
+  };
+
+  const handleSubmit = async () => {
+    if (!formData.name.trim()) {
+      toast.error('Category name is required');
+      return;
+    }
+    setSubmitting(true);
     try {
-      setSubmitting(true);
-      await addCategory(newCategoryName.trim(), queryClient);
-      toast.success('Category created successfully!');
-      setNewCategoryName('');
-      setShowDialog(false);
-    } catch (err) {
-      console.error('Error creating category:', err);
-      toast.error('Failed to create category.');
+      if (editingCategory) {
+        await updateCategory(
+          editingCategory.id,
+          formData.name,
+          iconFile,
+          queryClient,
+        );
+      } else {
+        await addCategory(formData.name, iconFile, queryClient);
+      }
+      closeModal();
+    } catch (error) {
+      console.error('Error saving category:', error);
+      toast.error('Failed to save category');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleConfirmDelete = async (id: string) => {
+  const handleDelete = async (id: string) => {
     try {
-      setDeletingId(id);
       await deleteCategory(id, queryClient);
-      toast.success('Category deleted.');
-      setPendingDeleteId(null);
-    } catch (err) {
-      console.error('Error deleting category:', err);
-      toast.error('Failed to delete category.');
-    } finally {
-      setDeletingId(null);
+      setDeleteConfirm(null);
+    } catch (error) {
+      console.error('Error deleting category:', error);
+      toast.error('Failed to delete category');
     }
   };
 
+  const removeIcon = () => {
+    setIconFile(null);
+    setIconPreview(editingCategory?.icon_url || null);
+  };
+
   return (
-    <div className='mx-auto max-w-4xl p-6' ref={containerRef}>
-      <div className='mb-6 flex items-center justify-between'>
-        <div>
-          <h1 className='text-3xl font-bold text-gray-800'>Categories</h1>
-          <p className='mt-1 text-gray-600'>Manage your product categories</p>
-        </div>
-
-        <div>
-          <button
-            onClick={() => setShowDialog(true)}
-            className='inline-flex items-center gap-2 rounded-lg bg-gradient-to-br from-indigo-500 to-emerald-400 px-4 py-2 text-white shadow-md transition hover:scale-105'
-          >
-            <Plus size={16} />
-            New Category
-          </button>
-        </div>
-      </div>
-
-      {loading ? (
-        <div className='flex items-center justify-center py-12'>
-          <Loader2 className='h-8 w-8 animate-spin text-blue-600' />
-        </div>
-      ) : categories.length === 0 ? (
-        <div className='rounded-xl bg-white p-12 text-center shadow'>
-          <div className='mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full bg-gray-100 text-gray-300'>
-            <svg
-              className='h-8 w-8'
-              viewBox='0 0 24 24'
-              fill='none'
-              aria-hidden
-            >
-              <path
-                d='M3 7h18'
-                stroke='currentColor'
-                strokeWidth='1.5'
-                strokeLinecap='round'
-              />
-              <path
-                d='M5 7v10a2 2 0 0 0 2 2h10'
-                stroke='currentColor'
-                strokeWidth='1.5'
-                strokeLinecap='round'
-                strokeLinejoin='round'
-              />
-            </svg>
+    <div className='min-h-screen bg-[#fefaef] p-4 sm:p-6'>
+      <div className='mx-auto max-w-7xl'>
+        {/* Header */}
+        <div className='mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between'>
+          <div>
+            <h1 className='mb-1 text-2xl font-bold text-green-900 sm:text-3xl'>
+              Category Management
+            </h1>
+            <p className='text-sm text-green-900/80 sm:text-base'>
+              Organize your products with custom categories
+            </p>
           </div>
-          <h3 className='mb-2 text-xl font-semibold text-gray-700'>
-            No categories yet
-          </h3>
-          <p className='mb-6 text-gray-500'>
-            Get started by creating your first category
-          </p>
-          <button
-            onClick={() => setShowDialog(true)}
-            className='inline-flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-white transition hover:bg-blue-700'
-          >
-            <Plus size={18} />
-            Create Category
-          </button>
+
+          <div className='flex items-center gap-3'>
+            <button
+              onClick={() => openModal()}
+              className='inline-flex items-center gap-2 rounded-lg bg-green-900 px-4 py-2 font-medium text-white shadow-md shadow-green-900/20 transition-colors hover:bg-green-800 focus:ring-2 focus:ring-green-300 focus:outline-none sm:px-6'
+            >
+              <Plus size={16} />
+              <span className='text-sm'>New</span>
+            </button>
+          </div>
         </div>
-      ) : (
-        <div className='rounded-xl bg-white p-4 shadow'>
-          <div
-            className='grid gap-3'
-            style={{
-              gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-            }}
-          >
-            {categories.map((category: Category) => {
-              const pal = pickPaletteFromUUID(category.id || '');
-              const bgGradient = `linear-gradient(90deg, ${hexToRgba(pal.start, 0.06)}, ${hexToRgba(pal.end, 0.06)})`;
-              const underlineGradient = `linear-gradient(90deg, ${pal.start}, ${pal.end})`;
-              const isPending = pendingDeleteId === category.id;
-              const isDeleting = deletingId === category.id;
 
-              return (
-                <div
-                  key={category.id}
-                  className='group relative flex items-center justify-between overflow-visible rounded-lg px-3 py-2 shadow-sm transition-transform focus-within:scale-[1.01] hover:scale-[1.01]'
-                  style={{
-                    borderLeft: `4px solid ${pal.start}`,
-                    background: bgGradient,
-                  }}
-                  tabIndex={0}
-                  role='button'
-                  aria-label={`Category ${category.name}`}
+        {/* Content */}
+        {isLoading ? (
+          <div className='py-6 text-center'>
+            <div className='inline-block h-8 w-8 animate-spin rounded-full border-b-2 border-green-900'></div>
+          </div>
+        ) : categories.length === 0 ? (
+          <div className='rounded-2xl border-2 border-dashed border-green-200 bg-[#fffefb] px-4 py-8 text-center'>
+            <FolderOpen size={56} className='mx-auto mb-3 text-green-200' />
+            <h3 className='mb-2 text-lg font-semibold text-green-900'>
+              No categories yet
+            </h3>
+            <p className='mb-4 text-sm text-green-900/80'>
+              Get started by creating your first category
+            </p>
+            <button
+              onClick={() => openModal()}
+              className='inline-flex items-center gap-2 rounded-lg bg-green-900 px-4 py-2 font-medium text-white transition-colors hover:bg-green-800'
+            >
+              <Plus size={18} /> Create Category
+            </button>
+          </div>
+        ) : (
+          /* Grid mode only: icon-only tiles with normal spacing between tiles */
+          <div className='grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6'>
+            {categories.map((category) => (
+              <div
+                key={category.id}
+                className='flex flex-col items-center rounded-2xl bg-[#fefaef] p-4 shadow-md transition-transform hover:scale-105'
+              >
+                <div className='flex h-20 w-20 items-center justify-center rounded-xl bg-green-50'>
+                  {category.icon_url ? (
+                    <img
+                      src={category.icon_url}
+                      alt={category.name}
+                      className='h-12 w-12 object-contain'
+                    />
+                  ) : (
+                    <FolderOpen className='text-green-900' size={32} />
+                  )}
+                </div>
+
+                <p className='mt-3 truncate text-center text-base font-medium text-green-900'>
+                  {category.name}
+                </p>
+
+                <div className='mt-4 flex w-full items-center justify-between gap-2'>
+                  {/* Edit Button - violet theme */}
+                  <button
+                    onClick={() => openModal(category)}
+                    className='flex-1 rounded-lg bg-violet-100 px-3 py-2 text-sm font-semibold text-violet-800 shadow-sm transition-colors hover:bg-violet-200 active:bg-violet-300'
+                  >
+                    Edit
+                  </button>
+
+                  {/* Delete Button - red theme */}
+                  <button
+                    onClick={() => setDeleteConfirm(category.id)}
+                    className='flex-1 rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 shadow-sm transition-colors hover:bg-red-100 active:bg-red-200'
+                  >
+                    Delete
+                  </button>
+                </div>
+
+                {/* Delete confirm modal (grid) */}
+                {deleteConfirm === category.id && (
+                  <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4'>
+                    <div className='w-full max-w-sm rounded-lg bg-white p-4 shadow-lg'>
+                      <p className='mb-3 text-sm font-medium text-green-900'>
+                        Delete "{category.name}"?
+                      </p>
+                      <div className='flex justify-end gap-2'>
+                        <button
+                          onClick={() => setDeleteConfirm(null)}
+                          className='rounded-md border border-green-100 bg-white px-3 py-1 text-sm text-green-900 hover:bg-green-50'
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => handleDelete(category.id)}
+                          className='rounded-md bg-red-600 px-3 py-1 text-sm text-white hover:bg-red-700'
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Modal for create/edit (unchanged) */}
+        {showModal && (
+          <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4'>
+            <div className='max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-[#fefaf6] shadow-2xl'>
+              <div className='sticky top-0 flex items-center justify-between rounded-t-2xl border-b border-[#fff1ec] bg-[#fefaf6] px-5 py-3'>
+                <h2 className='text-lg font-bold text-green-900 sm:text-xl'>
+                  {editingCategory ? 'Edit Category' : 'New Category'}
+                </h2>
+                <button
+                  onClick={closeModal}
+                  className='rounded-lg p-2 transition-colors hover:bg-[#fff1ec] focus:outline-none'
                 >
-                  <span
-                    aria-hidden
-                    className='ripple pointer-events-none absolute inset-0 scale-0 transform transition duration-500'
-                    style={{ background: pal.end, opacity: 0.06 }}
-                  />
+                  <X size={20} />
+                </button>
+              </div>
 
-                  <div className='flex w-full items-center gap-3'>
-                    <div className='flex min-w-0 flex-col'>
-                      <div
-                        className='text-md truncate'
-                        title={category.name}
-                        style={{ color: '#111827' }}
-                      >
-                        {category.name}
-                      </div>
-
-                      <div
-                        className='small-underline mt-2 h-1 rounded-full transition-all duration-300'
-                        style={{ width: '0%', background: underlineGradient }}
-                      />
+              <div className='space-y-5 p-5'>
+                <div>
+                  <label className='mb-2 block text-sm font-medium text-green-900'>
+                    Category Icon
+                  </label>
+                  <div className='flex items-center gap-3'>
+                    <div className='flex h-20 w-20 items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-[#fff2ec] bg-white'>
+                      {iconPreview ? (
+                        <img
+                          src={iconPreview}
+                          alt='Preview'
+                          className='h-16 w-16 object-contain'
+                        />
+                      ) : (
+                        <Upload size={32} className='text-green-200' />
+                      )}
                     </div>
 
-                    <div className='ml-auto hidden truncate text-xs text-gray-400 md:block'>
-                      {category.id?.slice(0, 8)}
+                    <div className='flex-1 space-y-2'>
+                      <label className='block'>
+                        <input
+                          type='file'
+                          accept='image/*,.svg'
+                          onChange={handleFileChange}
+                          className='hidden'
+                        />
+                        <span className='inline-flex cursor-pointer items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm font-medium text-green-900 shadow-sm transition-colors hover:bg-green-50'>
+                          <Upload size={16} />
+                          {iconPreview ? 'Change Icon' : 'Upload Icon'}
+                        </span>
+                      </label>
+                      {iconPreview && (
+                        <button
+                          type='button'
+                          onClick={removeIcon}
+                          className='block text-sm text-red-700 hover:text-red-800'
+                        >
+                          Remove icon
+                        </button>
+                      )}
+                      <p className='text-xs text-green-900/70'>
+                        SVG or PNG (max 3MB)
+                      </p>
                     </div>
                   </div>
+                </div>
 
-                  <div className='relative ml-3 flex items-center gap-2'>
-                    <button
-                      data-delete-button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setPendingDeleteId((cur) =>
-                          cur === category.id ? null : category.id,
-                        );
-                      }}
-                      className='z-10 rounded-md p-1 transition hover:bg-red-50'
-                      aria-label={`Delete ${category.name}`}
-                      title='Delete'
-                      style={{ color: pal.accent }}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-
-                    {isPending && (
-                      <div
-                        data-popover
-                        onClick={(e) => e.stopPropagation()}
-                        className='absolute top-full right-0 z-20 mt-2 w-[220px] rounded-md border bg-white px-3 py-2 shadow-lg'
-                        role='dialog'
-                        aria-label={`Confirm delete ${category.name}`}
-                      >
-                        <div className='mb-2 text-sm text-gray-800'>
-                          Delete{' '}
-                          <span className='font-semibold'>{category.name}</span>
-                          ?
-                        </div>
-
-                        <div className='flex gap-2'>
-                          <button
-                            onClick={() => setPendingDeleteId(null)}
-                            className='flex-1 rounded-md border border-gray-200 px-2 py-1 text-sm text-gray-700 transition hover:bg-gray-50'
-                          >
-                            Cancel
-                          </button>
-
-                          <button
-                            onClick={async () =>
-                              await handleConfirmDelete(category.id)
-                            }
-                            className='flex-1 rounded-md bg-red-600 px-2 py-1 text-sm text-white transition hover:bg-red-700 disabled:opacity-60'
-                            disabled={isDeleting}
-                          >
-                            {isDeleting ? (
-                              <span className='inline-flex items-center gap-2'>
-                                <Loader2 className='h-4 w-4 animate-spin' />
-                                Deleting...
-                              </span>
-                            ) : (
-                              'Delete'
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div
-                    aria-hidden
-                    className='chip-underline absolute right-3 bottom-2 left-4 h-1 rounded-full transition-all duration-300'
-                    style={{
-                      background: underlineGradient,
-                      transformOrigin: 'left center',
-                      transform: 'scaleX(0)',
-                    }}
+                <div>
+                  <label className='mb-1 block text-sm font-medium text-green-900'>
+                    Category Name <span className='text-red-600'>*</span>
+                  </label>
+                  <input
+                    type='text'
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
+                    placeholder='e.g., Electronics, Fashion, Food'
+                    className='w-full rounded-lg border border-[#fff2ec] px-4 py-3 transition-all outline-none focus:border-transparent focus:ring-2 focus:ring-green-300'
                   />
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
-      {showDialog && (
-        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4'>
-          <div className='w-full max-w-md rounded-xl bg-white p-6 shadow-xl'>
-            <div className='mb-4 flex items-center justify-between'>
-              <h2 className='text-xl font-semibold text-gray-800'>
-                Add New Category
-              </h2>
-              <button
-                onClick={() => {
-                  setShowDialog(false);
-                  setNewCategoryName('');
-                }}
-                className='rounded-lg p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600'
-                disabled={submitting}
-              >
-                <X size={24} />
-              </button>
-            </div>
-
-            <div className='mb-6'>
-              <label
-                htmlFor='categoryName'
-                className='mb-2 block font-medium text-gray-700'
-              >
-                Category Name
-              </label>
-              <input
-                id='categoryName'
-                type='text'
-                value={newCategoryName}
-                onChange={(e) => setNewCategoryName(e.target.value)}
-                placeholder='Enter category name'
-                className='w-full rounded-lg border border-gray-300 p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none'
-                autoFocus
-                disabled={submitting}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !submitting) {
-                    handleAddCategory(e);
-                  }
-                }}
-              />
-            </div>
-
-            <div className='flex gap-3'>
-              <button
-                onClick={handleAddCategory}
-                disabled={submitting || !newCategoryName.trim()}
-                className='flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300'
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className='h-5 w-5 animate-spin' />
-                    Creating...
-                  </>
-                ) : (
-                  <>
-                    <Plus size={18} />
-                    Add Category
-                  </>
-                )}
-              </button>
-              <button
-                onClick={() => {
-                  setShowDialog(false);
-                  setNewCategoryName('');
-                }}
-                disabled={submitting}
-                className='rounded-lg bg-gray-200 px-4 py-3 text-gray-700 transition hover:bg-gray-300 disabled:cursor-not-allowed'
-              >
-                Cancel
-              </button>
+                <div className='flex flex-col gap-3 pt-1 sm:flex-row'>
+                  <button
+                    type='button'
+                    onClick={closeModal}
+                    className='w-full rounded-lg bg-white px-4 py-3 font-medium text-green-900 transition-colors hover:bg-green-50 sm:flex-1'
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSubmit}
+                    disabled={submitting}
+                    className='inline-flex w-full items-center justify-center gap-2 rounded-lg bg-green-900 px-4 py-3 font-medium text-white transition-colors hover:bg-green-800 disabled:bg-green-600 sm:flex sm:flex-1'
+                  >
+                    {submitting ? (
+                      <>
+                        <div className='h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white'></div>
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save size={18} />
+                        {editingCategory ? 'Update' : 'Create'}
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-
-      <style>{`
-        .group:hover .chip-underline,
-        .group:focus-within .chip-underline {
-          transform: scaleX(1);
-        }
-        .group:hover .ripple,
-        .group:focus-within .ripple {
-          transform: scale(1);
-          opacity: 0.06;
-        }
-        .group:hover .small-underline,
-        .group:focus-within .small-underline {
-          width: 100% !important;
-        }
-        [data-popover] { z-index: 60; }
-      `}</style>
+        )}
+      </div>
     </div>
   );
-};
-
-export default CategoriesPage;
+}

@@ -22,25 +22,73 @@ const upload = multer({
   },
 });
 
+async function uploadCategoryIcon(
+  file: Express.Multer.File,
+  categoryName: string
+) {
+  try {
+    const timestamp = Date.now();
+    const sanitizedName = categoryName.toLowerCase().replace(/[^a-z0-9]/g, "-");
+    const extension =
+      file.mimetype === "image/svg+xml" ? "svg" : file.mimetype.split("/")[1];
+    const fileName = `category-icons/${sanitizedName}-${timestamp}.${extension}`;
+
+    const { error } = await supabase.storage
+      .from("airi")
+      .upload(fileName, file.buffer, {
+        contentType: file.mimetype,
+        upsert: true,
+      });
+
+    if (error) throw error;
+
+    // Get public URL
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("airi").getPublicUrl(fileName);
+
+    return publicUrl;
+  } catch (error) {
+    console.error("Error uploading category icon:", error);
+    throw error;
+  }
+}
+
+// Helper function to delete category icon
+async function deleteCategoryIcon(iconUrl: string) {
+  try {
+    if (!iconUrl) return;
+
+    // Extract file path from URL
+    const urlParts = iconUrl.split("/storage/v1/object/public/airi/");
+    if (urlParts.length < 2 || !urlParts[1]) return;
+
+    const filePath = urlParts[1];
+
+    const { error } = await supabase.storage.from("airi").remove([filePath]);
+
+    if (error) throw error;
+  } catch (error) {
+    console.error("Error deleting category icon:", error);
+    // Don't throw - allow category deletion even if icon deletion fails
+  }
+}
+
 // Routes
 // GET /api/menu-items?category_id=some_id
 router.get("/menu-items", async (req, res) => {
   try {
-    // 1. Get the category_id from the URL's query string
     const { category_id } = req.query;
 
-    // 2. Start building the query
     let query = supabase
       .from("menu_items")
-      .select("*") // Also fetch related variants
+      .select("*")
       .order("name", { ascending: true });
 
-    // 3. If a category_id is provided, add a filter
     if (category_id && category_id !== "all") {
       query = query.eq("category_id", category_id);
     }
 
-    // 4. Execute the final query
     const { data, error } = await query;
 
     if (error) {
@@ -64,13 +112,11 @@ router.post(
     try {
       const { name, description, price, available, category_id } = req.body;
 
-      // Upload image if provided
       let imageData = null;
       if (req.file) {
         imageData = await uploadImageVariants(req.file);
       }
 
-      // Insert into database
       const { data, error } = await supabase
         .from("menu_items")
         .insert([
@@ -105,7 +151,6 @@ router.put(
       const { id } = req.params;
       const { name, description, price, available, category_id } = req.body;
 
-      // First, get the existing item to check for old image
       const { data: existingItem, error: fetchError } = await supabase
         .from("menu_items")
         .select("image")
@@ -114,18 +159,14 @@ router.put(
 
       if (fetchError) throw fetchError;
 
-      // Upload new image if provided
       let imageData = existingItem?.image;
       if (req.file) {
-        // Delete old image if exists
         if (existingItem?.image) {
           await deleteImageVariantS(existingItem.image);
         }
-        // Upload new image
         imageData = await uploadImageVariants(req.file);
       }
 
-      // Update in database
       const updateData: any = {
         name,
         description: description || null,
@@ -134,7 +175,6 @@ router.put(
         category_id: category_id || null,
       };
 
-      // Only update image_url if a new image was uploaded
       if (req.file) {
         updateData.image = imageData;
       }
@@ -185,7 +225,6 @@ router.delete("/menu-items/:id", withAuth(["admin"]), async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Get item to check for image
     const { data: item, error: fetchError } = await supabase
       .from("menu_items")
       .select("image")
@@ -194,12 +233,10 @@ router.delete("/menu-items/:id", withAuth(["admin"]), async (req, res) => {
 
     if (fetchError) throw fetchError;
 
-    // Delete image from storage if exists
     if (item?.image) {
       await deleteImageVariantS(item.image);
     }
 
-    // Delete from database
     const { error } = await supabase.from("menu_items").delete().eq("id", id);
 
     if (error) throw error;
@@ -226,28 +263,99 @@ router.get("/categories", async (req, res) => {
   }
 });
 
-// Create category
-router.post("/categories", withAuth(["admin"]), async (req, res) => {
-  try {
-    const { name } = req.body;
+// Create category with optional icon
+router.post(
+  "/categories",
+  withAuth(["admin"]),
+  upload.single("icon"),
+  async (req, res) => {
+    try {
+      const { name } = req.body;
 
-    const { data, error } = await supabase
-      .from("categories")
-      .insert([{ name }])
-      .select()
-      .single();
+      let iconUrl = null;
+      if (req.file) {
+        iconUrl = await uploadCategoryIcon(req.file, name);
+      }
 
-    if (error) throw error;
-    res.status(201).json(data);
-  } catch (error) {
-    console.error("Error creating category:", error);
-    res.status(500).json({ error: "Failed to create category" });
+      const { data, error } = await supabase
+        .from("categories")
+        .insert([{ name, icon_url: iconUrl }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      res.status(201).json(data);
+    } catch (error) {
+      console.error("Error creating category:", error);
+      res.status(500).json({ error: "Failed to create category" });
+    }
   }
-});
+);
+
+// Update category (including icon)
+router.put(
+  "/categories/:id",
+  withAuth(["admin"]),
+  upload.single("icon"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { name } = req.body;
+
+      // Get existing category to check for old icon
+      const { data: existingCategory, error: fetchError } = await supabase
+        .from("categories")
+        .select("icon_url")
+        .eq("id", id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      let iconUrl = existingCategory?.icon_url;
+
+      // Upload new icon if provided
+      if (req.file) {
+        // Delete old icon if exists
+        if (existingCategory?.icon_url) {
+          await deleteCategoryIcon(existingCategory.icon_url);
+        }
+        iconUrl = await uploadCategoryIcon(req.file, name);
+      }
+
+      const { data, error } = await supabase
+        .from("categories")
+        .update({ name, icon_url: iconUrl })
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      res.json(data);
+    } catch (error) {
+      console.error("Error updating category:", error);
+      res.status(500).json({ error: "Failed to update category" });
+    }
+  }
+);
+
 // Delete category
 router.delete("/categories/:id", withAuth(["admin"]), async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Get category to check for icon
+    const { data: category, error: fetchError } = await supabase
+      .from("categories")
+      .select("icon_url")
+      .eq("id", id)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    // Delete icon from storage if exists
+    if (category?.icon_url) {
+      await deleteCategoryIcon(category.icon_url);
+    }
 
     const { error } = await supabase.from("categories").delete().eq("id", id);
 

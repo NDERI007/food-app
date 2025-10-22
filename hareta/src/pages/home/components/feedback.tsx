@@ -6,6 +6,7 @@ import axios from 'axios';
 
 interface SurveyData {
   overallRating: number;
+  whatYouLiked: string;
   improvements: string;
   additionalComments: string;
 }
@@ -13,8 +14,10 @@ interface SurveyData {
 export default function FeedbackButton() {
   const [isOpen, setIsOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [surveyData, setSurveyData] = useState<SurveyData>({
     overallRating: 0,
+    whatYouLiked: '',
     improvements: '',
     additionalComments: '',
   });
@@ -26,74 +29,72 @@ export default function FeedbackButton() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!surveyData.overallRating || !surveyData.improvements.trim()) {
-      toast.warning('Please complete all required fields before submitting.');
+    if (!surveyData.overallRating) {
+      toast.warning('Please rate your experience before submitting.');
       return;
     }
 
-    const submitFeedback = async () => {
-      try {
+    setIsSubmitting(true);
+
+    try {
+      const { overallRating, whatYouLiked, improvements, additionalComments } =
+        surveyData;
+
+      const response = await axios.post('/api/feedback/insert', {
+        overall_rating: overallRating,
+        what_you_liked: whatYouLiked,
+        improvements,
+        additional_comments: additionalComments,
+      });
+
+      if (response.data?.success) {
         setSubmitted(true);
 
-        const { overallRating, improvements, additionalComments } = surveyData;
-
-        const response = await axios.post('/api/feedback/insert', {
-          overall_rating: overallRating,
-          improvements,
-          additional_comments: additionalComments,
-        });
-
-        if (response.data?.success) {
-          toast.success('Thank you for your feedback!');
-          setSubmitted(true);
-
-          setTimeout(() => {
-            setIsOpen(false);
-            setSubmitted(false);
-            setSurveyData({
-              overallRating: 0,
-              improvements: '',
-              additionalComments: '',
-            });
-          }, 2000);
-        } else {
-          toast.error(
-            response.data?.message || 'Something went wrong. Try again.',
-          );
-        }
-      } catch (error: unknown) {
-        console.error('Error submitting feedback:', error);
-
-        if (axios.isAxiosError(error)) {
-          if (error.response) {
-            // 4xx or 5xx error from server
-            const msg =
-              error.response.data?.message ||
-              `Server error (${error.response.status})`;
-            toast.error(msg);
-          } else if (error.request) {
-            // Network or timeout error
-            toast.error('Network error. Please check your connection.', {
-              action: {
-                label: 'Retry',
-                onClick: () => {
-                  toast.dismiss(); // remove the previous toast
-                  submitFeedback(); // reattempt submission
-                },
-              },
-            });
-          } else {
-            toast.error('Unexpected setup error. Please try again.');
-          }
-        } else {
-          toast.error('An unknown error occurred.');
-        }
-      } finally {
-        setSubmitted(false);
+        setTimeout(() => {
+          setIsOpen(false);
+          setSubmitted(false);
+          setSurveyData({
+            overallRating: 0,
+            whatYouLiked: '',
+            improvements: '',
+            additionalComments: '',
+          });
+        }, 2000);
+      } else {
+        toast.error(
+          response.data?.message || 'Something went wrong. Try again.',
+        );
       }
-    };
+    } catch (error: unknown) {
+      console.error('Error submitting feedback:', error);
 
-    await submitFeedback();
+      if (axios.isAxiosError(error)) {
+        if (error.response) {
+          // 4xx or 5xx error from server
+          const msg =
+            error.response.data?.message ||
+            `Server error (${error.response.status})`;
+          toast.error(msg);
+        } else if (error.request) {
+          // Network or timeout error
+          toast.error('Network error. Please check your connection.', {
+            action: {
+              label: 'Retry',
+              onClick: () => {
+                toast.dismiss();
+                handleSubmit(e);
+              },
+            },
+          });
+        } else {
+          toast.error('Unexpected setup error. Please try again.');
+        }
+      } else {
+        toast.error('An unknown error occurred.');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -145,11 +146,28 @@ export default function FeedbackButton() {
                     />
                   </div>
 
+                  {/* What You Liked */}
+                  <div>
+                    <label className='mb-2 block text-sm font-medium text-gray-700'>
+                      What did you like most? (Optional)
+                    </label>
+                    <textarea
+                      value={surveyData.whatYouLiked}
+                      onChange={(e) =>
+                        setSurveyData((prev) => ({
+                          ...prev,
+                          whatYouLiked: e.target.value,
+                        }))
+                      }
+                      placeholder='e.g., Fast delivery, great food quality, friendly staff...'
+                      className='h-24 w-full rounded-lg border border-gray-300 p-3 text-sm focus:ring-2 focus:ring-green-600 focus:outline-none'
+                    />
+                  </div>
+
                   {/* Improvements */}
                   <div>
                     <label className='mb-2 block text-sm font-medium text-gray-700'>
-                      What could we improve?
-                      <span className='text-red-500'>*</span>
+                      What could we improve? (Optional)
                     </label>
                     <textarea
                       value={surveyData.improvements}
@@ -161,14 +179,13 @@ export default function FeedbackButton() {
                       }
                       placeholder='e.g., Faster delivery, better app design, more menu options...'
                       className='h-24 w-full rounded-lg border border-gray-300 p-3 text-sm focus:ring-2 focus:ring-green-600 focus:outline-none'
-                      required
                     />
                   </div>
 
                   {/* Additional Comments */}
                   <div>
                     <label className='mb-2 block text-sm font-medium text-gray-700'>
-                      Any other thoughts? (Optional)
+                      Anything else you'd like to share? (Optional)
                     </label>
                     <textarea
                       value={surveyData.additionalComments}
@@ -178,21 +195,17 @@ export default function FeedbackButton() {
                           additionalComments: e.target.value,
                         }))
                       }
-                      placeholder='Share anything else on your mind...'
+                      placeholder='Share any other thoughts or suggestions...'
                       className='h-20 w-full rounded-lg border border-gray-300 p-3 text-sm focus:ring-2 focus:ring-green-600 focus:outline-none'
                     />
                   </div>
 
                   <button
                     type='submit'
-                    disabled={
-                      submitted ||
-                      surveyData.overallRating === 0 ||
-                      !surveyData.improvements.trim()
-                    }
+                    disabled={isSubmitting || surveyData.overallRating === 0}
                     className='w-full rounded-lg bg-green-600 py-3 font-medium text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-gray-300'
                   >
-                    Submit Feedback
+                    {isSubmitting ? 'Submitting...' : 'Submit Feedback'}
                   </button>
                 </form>
               </>

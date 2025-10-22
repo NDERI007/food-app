@@ -30,17 +30,27 @@ const EmojiRating: React.FC<EmojiRatingProps> = ({
   return (
     <div className='flex justify-center gap-3 text-3xl'>
       {emojis.map((emoji, index) => (
-        <div key={index} className='flex flex-col items-center'>
+        <div key={index} className='flex flex-col items-center gap-1'>
           <button
             type='button'
             onClick={() => onChange(index + 1)}
-            className={`transition-transform duration-150 ease-in-out hover:scale-125 ${
-              value === index + 1 ? 'scale-125' : ''
+            className={`rounded-lg p-2 transition-all duration-200 ${
+              value === index + 1
+                ? 'scale-95 bg-green-100 shadow-inner ring-2 ring-green-500 ring-inset'
+                : 'hover:bg-gray-100 active:scale-95'
             }`}
           >
             {emoji}
           </button>
-          <span className='text-xs text-gray-500'>{emojiLabels[index]}</span>
+          <span
+            className={`text-xs transition-colors ${
+              value === index + 1
+                ? 'font-medium text-green-600'
+                : 'text-gray-500'
+            }`}
+          >
+            {emojiLabels[index]}
+          </span>
         </div>
       ))}
     </div>
