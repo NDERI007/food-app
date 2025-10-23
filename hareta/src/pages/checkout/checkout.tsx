@@ -29,13 +29,8 @@ export default function CheckoutPage() {
   const clearCart = useCartStore((state) => state.clearCart);
 
   // Delivery Store
-  const {
-    deliveryOption,
-    place,
-    sessionToken,
-    setDeliveryAddress,
-    changeLocation,
-  } = useDeliveryStore();
+  const { deliveryOption, place, setDeliveryAddress, changeLocation } =
+    useDeliveryStore();
 
   // Local State
   const [paymentMethod, setPaymentMethod] = useState<'mpesa' | 'cod' | null>(
@@ -506,7 +501,7 @@ export default function CheckoutPage() {
         show={showModal}
         onClose={() => setShowModal(false)}
         onSelect={(selectedAddress) => {
-          setDeliveryAddress(selectedAddress, sessionToken);
+          setDeliveryAddress(selectedAddress);
           setShowModal(false);
         }}
         savedAddresses={savedAddresses}
