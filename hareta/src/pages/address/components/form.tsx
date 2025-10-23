@@ -38,7 +38,6 @@ export default function AddressForm({
   } = usePlacesSearch({
     debounceMs: 250,
     minChars: 2,
-    sessionToken,
     onSubmit: (place) => {
       const addressObj: Place = {
         place_id: place.place_id,

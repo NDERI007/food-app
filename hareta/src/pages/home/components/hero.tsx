@@ -36,7 +36,7 @@ export default function HeroStickyHeadline({ onSubmit }: HeroSearchBarProps) {
   const heroRef = useRef<HTMLDivElement | null>(null);
   const [progress, setProgress] = useState(0);
   const [fallbackOpen, setFallbackOpen] = useState(false);
-  const { sessionToken, setDeliveryAddress } = useDeliveryStore();
+  const { setDeliveryAddress } = useDeliveryStore();
 
   const navigate = useNavigate();
   // Use the Places hook
@@ -54,7 +54,7 @@ export default function HeroStickyHeadline({ onSubmit }: HeroSearchBarProps) {
   } = usePlacesSearch({
     onSubmit: (place) => {
       // Save address to store
-      setDeliveryAddress(place, sessionToken);
+      setDeliveryAddress(place);
 
       // Call parent's onSubmit if provided
       onSubmit?.(place);
@@ -62,7 +62,6 @@ export default function HeroStickyHeadline({ onSubmit }: HeroSearchBarProps) {
       // Navigate to dashboard
       navigate('/dashboard');
     },
-    sessionToken, // Pass session token from store
   });
 
   // Scroll progress for animations
@@ -246,7 +245,7 @@ export default function HeroStickyHeadline({ onSubmit }: HeroSearchBarProps) {
           };
 
           // Save to store with properly formatted address
-          setDeliveryAddress(customPlace, sessionToken);
+          setDeliveryAddress(customPlace);
           onSubmit?.(customPlace);
           navigate('/dashboard');
         }}

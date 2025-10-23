@@ -4,8 +4,8 @@ import './index.css';
 import App from './App.tsx';
 import { RouterProvider } from 'react-router-dom';
 import router from './router.tsx';
-import { AuthProvider } from 'contexts/AuthContext.tsx';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AuthProvider } from 'contexts/authProvider.tsx';
 
 //Create a single QueryClient instance
 const queryClient = new QueryClient();

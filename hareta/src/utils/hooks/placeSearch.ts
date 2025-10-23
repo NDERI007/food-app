@@ -1,5 +1,7 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+
 import axios, { AxiosError, type CancelTokenSource } from 'axios';
+import { sessionTokenManager } from './sessionToken';
 
 export interface Place {
   place_id: string | null;
@@ -17,17 +19,15 @@ interface UsePlacesSearchOptions {
   limit?: number;
   fetchUrl?: string;
   onSubmit?: (place: Place) => void;
-  sessionToken?: string;
 }
 
 export function usePlacesSearch(options: UsePlacesSearchOptions = {}) {
   const {
     debounceMs = 220,
-    minChars = 1,
+    minChars = 4,
     limit = 6,
     fetchUrl = '/api/places/auto-comp',
     onSubmit,
-    sessionToken,
   } = options;
 
   const [query, setQuery] = useState('');
@@ -37,9 +37,10 @@ export function usePlacesSearch(options: UsePlacesSearchOptions = {}) {
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
 
-  const debounceRef = useRef<number | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cancelRef = useRef<CancelTokenSource | null>(null);
 
+  // Fetch autocomplete predictions
   useEffect(() => {
     if (!query || query.trim().length < minChars) {
       setResults([]);
@@ -53,13 +54,19 @@ export function usePlacesSearch(options: UsePlacesSearchOptions = {}) {
     setIsOpen(true);
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = window.setTimeout(async () => {
+    debounceRef.current = setTimeout(async () => {
       if (cancelRef.current) cancelRef.current.cancel();
       cancelRef.current = axios.CancelToken.source();
 
       try {
+        const sessionToken = sessionTokenManager.getGlobalToken();
+
         const { data } = await axios.get(fetchUrl, {
-          params: { q: query.trim(), limit, sessionToken },
+          params: {
+            q: query.trim(),
+            limit,
+            sessionToken: sessionToken,
+          },
           cancelToken: cancelRef.current.token,
         });
         setResults(data || []);
@@ -78,9 +85,9 @@ export function usePlacesSearch(options: UsePlacesSearchOptions = {}) {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       if (cancelRef.current) cancelRef.current.cancel();
     };
-  }, [query, debounceMs, minChars, limit, fetchUrl, sessionToken]);
+  }, [query, debounceMs, minChars, limit, fetchUrl]);
 
-  const onChange = (v: string) => {
+  const onChange = useCallback((v: string) => {
     setQuery(v);
     setSelectedPlace(null);
 
@@ -90,49 +97,58 @@ export function usePlacesSearch(options: UsePlacesSearchOptions = {}) {
       if (cancelRef.current) cancelRef.current.cancel();
       setLoading(false);
     }
-  };
+  }, []);
 
-  const onFocus = () => {
+  const onFocus = useCallback(() => {
     setIsOpen(true);
     if (!query || query.trim().length === 0) setResults([]);
-  };
+  }, [query]);
 
-  const onBlur = () => setTimeout(() => setIsOpen(false), 150);
+  const onBlur = useCallback(() => {
+    setTimeout(() => setIsOpen(false), 150);
+  }, []);
 
-  const selectPlace = (place: Place) => {
-    setSelectedPlace(place);
-    setQuery(place.name || place.main_text || '');
-    setResults([]);
-    setIsOpen(false);
-    onSubmit?.(place);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Escape') {
+  // Select place (NO Place Details fetching here!)
+  const selectPlace = useCallback(
+    (place: Place) => {
+      setSelectedPlace(place);
+      setQuery(place.name || place.main_text || '');
+      setResults([]);
       setIsOpen(false);
-      return;
-    }
+      onSubmit?.(place);
+    },
+    [onSubmit],
+  );
 
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setHighlightedIndex((prev) => Math.min(prev + 1, results.length - 1));
-      return;
-    }
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Escape') {
+        setIsOpen(false);
+        return;
+      }
 
-    if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setHighlightedIndex((prev) => Math.max(prev - 1, 0));
-      return;
-    }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setHighlightedIndex((prev) => Math.min(prev + 1, results.length - 1));
+        return;
+      }
 
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const place =
-        selectedPlace ??
-        (highlightedIndex >= 0 ? results[highlightedIndex] : results[0]);
-      if (place) selectPlace(place);
-    }
-  };
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setHighlightedIndex((prev) => Math.max(prev - 1, 0));
+        return;
+      }
+
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const place =
+          selectedPlace ??
+          (highlightedIndex >= 0 ? results[highlightedIndex] : results[0]);
+        if (place) selectPlace(place);
+      }
+    },
+    [results, selectedPlace, highlightedIndex, selectPlace],
+  );
 
   return {
     query,

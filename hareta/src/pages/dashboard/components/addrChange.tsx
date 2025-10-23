@@ -13,7 +13,6 @@ const DeliveryPickupToggle: React.FC = () => {
     setDeliveryOption,
     setDeliveryAddress,
     changeLocation,
-    sessionToken,
   } = useDeliveryStore();
 
   const [showAddressModal, setShowAddressModal] = useState(false);
@@ -112,7 +111,7 @@ const DeliveryPickupToggle: React.FC = () => {
         show={showAddressModal}
         onClose={() => setShowAddressModal(false)}
         onSelect={(place) => {
-          setDeliveryAddress(place, sessionToken);
+          setDeliveryAddress(place);
         }}
         savedAddresses={savedAddresses}
         isLoading={isLoadingAddresses}

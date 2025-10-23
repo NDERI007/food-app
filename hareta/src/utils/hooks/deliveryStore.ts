@@ -1,22 +1,20 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { v4 as uuidv4 } from 'uuid';
 import type { SavedAddress } from '@utils/schemas/address';
 
 interface DeliveryState {
   place: SavedAddress | null;
-  sessionToken: string;
   deliveryOption: 'delivery' | 'pickup';
   userId: string | null;
 
   setUserId: (userId: string | null) => void;
-  setDeliveryAddress: (place: SavedAddress, sessionToken?: string) => void;
+  setDeliveryAddress: (place: SavedAddress) => void;
   changeLocation: () => void;
   setDeliveryOption: (option: 'delivery' | 'pickup') => void;
   clearDelivery: () => void;
 }
 
-// Custom storage for delivery
+// Custom storage for delivery (per-user or guest)
 const createDeliveryStorage = (baseName: string) => {
   return createJSONStorage(() => ({
     getItem: () => {
@@ -42,9 +40,8 @@ const createDeliveryStorage = (baseName: string) => {
 
 export const useDeliveryStore = create<DeliveryState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       place: null,
-      sessionToken: uuidv4(),
       deliveryOption: 'delivery',
       userId: null,
 
@@ -53,7 +50,7 @@ export const useDeliveryStore = create<DeliveryState>()(
         localStorage.setItem('delivery-user-id', JSON.stringify(userId));
 
         // Clear current data
-        set({ userId, place: null, sessionToken: uuidv4() });
+        set({ userId, place: null });
 
         // Force re-hydration from new user's storage
         const key = userId
@@ -73,18 +70,15 @@ export const useDeliveryStore = create<DeliveryState>()(
         }
       },
 
-      setDeliveryAddress: (place, sessionToken) => {
-        set({
-          place,
-          sessionToken: sessionToken || get().sessionToken,
-        });
+      setDeliveryAddress: (place) => {
+        set({ place });
         console.log('✓ Delivery address set:', place.main_text);
       },
 
       changeLocation: () => {
-        const newToken = uuidv4();
-        set({ sessionToken: newToken });
-        console.log('→ New search session started');
+        // Just clear the place, session token is now managed by sessionTokenManager
+        set({ place: null });
+        console.log('→ Location change initiated');
       },
 
       setDeliveryOption: (option) => {
@@ -95,10 +89,9 @@ export const useDeliveryStore = create<DeliveryState>()(
       clearDelivery: () => {
         set({
           place: null,
-          sessionToken: uuidv4(),
           deliveryOption: 'delivery',
         });
-        console.log('✓ Delivery cleared, new session token generated');
+        console.log('✓ Delivery cleared');
       },
     }),
     {

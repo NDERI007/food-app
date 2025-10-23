@@ -1,7 +1,5 @@
-import { useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Search, MapPin, Home, Loader2 } from 'lucide-react';
-import { v4 as uuidv4 } from 'uuid';
 import { usePlacesSearch } from '@utils/hooks/placeSearch';
 import type { SavedAddress } from '@utils/schemas/address';
 
@@ -20,9 +18,6 @@ export default function AddressModal({
   savedAddresses,
   isLoading,
 }: AddressModalProps) {
-  const sessionTokenRef = useRef(uuidv4());
-  const sessionToken = sessionTokenRef.current;
-
   const {
     query,
     results,
@@ -36,7 +31,6 @@ export default function AddressModal({
   } = usePlacesSearch({
     debounceMs: 250,
     minChars: 2,
-    sessionToken,
     onSubmit: (place) => {
       onSelect(place);
       onClose();

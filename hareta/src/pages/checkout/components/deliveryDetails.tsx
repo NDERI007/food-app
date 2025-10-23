@@ -9,7 +9,6 @@ const DeliveryDetails: React.FC = () => {
   const {
     deliveryOption,
     place,
-    sessionToken,
     setDeliveryOption,
     setDeliveryAddress,
     changeLocation,
@@ -48,11 +47,11 @@ const DeliveryDetails: React.FC = () => {
     fetchSavedAddresses();
   }, [showModal]);
 
-  // 🧭 Handle address change
+  //Handle address change
   const handleChangeAddress = () => {
     // Generate a new session token when changing the address
     changeLocation();
-    console.log('→ New session token generated:', sessionToken);
+    console.log('→ New session token generated:');
     setShowModal(true);
   };
 
@@ -136,8 +135,8 @@ const DeliveryDetails: React.FC = () => {
         show={showModal}
         onClose={() => setShowModal(false)}
         onSelect={(selectedAddress) => {
-          // ✅ Save address + pass current token
-          setDeliveryAddress(selectedAddress, sessionToken);
+          // ✅ Save address
+          setDeliveryAddress(selectedAddress);
           setShowModal(false);
         }}
         savedAddresses={savedAddresses}

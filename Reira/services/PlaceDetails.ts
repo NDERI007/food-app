@@ -45,7 +45,7 @@ export async function getPlaceDetails(placeId: string, sessionToken: string) {
     const lng = Number(data.location?.longitude);
 
     if (isNaN(lat) || isNaN(lng)) {
-      console.error("❌ Invalid coordinates received:", data.location);
+      console.error("Invalid coordinates received:", data.location);
       return null;
     }
 
