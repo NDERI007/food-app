@@ -215,7 +215,7 @@ export default function CategoryManager() {
           <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm'>
             <div className='max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-gray-900 p-5 shadow-2xl ring-1 ring-purple-800/30'>
               <div className='sticky top-0 mb-4 flex items-center justify-between border-b border-gray-800 pb-3'>
-                <h2 className='text-lg font-bold text-purple-400'>
+                <h2 className='text-lg font-bold text-gray-400'>
                   {editingCategory ? 'Edit Category' : 'New Category'}
                 </h2>
                 <button

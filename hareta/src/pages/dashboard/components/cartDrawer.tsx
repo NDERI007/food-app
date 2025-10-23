@@ -1,6 +1,8 @@
+import { ConfirmModal } from '@components/confirmModal';
 import { getImageUrl } from '@utils/hooks/getImage';
 import { useCartStore } from '@utils/hooks/useCrt';
 import { X, Plus, Minus, Trash2, ShoppingCart, ArrowRight } from 'lucide-react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export default function CartDrawer() {
@@ -13,7 +15,7 @@ export default function CartDrawer() {
   const updateQuantity = useCartStore((state) => state.updateQuantity);
   const removeItem = useCartStore((state) => state.removeItem);
   const clearCart = useCartStore((state) => state.clearCart);
-
+  const [showConfirm, setShowConfirm] = useState(false);
   // Calculate totals
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
   const totalPrice = items.reduce(
@@ -26,12 +28,12 @@ export default function CartDrawer() {
     navigate('/checkout');
   };
 
-  const handleClearCart = () => {
-    if (window.confirm('Are you sure you want to clear your cart?')) {
-      clearCart();
-    }
-  };
+  const handleClearCart = () => setShowConfirm(true);
 
+  const confirmClearCart = () => {
+    clearCart();
+    setShowConfirm(false);
+  };
   return (
     <>
       {/* Backdrop */}
@@ -192,6 +194,12 @@ export default function CartDrawer() {
               >
                 Clear Cart
               </button>
+              <ConfirmModal
+                show={showConfirm}
+                message='Are you sure you want to clear your cart?'
+                onConfirm={confirmClearCart}
+                onCancel={() => setShowConfirm(false)}
+              />
             </div>
           )}
         </div>

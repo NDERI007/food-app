@@ -3,7 +3,7 @@ import type { RouteObject } from 'react-router-dom';
 import ProtectedRoute from 'contexts/protectedRoutes';
 
 const AdminDashboard = lazy(() => import('@admin/dashboard/dashboard'));
-const ProductsPage = lazy(() => import('@admin/products/prodPage'));
+const ProductsPage = lazy(() => import('@admin/products/products'));
 //const ProductDetail = lazy(() => import('@admin/products/ProductDetail'));
 const CategoriesPage = lazy(() => import('@admin/category/category'));
 

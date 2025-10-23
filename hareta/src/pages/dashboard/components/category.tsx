@@ -89,7 +89,7 @@ export default function CategoryFilter({
             )}
 
             {/* Name */}
-            <span className='text-xs font-normal sm:text-sm md:text-xs'>
+            <span className='text-sm font-normal sm:text-sm md:text-sm'>
               {cat.name}
             </span>
           </button>

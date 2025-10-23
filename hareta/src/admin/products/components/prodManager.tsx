@@ -50,33 +50,32 @@ export const ProductVariantsManager: React.FC<{ productId: string }> = ({
   };
 
   return (
-    <div className='rounded-xl border border-[#d9e0d0] bg-[#faf8f2] p-4 shadow-sm sm:p-6'>
-      <h3 className='mb-4 text-base font-semibold text-[#1b4d2b] sm:text-lg'>
+    <div className='rounded-xl border border-gray-800 bg-gray-900 p-4 shadow-lg sm:p-6'>
+      <h3 className='mb-4 text-base font-semibold text-gray-100 sm:text-lg'>
         Manage Variants
       </h3>
 
-      {/* Variants List */}
       <div
         className={`transition-all duration-300 ${showForm ? 'opacity-50' : 'opacity-100'}`}
       >
         <ul className='mb-4 space-y-2'>
           {isLoading ? (
-            <p className='text-[#1b4d2b]'>Loading...</p>
+            <p className='text-gray-400'>Loading...</p>
           ) : variants.length > 0 ? (
             variants.map((v) => (
               <li
                 key={v.id}
-                className='flex flex-col rounded-lg border border-[#e0e7db] bg-[#fffefc] p-3 shadow-sm transition hover:shadow-md sm:flex-row sm:items-center sm:justify-between sm:p-4'
+                className='hover:bg-gray-750 flex flex-col rounded-lg border border-gray-800 bg-gray-800 p-3 shadow-sm transition hover:shadow-md sm:flex-row sm:items-center sm:justify-between sm:p-4'
               >
                 <div className='mb-2 sm:mb-0'>
-                  <span className='text-sm font-medium text-[#1b4d2b] sm:text-base'>
+                  <span className='text-sm font-medium text-gray-100 sm:text-base'>
                     {v.size_name}
                   </span>
-                  <span className='ml-2 text-sm text-[#4b6045]'>
+                  <span className='ml-2 text-sm text-gray-400'>
                     ${v.price.toFixed(2)}
                   </span>
                   {!v.is_available && (
-                    <span className='ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700'>
+                    <span className='ml-2 rounded-full bg-red-900/40 px-2 py-0.5 text-xs text-red-300'>
                       Unavailable
                     </span>
                   )}
@@ -85,7 +84,7 @@ export const ProductVariantsManager: React.FC<{ productId: string }> = ({
                   <button
                     onClick={() => handleEdit(v)}
                     disabled={showForm}
-                    className='flex items-center gap-1 rounded-md bg-[#e3e9e0] px-3 py-1.5 text-xs text-[#2c5b36] transition hover:bg-[#d3decf] disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm'
+                    className='flex items-center gap-1 rounded-md bg-gray-700 px-3 py-1.5 text-xs text-gray-200 transition hover:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm'
                   >
                     <Edit2 size={14} />
                     Edit
@@ -93,7 +92,7 @@ export const ProductVariantsManager: React.FC<{ productId: string }> = ({
                   <button
                     onClick={() => handleDelete(v)}
                     disabled={showForm}
-                    className='flex items-center gap-1 rounded-md bg-[#f9e0dd] px-3 py-1.5 text-xs text-[#a94442] transition hover:bg-[#f2c9c5] disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm'
+                    className='flex items-center gap-1 rounded-md bg-red-900/50 px-3 py-1.5 text-xs text-red-300 transition hover:bg-red-800/70 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm'
                   >
                     <Trash2 size={14} />
                     Delete
@@ -102,14 +101,14 @@ export const ProductVariantsManager: React.FC<{ productId: string }> = ({
               </li>
             ))
           ) : (
-            <p className='text-sm text-[#1b4d2b] italic'>No variants found</p>
+            <p className='text-sm text-gray-500 italic'>No variants found</p>
           )}
         </ul>
 
         {!showForm && (
           <button
             onClick={handleAddNew}
-            className='flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-[#d9e0d0] bg-[#fefcf7] p-4 text-[#3a7d44] transition hover:border-[#3a7d44] hover:bg-[#f5f8f2]'
+            className='flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-700 bg-gray-800 p-4 text-[#FEFAEF] transition hover:border-purple-900 hover:bg-purple-900/40'
           >
             <Plus size={20} />
             <span className='font-medium'>Add New Variant</span>
@@ -117,10 +116,9 @@ export const ProductVariantsManager: React.FC<{ productId: string }> = ({
         )}
       </div>
 
-      {/* Inline Form */}
       {showForm && (
-        <div className='animate-in fade-in slide-in-from-top-4 mt-4 rounded-xl border-2 border-[#3a7d44] bg-[#f5f8f2] p-4 shadow-lg duration-300 sm:p-5'>
-          <h4 className='mb-3 text-base font-semibold text-[#1b4d2b] sm:text-lg'>
+        <div className='mt-4 rounded-xl bg-gray-800 p-4 shadow-lg sm:p-5'>
+          <h4 className='mb-3 text-base font-semibold text-[#FEFAEF] sm:text-lg'>
             {editingVariant ? 'Edit Variant' : 'Add New Variant'}
           </h4>
           <VariantForm
