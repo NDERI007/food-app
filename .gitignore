@@ -13,11 +13,6 @@ dist-ssr
 *.local
 
 
-#img (till further notice)
-*.jpg
-*.avif
-*.webp
-*.svg
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
