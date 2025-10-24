@@ -11,6 +11,7 @@ import {
 } from '@utils/schemas/auth';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@utils/hooks/useAuth';
+import { api } from '@utils/hooks/apiUtils';
 
 export default function Login() {
   const [step, setStep] = useState<1 | 2>(1);
@@ -42,7 +43,7 @@ export default function Login() {
   // Handlers
   const handleSendOtp = async (data: emailSchemaType) => {
     try {
-      await axios.post(
+      await api.post(
         '/api/auth/send-otp',
         { email: data.email },
         { withCredentials: true },
@@ -68,11 +69,7 @@ export default function Login() {
   const handleVerifyOtp = async (data: OtpSchemaType) => {
     setIsVerifying(true);
     try {
-      await axios.post(
-        '/api/auth/verify-otp',
-        { email, code: data.otp },
-        { withCredentials: true },
-      );
+      await api.post('/api/auth/verify-otp', { email, code: data.otp });
       // Hydrate AuthContext from server session
       const user = await checkAuth();
 

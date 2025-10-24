@@ -11,6 +11,7 @@ import {
   type OtpSchemaType,
 } from '@utils/schemas/auth';
 import { useAuth } from '@utils/hooks/useAuth';
+import { api } from '@utils/hooks/apiUtils';
 
 export default function Signup() {
   const [step, setStep] = useState<1 | 2>(1);
@@ -43,7 +44,7 @@ export default function Signup() {
   // Handlers
   const handleSendOtp = async (data: emailSchemaType) => {
     try {
-      await axios.post(
+      await api.post(
         '/api/auth/send-otp',
         { email: data.email },
         { withCredentials: true },
@@ -69,7 +70,7 @@ export default function Signup() {
   const handleVerifyOtp = async (data: OtpSchemaType) => {
     setIsVerifying(true);
     try {
-      await axios.post(
+      await api.post(
         '/api/auth/verify-otp',
         { email, code: data.otp },
         { withCredentials: true },
