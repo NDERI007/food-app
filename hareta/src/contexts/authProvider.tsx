@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
 import { useCartStore } from '@utils/hooks/useCrt';
 import { useDeliveryStore } from '@utils/hooks/deliveryStore';
 import { type User, type AuthContextType, AuthContext } from './AuthContext';
+import { api } from '@utils/hooks/apiUtils';
 
 interface AuthProviderProps {
   children: React.ReactNode;
@@ -15,7 +15,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Check authentication status
   const checkAuth = useCallback(async (): Promise<User | null> => {
     try {
-      const response = await axios.get('/api/auth/context-verif', {
+      const response = await api.get('/api/auth/context-verif', {
         withCredentials: true,
       });
 
@@ -58,7 +58,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Logout
   const logout = useCallback(async () => {
     try {
-      await axios.post('/api/auth/logout', null, {
+      await api.post('/api/auth/logout', null, {
         withCredentials: true,
         headers: { 'Content-Type': 'application/json' },
       });
