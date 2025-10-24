@@ -11,7 +11,7 @@ app.use(cookieParser());
 app.use(helmet());
 app.use(
   cors({
-    origin: "http://localhost:5173", // your frontend
+    origin: "https://iura-foods.vercel.app/", // your frontend
     credentials: true,
   })
 );
