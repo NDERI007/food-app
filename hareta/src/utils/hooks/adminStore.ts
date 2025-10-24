@@ -1,8 +1,8 @@
 import { create } from 'zustand';
-import axios from 'axios';
 import type { MenuItem, Category, ProductVariant } from '@utils/schemas/menu';
 import type { QueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { api } from './apiUtils';
 
 interface AdminState {
   addCategory: (
@@ -52,7 +52,7 @@ export const useAdminStore = create<AdminState>(() => ({
         formData.append('icon', iconFile);
       }
 
-      const res = await axios.post('/api/prod/categories', formData, {
+      const res = await api.post('/api/prod/categories', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -77,7 +77,7 @@ export const useAdminStore = create<AdminState>(() => ({
         formData.append('icon', iconFile);
       }
 
-      const res = await axios.put(`/api/prod/categories/${id}`, formData, {
+      const res = await api.put(`/api/prod/categories/${id}`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -96,7 +96,7 @@ export const useAdminStore = create<AdminState>(() => ({
 
   deleteCategory: async (id, queryClient) => {
     try {
-      await axios.delete(`/api/prod/categories/${id}`);
+      await api.delete(`/api/prod/categories/${id}`);
       queryClient.setQueryData<Category[]>(['categories'], (old) =>
         old ? old.filter((cat) => cat.id !== id) : old,
       );
@@ -107,7 +107,7 @@ export const useAdminStore = create<AdminState>(() => ({
     }
   },
   deleteMenuItem: async (id, queryClient) => {
-    await axios.delete(`/api/prod/menu-items/${id}`);
+    await api.delete(`/api/prod/menu-items/${id}`);
     queryClient.setQueryData<MenuItem[]>(['menu-items'], (old) =>
       old ? old.filter((item) => item.id !== id) : old,
     );
@@ -127,7 +127,7 @@ export const useAdminStore = create<AdminState>(() => ({
       );
 
       // 2. API call
-      await axios.patch(`/api/prod/menu-items/${item.id}/availability`, {
+      await api.patch(`/api/prod/menu-items/${item.id}/availability`, {
         available: !item.available,
       });
 
@@ -145,7 +145,7 @@ export const useAdminStore = create<AdminState>(() => ({
 
   // --- Variant Methods ---
   addVariant: async (product_id, data, queryClient) => {
-    const res = await axios.post(
+    const res = await api.post(
       `/api/prod/menu-items/${product_id}/variants`,
       data,
     );
@@ -158,10 +158,7 @@ export const useAdminStore = create<AdminState>(() => ({
   },
 
   updateVariant: async (variantId, product_id, data, queryClient) => {
-    const res = await axios.put(
-      `/api/prod/product-variants/${variantId}`,
-      data,
-    );
+    const res = await api.put(`/api/prod/product-variants/${variantId}`, data);
 
     // Optional: if productId known, invalidate that product
     if (product_id) {
@@ -174,7 +171,7 @@ export const useAdminStore = create<AdminState>(() => ({
   },
 
   deleteVariant: async (variantId, product_id, queryClient) => {
-    await axios.delete(`/api/prod/product-variants/${variantId}`);
+    await api.delete(`/api/prod/product-variants/${variantId}`);
     await queryClient.invalidateQueries({
       queryKey: ['product-variants', product_id],
     });

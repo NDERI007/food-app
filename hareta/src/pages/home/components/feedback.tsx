@@ -3,6 +3,7 @@ import { MessageCircle } from 'lucide-react';
 import EmojiRating from '@components/emojiRating';
 import { toast } from 'sonner';
 import axios from 'axios';
+import { api } from '@utils/hooks/apiUtils';
 
 interface SurveyData {
   overallRating: number;
@@ -40,7 +41,7 @@ export default function FeedbackButton() {
       const { overallRating, whatYouLiked, improvements, additionalComments } =
         surveyData;
 
-      const response = await axios.post('/api/feedback/insert', {
+      const response = await api.post('/api/feedback/insert', {
         overall_rating: overallRating,
         what_you_liked: whatYouLiked,
         improvements,

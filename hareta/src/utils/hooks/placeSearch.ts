@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 
 import axios, { AxiosError, type CancelTokenSource } from 'axios';
 import { sessionTokenManager } from './sessionToken';
+import { api } from './apiUtils';
 
 export interface Place {
   place_id: string | null;
@@ -61,7 +62,7 @@ export function usePlacesSearch(options: UsePlacesSearchOptions = {}) {
       try {
         const sessionToken = sessionTokenManager.getGlobalToken();
 
-        const { data } = await axios.get(fetchUrl, {
+        const { data } = await api.get(fetchUrl, {
           params: {
             q: query.trim(),
             limit,

@@ -4,6 +4,7 @@ import AddressForm, { type SavedAddress } from './components/form';
 import axios from 'axios';
 import { toast } from 'sonner';
 import type { Place } from '@utils/hooks/placeSearch';
+import { api } from '@utils/hooks/apiUtils';
 
 export default function AddressPage() {
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
@@ -19,7 +20,7 @@ export default function AddressPage() {
     try {
       setLoading(true);
       setError(null);
-      const { data } = await axios.get('/api/addr/look-up', {
+      const { data } = await api.get('/api/addr/look-up', {
         withCredentials: true,
       }); // GET request via axios
 
@@ -45,20 +46,15 @@ export default function AddressPage() {
     }
   };
 
-  const handleAddAddress = async (
-    address: Place,
-    sessionToken: string,
-    label: string,
-  ) => {
+  const handleAddAddress = async (address: Place, label: string) => {
     try {
       if (!address.lat || !address.lng) {
-        const { data } = await axios.post(
+        const { data } = await api.post(
           '/api/places/place-details',
           {
             placeId: address.place_id,
             main_text: address.main_text,
             secondary_text: address.secondary_text,
-            sessionToken,
             label,
           },
           {
@@ -79,7 +75,7 @@ export default function AddressPage() {
         lng: address.lng, // from Google result
       };
 
-      const { data } = await axios.post('/api/addr/upsert', payload, {
+      const { data } = await api.post('/api/addr/upsert', payload, {
         withCredentials: true,
       });
 
@@ -105,7 +101,7 @@ export default function AddressPage() {
 
   const handleDeleteAddress = async (id: string) => {
     try {
-      const { status } = await axios.delete(`/api/addr/${id}`);
+      const { status } = await api.delete(`/api/addr/${id}`);
 
       if (status !== 200 && status !== 204) {
         throw new Error('Failed to delete address');

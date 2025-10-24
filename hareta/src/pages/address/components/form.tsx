@@ -1,6 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { MapPin, Trash2, Plus, Search } from 'lucide-react';
-import { v4 as uuidv4 } from 'uuid';
 import { usePlacesSearch, type Place } from '@utils/hooks/placeSearch';
 
 export interface SavedAddress {
@@ -11,7 +10,7 @@ export interface SavedAddress {
 }
 interface SavedAddressFormProps {
   savedAddresses: SavedAddress[];
-  onAdd: (address: Place, sessionToken: string, label: string) => void;
+  onAdd: (address: Place, label: string) => void;
   onDelete: (id: string) => void;
 }
 
@@ -22,9 +21,6 @@ export default function AddressForm({
 }: SavedAddressFormProps) {
   const [label, setLabel] = useState('');
   const [selectedAddress, setSelectedAddress] = useState<Place | null>(null);
-
-  // Each session has its own token for Google Places consistency
-  const sessionToken = useMemo(() => uuidv4(), []);
 
   const {
     query,
@@ -56,7 +52,7 @@ export default function AddressForm({
     if (!label.trim() || !selectedAddress) return;
 
     const newAddress = { ...selectedAddress };
-    onAdd(newAddress, sessionToken, label);
+    onAdd(newAddress, label);
 
     // Reset form
     setLabel('');

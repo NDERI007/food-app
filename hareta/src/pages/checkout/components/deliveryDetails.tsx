@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, Store, Clock, Phone } from 'lucide-react';
-import axios from 'axios';
 import type { SavedAddress } from '@utils/schemas/address';
 import { useDeliveryStore } from '@utils/hooks/deliveryStore';
 import AddressModal from '@components/searchModal';
+import { api } from '@utils/hooks/apiUtils';
 
 const DeliveryDetails: React.FC = () => {
   const {
@@ -35,7 +35,7 @@ const DeliveryDetails: React.FC = () => {
       if (showModal) {
         setIsLoading(true);
         try {
-          const res = await axios.get<SavedAddress[]>('/api/addr/look-up');
+          const res = await api.get<SavedAddress[]>('/api/addr/look-up');
           setSavedAddresses(res.data);
         } catch (err) {
           console.error('Failed to fetch saved addresses:', err);

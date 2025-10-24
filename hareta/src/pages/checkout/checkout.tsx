@@ -16,10 +16,10 @@ import {
   Phone,
   MessageSquare,
 } from 'lucide-react';
-import axios from 'axios';
 import type { SavedAddress } from '@utils/schemas/address';
 import AddressModal from '@components/searchModal';
 import { getImageUrl } from '../../utils/hooks/getImage';
+import { api } from '@utils/hooks/apiUtils';
 
 export default function CheckoutPage() {
   // Cart Store
@@ -68,7 +68,7 @@ export default function CheckoutPage() {
     const fetchSavedAddresses = async () => {
       setIsLoading(true);
       try {
-        const res = await axios.get<SavedAddress[]>('/api/addr/look-up');
+        const res = await api.get<SavedAddress[]>('/api/addr/look-up');
         if (!cancelled) setSavedAddresses(res.data);
       } catch (err) {
         console.error(err);

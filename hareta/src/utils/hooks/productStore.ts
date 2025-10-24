@@ -1,8 +1,8 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
 import { useEffect } from 'react';
 import type { Category, MenuItem, ProductVariant } from '@utils/schemas/menu';
 import { supabase } from '@utils/supabase/Client';
+import { api } from './apiUtils';
 
 /* ----------------------------- API FETCHERS ----------------------------- */
 const fetchMenuItems = async (
@@ -16,12 +16,12 @@ const fetchMenuItems = async (
     url += `?category_id=${categoryId}`;
   }
 
-  const { data } = await axios.get(url);
+  const { data } = await api.get(url);
   return data;
 };
 
 const fetchCategories = async (): Promise<Category[]> => {
-  const { data } = await axios.get('/api/prod/categories');
+  const { data } = await api.get('/api/prod/categories');
   return data;
 };
 
@@ -29,9 +29,7 @@ const fetchCategories = async (): Promise<Category[]> => {
 const fetchProductVariants = async (
   productId: string,
 ): Promise<ProductVariant[]> => {
-  const { data } = await axios.get(
-    `/api/prod/menu-items/${productId}/variants`,
-  );
+  const { data } = await api.get(`/api/prod/menu-items/${productId}/variants`);
   return data;
 };
 /* ----------------------------- QUERY HOOKS ----------------------------- */
