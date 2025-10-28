@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Edit, Trash2, Package, Eye, EyeOff } from 'lucide-react';
 import type { MenuItem } from '@utils/schemas/menu';
+import { ConfirmModal } from '@admin/components/confirmModal';
 
 interface ProductCardProps {
   item: MenuItem;
@@ -17,6 +18,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   onDelete,
   onManageVariants,
 }) => {
+  const [showConfirm, setShowConfirm] = useState(false);
   return (
     <div className='overflow-hidden rounded-lg border border-gray-700 bg-gray-800 shadow-md transition-shadow duration-200 hover:shadow-xl'>
       <div className='flex flex-col gap-4 p-4 md:flex-row'>
@@ -98,7 +100,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               <span className='text-sm font-medium'>Variants</span>
             </button>
             <button
-              onClick={() => onDelete(item.id)}
+              onClick={() => setShowConfirm(true)}
               className='flex items-center justify-center gap-2 rounded-lg border border-red-800 bg-red-900/50 px-4 py-2 text-red-300 transition-colors hover:bg-red-800/50'
             >
               <Trash2 className='h-4 w-4' />
@@ -147,7 +149,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               <Package className='h-5 w-5' />
             </button>
             <button
-              onClick={() => onDelete(item.id)}
+              onClick={() => setShowConfirm(true)}
               className='rounded-lg border border-red-800 bg-red-900/50 p-2 text-red-300 transition-colors hover:bg-red-800/50'
               title='Delete product'
             >
@@ -156,6 +158,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </div>
         </div>
       </div>
+      <ConfirmModal
+        show={showConfirm}
+        message={`Delete "${item.name}"?`}
+        onCancel={() => setShowConfirm(false)}
+        onConfirm={() => {
+          onDelete(item.id);
+          setShowConfirm(false);
+        }}
+      />
     </div>
   );
 };

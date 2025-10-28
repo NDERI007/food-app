@@ -3,7 +3,7 @@ import { useState } from 'react';
 interface FallbackModalProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: { name: string; room?: string }) => void;
+  onSubmit: (data: { name: string; landmark?: string }) => void;
 }
 
 export default function FallbackModal({
@@ -12,7 +12,7 @@ export default function FallbackModal({
   onSubmit,
 }: FallbackModalProps) {
   const [name, setName] = useState('');
-  const [room, setRoom] = useState('');
+  const [landmark, setLandmark] = useState('');
 
   if (!open) return null;
 
@@ -25,22 +25,22 @@ export default function FallbackModal({
           Location's name
           <input
             type='text'
-            placeholder='Enter landmark/hostel name'
             value={name}
             onChange={(e) => setName(e.target.value)}
             className='mb-3 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none'
           />
         </label>
         <label className='mb-1 text-sm font-medium text-gray-700'>
-          Room Number
+          Nearest Landmark
           <input
             type='text'
-            placeholder='Room number (optional)'
-            value={room}
-            onChange={(e) => setRoom(e.target.value)}
+            placeholder='e.g. Near Rubis station'
+            value={landmark}
+            onChange={(e) => setLandmark(e.target.value)}
             className='mb-3 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none'
           />
         </label>
+
         <div className='flex justify-end gap-2'>
           <button
             onClick={onClose}
@@ -51,7 +51,7 @@ export default function FallbackModal({
           <button
             onClick={() => {
               if (!name.trim()) return;
-              onSubmit({ name, room });
+              onSubmit({ name, landmark });
               onClose();
             }}
             className='rounded-md bg-green-800 px-4 py-2 text-sm text-white hover:bg-green-900'

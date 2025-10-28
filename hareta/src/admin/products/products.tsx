@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import type { MenuItem } from '@utils/schemas/menu';
 import { type MenuItemFormData, ProductFormSlideOver } from './components/form';
 import { ProductCard } from './components/prodCard';
-import { ProductVariantsManager } from './components/prodManager';
+import { ProductVariantsManager } from './components/variantMng';
 
 const AdminProducts: React.FC = () => {
   const { deleteMenuItem, toggleAvailability } = useAdminStore();

@@ -35,7 +35,6 @@ class SessionTokenManager {
       createdAt: Date.now(),
       usageCount: 0,
     });
-    console.log('🆕 Global session token:', token);
     return token;
   }
 
@@ -46,7 +45,7 @@ class SessionTokenManager {
     const session = this.tokens.get(this.GLOBAL_SESSION_KEY);
     if (session) {
       console.log(
-        '✅ Session terminated after',
+        'Session terminated after',
         session.usageCount,
         'autocomplete calls',
       );

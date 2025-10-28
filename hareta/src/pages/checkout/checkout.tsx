@@ -7,8 +7,6 @@ import {
   Trash2,
   ShoppingBag,
   CreditCard,
-  Banknote,
-  Check,
   AlertCircle,
   Clock,
   MapPin,
@@ -20,6 +18,8 @@ import type { SavedAddress } from '@utils/schemas/address';
 import AddressModal from '@components/searchModal';
 import { getImageUrl } from '../../utils/hooks/getImage';
 import { api } from '@utils/hooks/apiUtils';
+import { toast } from 'sonner';
+import axios from 'axios';
 
 export default function CheckoutPage() {
   // Cart Store
@@ -33,15 +33,13 @@ export default function CheckoutPage() {
     useDeliveryStore();
 
   // Local State
-  const [paymentMethod, setPaymentMethod] = useState<'mpesa' | 'cod' | null>(
-    null,
-  );
   const [mpesaPhone, setMpesaPhone] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [orderNotes, setOrderNotes] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const isDelivery = deliveryOption === 'delivery';
 
@@ -88,76 +86,165 @@ export default function CheckoutPage() {
     setShowModal(true);
   };
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
     if (isDelivery && !place) {
-      alert('Please select a delivery address');
+      toast.error('Please select a delivery address');
       return;
     }
 
-    if (!paymentMethod) {
-      alert('Please select a payment method');
+    if (!mpesaPhone) {
+      toast.error('Please enter your M-PESA phone number');
       return;
     }
 
-    if (paymentMethod === 'mpesa' && !mpesaPhone) {
-      alert('Please enter your M-PESA phone number');
+    // Validate phone number format
+    const phoneRegex = /^(?:254|\+254|0)?(7\d{8}|1\d{8})$/;
+    if (!phoneRegex.test(mpesaPhone)) {
+      toast.error(
+        'Please enter a valid M-PESA phone number (e.g., 0712345678)',
+      );
       return;
     }
 
-    // Prepare order data
+    // Normalize phone number to format expected by M-PESA (254XXXXXXXXX)
+    let normalizedPhone = mpesaPhone.replace(/\s+/g, '');
+    if (normalizedPhone.startsWith('0')) {
+      normalizedPhone = '254' + normalizedPhone.substring(1);
+    } else if (normalizedPhone.startsWith('+')) {
+      normalizedPhone = normalizedPhone.substring(1);
+    } else if (!normalizedPhone.startsWith('254')) {
+      normalizedPhone = '254' + normalizedPhone;
+    }
+
+    setIsProcessing(true);
+
+    // Prepare order data matching the backend schema
     const orderData = {
-      // Delivery Info
-      delivery: {
-        type: deliveryOption,
-        address: isDelivery
-          ? {
-              main_text: place?.main_text,
-              secondary_text: place?.secondary_text,
-              place_id: place?.place_id,
-            }
-          : null,
-        restaurant: !isDelivery ? restaurantInfo : null,
-      },
+      delivery_type: isDelivery ? 'delivery' : 'pickup',
 
-      // Order Items
+      // Delivery address fields (only for delivery)
+      ...(isDelivery && {
+        delivery_address_main_text: place?.main_text,
+        delivery_address_secondary_text: place?.secondary_text,
+        delivery_place_id: place?.place_id,
+        delivery_lat: place?.lat,
+        delivery_lng: place?.lng,
+      }),
+
+      // Payment
+      payment_method: 'mpesa',
+      mpesa_phone: normalizedPhone,
+
+      // Amounts
+      subtotal: Number(subtotal.toFixed(2)),
+      delivery_fee: Number(deliveryFee.toFixed(2)),
+      total_amount: Number(total.toFixed(2)),
+
+      // Optional notes
+      order_notes: orderNotes || null,
+
+      // Items with correct field names
       items: items.map((item) => ({
-        cartItemId: item.cartItemId,
         product_id: item.product_id,
-        variantId: item.variantId,
-        name: item.name,
-        price: item.price,
+        variant_id: item.variantId || null,
         quantity: item.quantity,
-        total: item.price * item.quantity,
       })),
-
-      // Payment Info
-      payment: {
-        method: paymentMethod,
-        mpesaPhone: paymentMethod === 'mpesa' ? mpesaPhone : null,
-      },
-
-      // Totals
-      pricing: {
-        subtotal,
-        deliveryFee,
-        total,
-      },
-
-      // Notes
-      notes: orderNotes,
-
-      // Timestamp
-      createdAt: new Date().toISOString(),
     };
 
-    // Here you would send this to your backend
-    console.log('📦 Complete Order Data:', orderData);
+    console.log('📦 Creating order:', orderData);
 
-    // For now, just show success
-    alert('Order placed successfully!');
+    try {
+      // Step 1: Create the order (backend validates everything)
+      const orderResponse = await api.post('/api/orders/create', orderData);
 
-    // Optionally clear cart after successful order
-    clearCart();
+      if (!orderResponse.data?.success) {
+        toast.error(orderResponse.data?.message || 'Failed to create order');
+        setIsProcessing(false);
+        return;
+      }
+
+      const orderId = orderResponse.data.order_id;
+
+      if (!orderId) {
+        toast.error('Order created but ID not returned');
+        setIsProcessing(false);
+        return;
+      }
+
+      toast.success('✅ Order created successfully!');
+      console.log('Order created:', orderId);
+
+      // Step 2: Initiate M-PESA payment
+      try {
+        const paymentResponse = await api.post('/api/payments/mpesa/initiate', {
+          order_id: orderId,
+          phone_number: normalizedPhone,
+          amount: total,
+        });
+
+        if (!paymentResponse.data?.success) {
+          toast.warning(
+            'Order created but payment failed to initiate. Please contact support.',
+          );
+          setIsProcessing(false);
+          return;
+        }
+
+        // Success! Clear cart and show success message
+        clearCart();
+
+        toast.success('📱 Check your phone for M-PESA prompt!', {
+          duration: 6000,
+        });
+
+        toast.info('Your order will be confirmed once payment is complete', {
+          duration: 5000,
+        });
+
+        // Optional: Redirect to order status page after a delay
+        setTimeout(() => {
+          // window.location.href = `/orders/${orderId}`;
+        }, 3000);
+      } catch (paymentErr) {
+        console.error('Payment initiation failed:', paymentErr);
+
+        if (axios.isAxiosError(paymentErr)) {
+          const message =
+            paymentErr.response?.data?.message ||
+            'Failed to initiate payment. Order was created. Please contact support.';
+          toast.error(message);
+        } else {
+          toast.error('Payment initiation failed. Order was created.');
+        }
+      }
+    } catch (err: unknown) {
+      console.error('Order creation failed:', err);
+
+      if (axios.isAxiosError(err)) {
+        const message =
+          err.response?.data?.message ||
+          err.response?.data?.error ||
+          err.message ||
+          'Failed to create order';
+
+        // Show specific error messages
+        if (err.response?.data?.unavailable_items) {
+          toast.error(
+            `Items unavailable: ${err.response.data.unavailable_items.join(', ')}`,
+          );
+        } else if (err.response?.data?.out_of_stock_items) {
+          toast.error(
+            `Out of stock: ${err.response.data.out_of_stock_items.join(', ')}`,
+          );
+        } else {
+          toast.error(message);
+        }
+      } else {
+        toast.error('Unexpected error occurred');
+      }
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   if (items.length === 0) {
@@ -209,7 +296,8 @@ export default function CheckoutPage() {
                   </div>
                   <button
                     onClick={handleChangeAddress}
-                    className='rounded-lg bg-green-100 px-3 py-1.5 text-sm font-medium text-green-700 hover:bg-green-200'
+                    disabled={isProcessing}
+                    className='rounded-lg bg-green-100 px-3 py-1.5 text-sm font-medium text-green-700 hover:bg-green-200 disabled:opacity-50'
                   >
                     {place ? 'Change' : 'Select'}
                   </button>
@@ -245,7 +333,8 @@ export default function CheckoutPage() {
                 </h2>
                 <button
                   onClick={() => setIsEditing(!isEditing)}
-                  className='flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-200'
+                  disabled={isProcessing}
+                  className='flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-200 disabled:opacity-50'
                 >
                   {isEditing ? 'Done' : 'Edit'}
                 </button>
@@ -270,13 +359,12 @@ export default function CheckoutPage() {
                         <h4 className='font-semibold text-gray-900'>
                           {item.name}
                         </h4>
-                        <div className='mt-1 flex items-center gap-1 text-xs text-gray-500'></div>
                         <div className='mt-1 flex items-center justify-between'>
                           <span className='font-bold text-green-600'>
                             KES {(item.price * item.quantity).toFixed(2)}
                           </span>
                           <span className='text-xs text-gray-500'>
-                            KES {item.price.toFixed(2)}
+                            KES {item.price.toFixed(2)} each
                           </span>
                         </div>
                       </div>
@@ -285,7 +373,8 @@ export default function CheckoutPage() {
                         <div className='flex flex-col items-end justify-between'>
                           <button
                             onClick={() => removeItem(item.cartItemId)}
-                            className='rounded-full p-1 text-red-500 transition hover:bg-red-50'
+                            disabled={isProcessing}
+                            className='rounded-full p-1 text-red-500 transition hover:bg-red-50 disabled:opacity-50'
                           >
                             <Trash2 className='h-4 w-4' />
                           </button>
@@ -297,7 +386,8 @@ export default function CheckoutPage() {
                                   item.quantity - 1,
                                 )
                               }
-                              className='rounded-md bg-white p-1 shadow-sm transition hover:bg-gray-100'
+                              disabled={isProcessing}
+                              className='rounded-md bg-white p-1 shadow-sm transition hover:bg-gray-100 disabled:opacity-50'
                             >
                               <Minus className='h-3 w-3 text-gray-700' />
                             </button>
@@ -311,7 +401,8 @@ export default function CheckoutPage() {
                                   item.quantity + 1,
                                 )
                               }
-                              className='rounded-md bg-white p-1 shadow-sm transition hover:bg-gray-100'
+                              disabled={isProcessing}
+                              className='rounded-md bg-white p-1 shadow-sm transition hover:bg-gray-100 disabled:opacity-50'
                             >
                               <Plus className='h-3 w-3 text-gray-700' />
                             </button>
@@ -340,9 +431,10 @@ export default function CheckoutPage() {
                 <textarea
                   value={orderNotes}
                   onChange={(e) => setOrderNotes(e.target.value)}
+                  disabled={isProcessing}
                   placeholder='Any special instructions for your order...'
                   rows={3}
-                  className='w-full rounded-lg border border-gray-300 py-2 pr-4 pl-10 focus:border-green-600 focus:ring-2 focus:ring-green-600 focus:outline-none'
+                  className='w-full rounded-lg border border-gray-300 py-2 pr-4 pl-10 focus:border-green-600 focus:ring-2 focus:ring-green-600 focus:outline-none disabled:bg-gray-50 disabled:opacity-50'
                 />
               </div>
             </div>
@@ -351,97 +443,47 @@ export default function CheckoutPage() {
           {/* Right Column - Order Summary */}
           <div className='lg:col-span-1'>
             <div className='sticky top-6 space-y-4'>
-              {/* Payment Method */}
+              {/* M-PESA Payment */}
               <div className='rounded-xl border border-gray-100 bg-white p-6 shadow-sm'>
                 <h3 className='mb-4 text-lg font-bold text-gray-900'>
-                  Payment Method
+                  M-PESA Payment
                 </h3>
+
+                <div className='mb-4 flex items-center gap-3 rounded-lg border-2 border-green-600 bg-green-50 p-3'>
+                  <div className='flex h-10 w-10 items-center justify-center rounded-full bg-green-600'>
+                    <CreditCard className='h-5 w-5 text-white' />
+                  </div>
+                  <div className='flex-1 text-left'>
+                    <div className='text-sm font-semibold text-gray-900'>
+                      M-PESA
+                    </div>
+                    <div className='text-xs text-gray-500'>
+                      Mobile money payment
+                    </div>
+                  </div>
+                </div>
+
                 <div className='space-y-3'>
-                  {/* M-PESA */}
-                  <button
-                    onClick={() => setPaymentMethod('mpesa')}
-                    className={`flex w-full items-center gap-3 rounded-lg border-2 p-3 transition ${
-                      paymentMethod === 'mpesa'
-                        ? 'border-green-600 bg-green-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <div
-                      className={`flex h-10 w-10 items-center justify-center rounded-full ${
-                        paymentMethod === 'mpesa'
-                          ? 'bg-green-600'
-                          : 'bg-gray-100'
-                      }`}
-                    >
-                      <CreditCard
-                        className={`h-5 w-5 ${
-                          paymentMethod === 'mpesa'
-                            ? 'text-white'
-                            : 'text-gray-600'
-                        }`}
-                      />
-                    </div>
-                    <div className='flex-1 text-left'>
-                      <div className='text-sm font-semibold text-gray-900'>
-                        M-PESA
-                      </div>
-                      <div className='text-xs text-gray-500'>Mobile money</div>
-                    </div>
-                    {paymentMethod === 'mpesa' && (
-                      <Check className='h-5 w-5 text-green-600' />
-                    )}
-                  </button>
-
-                  {paymentMethod === 'mpesa' && (
-                    <div className='ml-13 rounded-lg bg-gray-50 p-3'>
-                      <input
-                        type='tel'
-                        value={mpesaPhone}
-                        onChange={(e) => setMpesaPhone(e.target.value)}
-                        placeholder='0712345678'
-                        className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-green-600 focus:ring-2 focus:ring-green-600 focus:outline-none'
-                      />
-                      <p className='mt-2 flex items-start gap-1 text-xs text-gray-500'>
-                        <AlertCircle className='mt-0.5 h-3 w-3 flex-shrink-0' />
-                        You'll receive an M-PESA prompt
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Cash on Delivery */}
-                  <button
-                    onClick={() => setPaymentMethod('cod')}
-                    className={`flex w-full items-center gap-3 rounded-lg border-2 p-3 transition ${
-                      paymentMethod === 'cod'
-                        ? 'border-green-600 bg-green-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <div
-                      className={`flex h-10 w-10 items-center justify-center rounded-full ${
-                        paymentMethod === 'cod' ? 'bg-green-600' : 'bg-gray-100'
-                      }`}
-                    >
-                      <Banknote
-                        className={`h-5 w-5 ${
-                          paymentMethod === 'cod'
-                            ? 'text-white'
-                            : 'text-gray-600'
-                        }`}
-                      />
-                    </div>
-                    <div className='flex-1 text-left'>
-                      <div className='text-sm font-semibold text-gray-900'>
-                        Cash on Delivery
-                      </div>
-                      <div className='text-xs text-gray-500'>
-                        Pay on arrival
-                      </div>
-                    </div>
-                    {paymentMethod === 'cod' && (
-                      <Check className='h-5 w-5 text-green-600' />
-                    )}
-                  </button>
+                  <div>
+                    <label className='mb-1 block text-sm font-medium text-gray-700'>
+                      Phone Number
+                    </label>
+                    <input
+                      type='tel'
+                      value={mpesaPhone}
+                      onChange={(e) => setMpesaPhone(e.target.value)}
+                      disabled={isProcessing}
+                      placeholder='0712345678'
+                      className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-green-600 focus:ring-2 focus:ring-green-600 focus:outline-none disabled:bg-gray-50 disabled:opacity-50'
+                    />
+                  </div>
+                  <div className='flex items-start gap-2 rounded-lg bg-blue-50 p-3'>
+                    <AlertCircle className='mt-0.5 h-4 w-4 flex-shrink-0 text-blue-600' />
+                    <p className='text-xs text-blue-900'>
+                      Your order will be created first, then you'll receive an
+                      M-PESA prompt to complete payment.
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -473,21 +515,47 @@ export default function CheckoutPage() {
 
                 <button
                   onClick={handlePlaceOrder}
-                  disabled={!paymentMethod || (isDelivery && !place)}
+                  disabled={
+                    !mpesaPhone || (isDelivery && !place) || isProcessing
+                  }
                   className={`mt-4 w-full rounded-lg py-3 font-semibold text-white transition ${
-                    paymentMethod && (!isDelivery || place)
+                    mpesaPhone && (!isDelivery || place) && !isProcessing
                       ? 'bg-green-600 hover:bg-green-700'
                       : 'cursor-not-allowed bg-gray-300'
                   }`}
                 >
-                  {paymentMethod === 'mpesa'
-                    ? 'Pay with M-PESA'
-                    : 'Place Order'}
+                  {isProcessing ? (
+                    <span className='flex items-center justify-center gap-2'>
+                      <svg className='h-5 w-5 animate-spin' viewBox='0 0 24 24'>
+                        <circle
+                          className='opacity-25'
+                          cx='12'
+                          cy='12'
+                          r='10'
+                          stroke='currentColor'
+                          strokeWidth='4'
+                          fill='none'
+                        />
+                        <path
+                          className='opacity-75'
+                          fill='currentColor'
+                          d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'
+                        />
+                      </svg>
+                      Processing...
+                    </span>
+                  ) : (
+                    'Pay with M-PESA'
+                  )}
                 </button>
 
-                {(!paymentMethod || (isDelivery && !place)) && (
+                {(!mpesaPhone || (isDelivery && !place)) && !isProcessing && (
                   <p className='mt-2 text-center text-xs text-gray-500'>
-                    Complete all required fields
+                    {!mpesaPhone && 'Enter M-PESA phone number'}
+                    {mpesaPhone &&
+                      isDelivery &&
+                      !place &&
+                      'Select delivery address'}
                   </p>
                 )}
               </div>

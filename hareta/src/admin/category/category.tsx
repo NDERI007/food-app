@@ -5,6 +5,7 @@ import type { Category } from '@utils/schemas/menu';
 import { toast } from 'sonner';
 import { useAdminStore } from '@utils/hooks/adminStore';
 import { useCategories } from '@utils/hooks/productStore';
+import { ConfirmModal } from '@admin/components/confirmModal';
 
 export default function CategoryManager() {
   const queryClient = useQueryClient();
@@ -17,7 +18,7 @@ export default function CategoryManager() {
   const [iconFile, setIconFile] = useState<File | null>(null);
   const [iconPreview, setIconPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<Category | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -174,41 +175,26 @@ export default function CategoryManager() {
                     Edit
                   </button>
                   <button
-                    onClick={() => setDeleteConfirm(category.id)}
+                    onClick={() => setDeleteConfirm(category)}
                     className='flex-1 rounded-lg bg-red-700/20 px-3 py-2 text-sm font-normal text-red-400 transition hover:bg-red-700/40'
                   >
                     Delete
                   </button>
                 </div>
-
-                {/* Delete confirm modal */}
-                {deleteConfirm === category.id && (
-                  <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm'>
-                    <div className='w-full max-w-sm rounded-lg bg-gray-900 p-5 shadow-xl ring-1 ring-purple-800/30'>
-                      <p className='mb-3 text-sm font-medium text-gray-100'>
-                        Delete "{category.name}"?
-                      </p>
-                      <div className='flex justify-end gap-2'>
-                        <button
-                          onClick={() => setDeleteConfirm(null)}
-                          className='rounded-md border border-gray-700 bg-gray-800 px-3 py-1 text-sm text-gray-300 hover:bg-gray-700'
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={() => handleDelete(category.id)}
-                          className='rounded-md bg-red-700 px-3 py-1 text-sm text-white hover:bg-red-600'
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             ))}
           </div>
         )}
+
+        {/* Delete confirmation modal */}
+        <ConfirmModal
+          show={!!deleteConfirm}
+          message={`Delete "${deleteConfirm?.name}"?`}
+          onCancel={() => setDeleteConfirm(null)}
+          onConfirm={async () => {
+            await handleDelete(deleteConfirm!.id);
+          }}
+        />
 
         {/* Modal for create/edit */}
         {showModal && (

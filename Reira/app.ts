@@ -11,11 +11,11 @@ app.use(cookieParser());
 app.use(helmet());
 app.use(
   cors({
-    origin: "https://iurafoods.vercel.app", // your frontend
+    origin: "http://localhost:5173", // your frontend
     credentials: true,
   })
 );
-
+app.set("trust proxy", 1 /* number of proxies between user and server */);
 app.use(rateLimit({ windowMs: 60 * 1000, limit: 30 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
