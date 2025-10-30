@@ -68,7 +68,7 @@ router.post("/send-otp", authLimiter, async (req, res) => {
     // Only reset verify attempts after a successful send
     await cache.del(`otp_verify_attempts:${email}`);
 
-    res.json({ message: "OTP sent!", attempts: newAttempts });
+    res.json({ message: "OTP sent!" });
   } catch (err) {
     console.error("Failed to send OTP:", err);
     res.status(500).json({ error: "Failed to send OTP" });
@@ -260,7 +260,7 @@ router.get("/context-verif", async (req, res) => {
 });
 
 // --- LOGOUT ---
-router.post("/logout", async (req, res) => {
+router.get("/logout", async (req, res) => {
   const sessionId = req.cookies.sessionId;
   if (sessionId) {
     const signedId = signSessionId(sessionId);

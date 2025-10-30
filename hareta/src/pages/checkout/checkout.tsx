@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useCartStore } from '@utils/hooks/useCrt';
 import { useDeliveryStore } from '@utils/hooks/deliveryStore';
+import { useAuth } from '@utils/hooks/useAuth';
 import {
   Plus,
   Minus,
@@ -13,6 +15,7 @@ import {
   Store,
   Phone,
   MessageSquare,
+  LogIn,
 } from 'lucide-react';
 import type { SavedAddress } from '@utils/schemas/address';
 import AddressModal from '@components/searchModal';
@@ -22,6 +25,10 @@ import { toast } from 'sonner';
 import axios from 'axios';
 
 export default function CheckoutPage() {
+  const navigate = useNavigate();
+  // ✅ Get both isAuthenticated AND isLoading
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+
   // Cart Store
   const items = useCartStore((state) => state.items);
   const updateQuantity = useCartStore((state) => state.updateQuantity);
@@ -29,8 +36,13 @@ export default function CheckoutPage() {
   const clearCart = useCartStore((state) => state.clearCart);
 
   // Delivery Store
-  const { deliveryOption, place, setDeliveryAddress, changeLocation } =
-    useDeliveryStore();
+  const {
+    deliveryOption,
+    place,
+    setDeliveryAddress,
+    changeLocation,
+    clearDelivery,
+  } = useDeliveryStore();
 
   // Local State
   const [mpesaPhone, setMpesaPhone] = useState('');
@@ -48,7 +60,7 @@ export default function CheckoutPage() {
     (sum, item) => sum + item.price * item.quantity,
     0,
   );
-  const deliveryFee = isDelivery ? 0 : 0; // You can add logic for delivery fee calculation
+  const deliveryFee = isDelivery ? 0 : 0;
   const total = subtotal + deliveryFee;
 
   // Restaurant info for pickup
@@ -58,6 +70,18 @@ export default function CheckoutPage() {
     phone: '0727922764',
     hours: '11:00 AM – 10:00 PM',
   };
+
+  // ✅ Fixed auth check - only redirect after loading is complete
+  useEffect(() => {
+    // Don't do anything while auth is still loading
+    if (authLoading) return;
+
+    // Only redirect if auth check is done AND user is not authenticated
+    if (!isAuthenticated) {
+      toast.error('Please login to continue with checkout');
+      navigate('/login', { state: { from: '/checkout' } });
+    }
+  }, [isAuthenticated, authLoading, navigate]);
 
   useEffect(() => {
     if (!showModal) return;
@@ -87,6 +111,12 @@ export default function CheckoutPage() {
   };
 
   const handlePlaceOrder = async () => {
+    if (!isAuthenticated) {
+      toast.error('Please login to place an order');
+      navigate('/login', { state: { from: '/checkout' } });
+      return;
+    }
+
     if (isDelivery && !place) {
       toast.error('Please select a delivery address');
       return;
@@ -151,10 +181,7 @@ export default function CheckoutPage() {
       })),
     };
 
-    console.log('📦 Creating order:', orderData);
-
     try {
-      // Step 1: Create the order (backend validates everything)
       const orderResponse = await api.post('/api/orders/create', orderData);
 
       if (!orderResponse.data?.success) {
@@ -163,60 +190,23 @@ export default function CheckoutPage() {
         return;
       }
 
-      const orderId = orderResponse.data.order_id;
+      const orderID = orderResponse.data?.order;
 
-      if (!orderId) {
-        toast.error('Order created but ID not returned');
+      if (!orderID) {
+        toast.error('Failed to get order ID');
         setIsProcessing(false);
         return;
       }
 
-      toast.success('✅ Order created successfully!');
-      console.log('Order created:', orderId);
+      toast.success(
+        'Order created successfully! Check your phone for M-PESA prompt.',
+      );
 
-      // Step 2: Initiate M-PESA payment
-      try {
-        const paymentResponse = await api.post('/api/payments/mpesa/initiate', {
-          order_id: orderId,
-          phone_number: normalizedPhone,
-          amount: total,
-        });
+      // Clear cart && delivery
+      clearCart();
+      clearDelivery();
 
-        if (!paymentResponse.data?.success) {
-          toast.warning(
-            'Order created but payment failed to initiate. Please contact support.',
-          );
-          setIsProcessing(false);
-          return;
-        }
-
-        // Success! Clear cart and show success message
-        clearCart();
-
-        toast.success('📱 Check your phone for M-PESA prompt!', {
-          duration: 6000,
-        });
-
-        toast.info('Your order will be confirmed once payment is complete', {
-          duration: 5000,
-        });
-
-        // Optional: Redirect to order status page after a delay
-        setTimeout(() => {
-          // window.location.href = `/orders/${orderId}`;
-        }, 3000);
-      } catch (paymentErr) {
-        console.error('Payment initiation failed:', paymentErr);
-
-        if (axios.isAxiosError(paymentErr)) {
-          const message =
-            paymentErr.response?.data?.message ||
-            'Failed to initiate payment. Order was created. Please contact support.';
-          toast.error(message);
-        } else {
-          toast.error('Payment initiation failed. Order was created.');
-        }
-      }
+      navigate(`/order-confirmation?orderID=${orderID}`);
     } catch (err: unknown) {
       console.error('Order creation failed:', err);
 
@@ -227,18 +217,7 @@ export default function CheckoutPage() {
           err.message ||
           'Failed to create order';
 
-        // Show specific error messages
-        if (err.response?.data?.unavailable_items) {
-          toast.error(
-            `Items unavailable: ${err.response.data.unavailable_items.join(', ')}`,
-          );
-        } else if (err.response?.data?.out_of_stock_items) {
-          toast.error(
-            `Out of stock: ${err.response.data.out_of_stock_items.join(', ')}`,
-          );
-        } else {
-          toast.error(message);
-        }
+        toast.error(message);
       } else {
         toast.error('Unexpected error occurred');
       }
@@ -246,6 +225,39 @@ export default function CheckoutPage() {
       setIsProcessing(false);
     }
   };
+
+  // ✅ Show loading spinner while auth is being checked
+  if (authLoading) {
+    return (
+      <div className='flex min-h-screen flex-col items-center justify-center bg-gray-50'>
+        <div className='h-12 w-12 animate-spin rounded-full border-4 border-gray-200 border-t-green-600'></div>
+        <p className='mt-4 text-gray-500'>Loading...</p>
+      </div>
+    );
+  }
+
+  // ✅ This will only show after auth check completes and user is not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className='flex min-h-screen flex-col items-center justify-center bg-gray-50 p-4 text-center'>
+        <div className='rounded-xl bg-white p-8 shadow-sm'>
+          <LogIn className='mx-auto mb-4 h-16 w-16 text-green-600' />
+          <h2 className='text-xl font-semibold text-gray-900'>
+            Login Required
+          </h2>
+          <p className='mt-2 text-gray-500'>
+            Please login to continue with checkout
+          </p>
+          <button
+            onClick={() => navigate('/login', { state: { from: '/checkout' } })}
+            className='mt-4 rounded-lg bg-green-600 px-6 py-2 font-semibold text-white transition hover:bg-green-700'
+          >
+            Go to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (items.length === 0) {
     return (
@@ -258,7 +270,6 @@ export default function CheckoutPage() {
       </div>
     );
   }
-
   return (
     <div className='min-h-screen py-6'>
       <div className='mx-auto max-w-6xl px-4'>
@@ -480,8 +491,8 @@ export default function CheckoutPage() {
                   <div className='flex items-start gap-2 rounded-lg bg-blue-50 p-3'>
                     <AlertCircle className='mt-0.5 h-4 w-4 flex-shrink-0 text-blue-600' />
                     <p className='text-xs text-blue-900'>
-                      Your order will be created first, then you'll receive an
-                      M-PESA prompt to complete payment.
+                      You'll receive an M-PESA prompt on your phone to complete
+                      payment.
                     </p>
                   </div>
                 </div>

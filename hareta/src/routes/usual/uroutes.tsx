@@ -1,12 +1,12 @@
 import { lazy } from 'react';
 import type { RouteObject } from 'react-router-dom';
-
 import DashboardLayout from '@pages/dashboard/components/layout';
-
 import Dashboard from '@pages/dashboard/dashboard';
 import AddressPage from '@pages/address/Address';
 import SettingsPage from '@pages/settings/accountSettings';
 import CheckOut from '@pages/checkout/checkout';
+import OrderConfirmation from '@pages/confirmation/orderConfirmation';
+
 const Home = lazy(() => import('@pages/home/homepage'));
 
 const homeRoutes: RouteObject[] = [
@@ -18,6 +18,7 @@ const homeRoutes: RouteObject[] = [
       { path: '/address', element: <AddressPage /> },
       { path: '/settings', element: <SettingsPage /> },
       { path: '/checkout', element: <CheckOut /> },
+      { path: '/order-confirmation', element: <OrderConfirmation /> },
     ],
   },
 ];

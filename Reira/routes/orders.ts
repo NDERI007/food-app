@@ -5,66 +5,6 @@ import { withAuth } from "middleware/auth";
 
 const router = express.Router();
 
-// Public routes (no auth required)
-
-/**
- * GET /api/orders/guest/:orderId
- * Get order details for guest checkout (by order ID only)
- */
-router.get("/guest/:orderId", async (req, res) => {
-  try {
-    const { orderId } = req.params;
-
-    if (!orderId) {
-      return res.status(400).json({ message: "Order ID is required" });
-    }
-
-    const { data, error } = await supabase
-      .from("orders")
-      .select(
-        `
-        id,
-        guest_name,
-        phone,
-        status,
-        total_amount,
-        payment_status,
-        payment_method,
-        delivery_type,
-        delivery_instructions,
-        estimated_delivery_time,
-        created_at,
-        order_items (
-          id,
-          quantity,
-          price,
-          subtotal,
-          menu_items (
-            id,
-            name,
-            description,
-            image_url
-          )
-        )
-      `
-      )
-      .eq("id", orderId)
-      .is("user_id", null)
-      .single();
-
-    if (error) throw error;
-
-    if (!data) {
-      return res.status(404).json({ message: "Order not found" });
-    }
-
-    res.json({ order: data });
-  } catch (error) {
-    console.error("Error fetching guest order:", error);
-    res.status(500).json({ message: "Failed to fetch order" });
-  }
-});
-
 // Protected routes (auth required)
 router.use(withAuth());
 
@@ -91,10 +31,7 @@ router.get("/", async (req, res) => {
         payment_method,
         delivery_type,
         delivery_instructions,
-        estimated_delivery_time,
         created_at,
-        delivered_by_rider,
-        delivery_confirmed,
         order_items (
           id,
           quantity,
@@ -107,12 +44,6 @@ router.get("/", async (req, res) => {
             image_url
           )
         ),
-        addresses (
-          id,
-          label,
-          place_name,
-          address
-        )
       `
       )
       .eq("user_id", userID)
@@ -131,10 +62,10 @@ router.get("/", async (req, res) => {
  * GET /api/orders/:orderId
  * Get single order details for authenticated user
  */
-router.get("/:orderId", async (req, res) => {
+router.get("/:orderID", async (req, res) => {
   try {
     const userID = req.user?.userID;
-    const { orderId } = req.params;
+    const { orderID } = req.params;
 
     if (!userID) {
       return res.status(401).json({ message: "Unauthorized" });
@@ -145,47 +76,32 @@ router.get("/:orderId", async (req, res) => {
       .select(
         `
         id,
-        status,
-        total_amount,
-        payment_status,
-        payment_method,
-        payment_reference,
         delivery_type,
+        delivery_address_main_text,
+        delivery_address_secondary_text,
         delivery_instructions,
-        estimated_delivery_time,
-        phone,
+        status,
+        payment_method,
+        payment_status,
+        payment_reference,
+        mpesa_phone,
+        subtotal,
+        delivery_fee,
+        total_amount,
+        order_notes,
         created_at,
-        updated_at,
-        delivered_by_rider,
-        rider_delivered_at,
-        delivery_confirmed,
-        customer_confirmed_at,
-        delivery_code,
-        rejection_reason,
         order_items (
           id,
           quantity,
           price,
-          subtotal,
           menu_items (
-            id,
             name,
-            description,
-            image_url,
-            category
+            image_url
           )
-        ),
-        addresses (
-          id,
-          label,
-          place_name,
-          address,
-          lat,
-          lng
         )
       `
       )
-      .eq("id", orderId)
+      .eq("id", orderID)
       .eq("user_id", userID)
       .single();
 
@@ -195,10 +111,85 @@ router.get("/:orderId", async (req, res) => {
       return res.status(404).json({ message: "Order not found" });
     }
 
-    res.json({ order: data });
+    // Transform the data to match your interface
+    const { order_items, ...orderData } = data;
+
+    const transformedOrder = {
+      ...orderData,
+      items: order_items?.map((item) => ({
+        id: item.id,
+        product_name: item.menu_items[0]?.name,
+        quantity: item.quantity,
+        price: item.price,
+        image_url: item.menu_items[0]?.image_url,
+      })),
+    };
+
+    res.json({ order: transformedOrder });
   } catch (error) {
     console.error("Error fetching order:", error);
     res.status(500).json({ message: "Failed to fetch order" });
+  }
+});
+
+// Add this to your orders router
+router.get("/:orderID/payment-status", async (req, res) => {
+  try {
+    const userID = req.user?.userID;
+    const { orderID } = req.params;
+
+    if (!userID) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const { data, error } = await supabase
+      .from("orders")
+      .select(
+        `
+        id,
+        payment_status,
+        status
+      `
+      )
+      .eq("id", orderID)
+      .eq("user_id", userID)
+      .single();
+
+    if (error) {
+      console.error("Supabase order insert error:", error);
+      return res.status(500).json({
+        success: false,
+        error: {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        },
+      });
+    }
+
+    if (!data) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    // Payment is complete when status is 'paid'
+    const isComplete = data.payment_status === "paid";
+
+    // Check if payment failed or was cancelled
+    const hasFailed = ["failed", "cancelled"].includes(
+      data.payment_status || ""
+    );
+
+    res.json({
+      id: data.id,
+      payment_status: data.payment_status,
+      status: data.status,
+      is_complete: isComplete,
+      has_failed: hasFailed,
+    });
+  } catch (error) {
+    console.error("Error fetching payment status:", error);
+    res.status(500).json({ message: "Failed to fetch payment status" });
   }
 });
 
@@ -452,18 +443,14 @@ router.post("/create", async (req, res) => {
       return res.status(201).json({
         success: true,
         message: "Order created and STK push sent successfully",
-        order,
-        mpesa: {
-          checkout_request_id: stkResponse.CheckoutRequestID,
-          customer_message: stkResponse.CustomerMessage,
-        },
+        order: order.id,
       });
     } catch (error) {
       console.error("M-PESA STK Push error:", error);
       return res.status(201).json({
         success: true,
         message: "Order created, but M-PESA STK push failed",
-        order,
+        order: order.id,
       });
     }
   } catch (error) {
@@ -471,52 +458,6 @@ router.post("/create", async (req, res) => {
     const message =
       error instanceof Error ? error.message : "Internal server error";
     return res.status(500).json({ success: false, message });
-  }
-});
-
-/**
- * PATCH /api/orders/:orderId/payment
- * Update payment status after payment verification
- */
-router.patch("/:orderId/payment", async (req, res) => {
-  try {
-    const userID = req.user?.userID;
-    const { orderId } = req.params;
-    const { payment_status, payment_reference } = req.body;
-
-    if (!["paid", "failed"].includes(payment_status)) {
-      return res.status(400).json({ message: "Invalid payment status" });
-    }
-
-    const { data, error } = await supabase
-      .from("orders")
-      .update({
-        payment_status,
-        payment_reference,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", orderId)
-      .eq("user_id", userID || null)
-      .eq("payment_status", "unpaid")
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    if (!data) {
-      return res.status(404).json({
-        message: "Order not found or payment already processed",
-      });
-    }
-
-    res.json({
-      success: true,
-      message: "Payment status updated",
-      order: data,
-    });
-  } catch (error) {
-    console.error("Error updating payment status:", error);
-    res.status(500).json({ message: "Failed to update payment status" });
   }
 });
 

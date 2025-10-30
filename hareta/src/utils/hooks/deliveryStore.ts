@@ -5,98 +5,73 @@ import type { SavedAddress } from '@utils/schemas/address';
 interface DeliveryState {
   place: SavedAddress | null;
   deliveryOption: 'delivery' | 'pickup';
-  userId: string | null;
-
+  userId: string;
   setUserId: (userId: string | null) => void;
+
   setDeliveryAddress: (place: SavedAddress) => void;
   changeLocation: () => void;
   setDeliveryOption: (option: 'delivery' | 'pickup') => void;
   clearDelivery: () => void;
 }
 
-// Custom storage for delivery (per-user or guest)
-const createDeliveryStorage = (baseName: string) => {
-  return createJSONStorage(() => ({
-    getItem: () => {
-      const state = localStorage.getItem('delivery-user-id');
-      const userId = state ? JSON.parse(state) : null;
-      const key = userId ? `${baseName}-${userId}` : `${baseName}-guest`;
-      return localStorage.getItem(key);
-    },
-    setItem: (_key, value) => {
-      const state = localStorage.getItem('delivery-user-id');
-      const userId = state ? JSON.parse(state) : null;
-      const key = userId ? `${baseName}-${userId}` : `${baseName}-guest`;
-      localStorage.setItem(key, value);
-    },
-    removeItem: () => {
-      const state = localStorage.getItem('delivery-user-id');
-      const userId = state ? JSON.parse(state) : null;
-      const key = userId ? `${baseName}-${userId}` : `${baseName}-guest`;
-      localStorage.removeItem(key);
-    },
-  }));
-};
+const getStorageKey = (userId: string) =>
+  `delivery-storage-${userId || 'guest'}`;
 
 export const useDeliveryStore = create<DeliveryState>()(
   persist(
     (set) => ({
       place: null,
       deliveryOption: 'delivery',
-      userId: null,
+      userId: 'guest', // ✅ always start as guest, stable
 
-      setUserId: (userId) => {
-        // Store userId separately
-        localStorage.setItem('delivery-user-id', JSON.stringify(userId));
+      setUserId: (newUserId) => {
+        const userId = newUserId || 'guest';
 
-        // Clear current data
-        set({ userId, place: null });
+        // ✅ Mark which user owns current delivery data
+        localStorage.setItem('delivery-user-id', userId);
 
-        // Force re-hydration from new user's storage
-        const key = userId
-          ? `delivery-storage-${userId}`
-          : 'delivery-storage-guest';
-        const stored = localStorage.getItem(key);
+        // ✅ Make persist read/write from correct bucket
+        useDeliveryStore.persist.setOptions({
+          name: getStorageKey(userId),
+        });
+
+        // ✅ Attempt to restore previous delivery data
+        const stored = localStorage.getItem(getStorageKey(userId));
         if (stored) {
           try {
-            const data = JSON.parse(stored);
+            const parsed = JSON.parse(stored);
             set({
-              place: data.state?.place || null,
-              deliveryOption: data.state?.deliveryOption || 'delivery',
+              userId,
+              place: parsed.state?.place || null,
+              deliveryOption: parsed.state?.deliveryOption || 'delivery',
             });
-          } catch (e) {
-            console.error('Failed to load user delivery:', e);
-          }
+            return;
+          } catch {}
         }
+
+        // ✅ If no stored state → just adopt userId, do not clear anything
+        set({ userId });
       },
 
       setDeliveryAddress: (place) => {
         set({ place });
-        console.log('✓ Delivery address set:', place.main_text);
       },
 
       changeLocation: () => {
-        // Just clear the place, session token is now managed by sessionTokenManager
         set({ place: null });
-        console.log('→ Location change initiated');
       },
 
       setDeliveryOption: (option) => {
         set({ deliveryOption: option });
-        console.log('✓ Delivery option set:', option);
       },
 
       clearDelivery: () => {
-        set({
-          place: null,
-          deliveryOption: 'delivery',
-        });
-        console.log('✓ Delivery cleared');
+        set({ place: null, deliveryOption: 'delivery' });
       },
     }),
     {
-      name: 'delivery-storage',
-      storage: createDeliveryStorage('delivery-storage'),
+      name: getStorageKey(localStorage.getItem('delivery-user-id') || 'guest'),
+      storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         place: state.place,
         deliveryOption: state.deliveryOption,

@@ -19,12 +19,9 @@ export interface CartItem {
 interface CartStore {
   items: CartItem[];
   isOpen: boolean;
-  userId: string | null;
-
-  // User context management
+  userId: string;
   setUserId: (userId: string | null) => void;
 
-  // Cart Actions
   addItem: (
     product: MenuItem,
     quantity?: number,
@@ -34,66 +31,48 @@ interface CartStore {
   updateQuantity: (cartItemId: string, quantity: number) => void;
   clearCart: () => void;
 
-  // UI Actions
   toggleCart: () => void;
   openCart: () => void;
   closeCart: () => void;
 
-  // Computed
   totalItems: () => number;
   totalPrice: () => number;
 }
 
-// Custom storage that uses user-specific keys
-const createUserStorage = (baseName: string) => {
-  return createJSONStorage(() => ({
-    getItem: () => {
-      const state = localStorage.getItem('cart-user-id');
-      const userId = state ? JSON.parse(state) : null;
-      const key = userId ? `${baseName}-${userId}` : `${baseName}-guest`;
-      return localStorage.getItem(key);
-    },
-    setItem: (_key, value) => {
-      const state = localStorage.getItem('cart-user-id');
-      const userId = state ? JSON.parse(state) : null;
-      const key = userId ? `${baseName}-${userId}` : `${baseName}-guest`;
-      localStorage.setItem(key, value);
-    },
-    removeItem: () => {
-      const state = localStorage.getItem('cart-user-id');
-      const userId = state ? JSON.parse(state) : null;
-      const key = userId ? `${baseName}-${userId}` : `${baseName}-guest`;
-      localStorage.removeItem(key);
-    },
-  }));
-};
+const getStorageKey = (userId: string) => `cart-storage-${userId || 'guest'}`;
 
 export const useCartStore = create<CartStore>()(
   persist(
     (set, get) => ({
       items: [],
       isOpen: false,
-      userId: null,
+      userId: 'guest', // ✅ default safe value
 
-      // Set user ID and reload data from user-specific storage
-      setUserId: (userId) => {
-        // Store userId separately for storage helper
-        localStorage.setItem('cart-user-id', JSON.stringify(userId));
+      setUserId: (newUserId) => {
+        const userId = newUserId || 'guest';
 
-        // Clear current items
-        set({ userId, items: [] });
+        // ✅ Store which user owns the cart
+        localStorage.setItem('cart-user-id', userId);
 
-        // Force re-hydration from new user's storage
-        const key = userId ? `cart-storage-${userId}` : 'cart-storage-guest';
-        const stored = localStorage.getItem(key);
+        // ✅ Tell persist to load a different storage bucket
+        useCartStore.persist.setOptions({
+          name: getStorageKey(userId),
+        });
+
+        // ✅ Rehydrate from new bucket (this loads correct cart)
+        const stored = localStorage.getItem(getStorageKey(userId));
         if (stored) {
           try {
-            const data = JSON.parse(stored);
-            set({ items: data.state?.items || [] });
-          } catch (e) {
-            console.error('Failed to load user cart:', e);
+            const parsed = JSON.parse(stored);
+            set({ items: parsed.state?.items || [], userId });
+            return;
+          } catch {
+            // fallback if bad data
           }
         }
+
+        // ✅ If no previous cart → start empty (but not clearing once loaded)
+        set({ userId, items: [] });
       },
 
       addItem: (product, quantity = 1, selectedVariant) => {
@@ -107,12 +86,13 @@ export const useCartStore = create<CartStore>()(
         );
 
         if (existingItem) {
-          const updatedItems = get().items.map((item) =>
-            item.cartItemId === cartItemId
-              ? { ...item, quantity: item.quantity + quantity }
-              : item,
-          );
-          set({ items: updatedItems });
+          set({
+            items: get().items.map((item) =>
+              item.cartItemId === cartItemId
+                ? { ...item, quantity: item.quantity + quantity }
+                : item,
+            ),
+          });
           return;
         }
 
@@ -132,47 +112,37 @@ export const useCartStore = create<CartStore>()(
       },
 
       removeItem: (cartItemId) =>
-        set((state) => ({
-          items: state.items.filter((item) => item.cartItemId !== cartItemId),
-        })),
+        set({
+          items: get().items.filter((item) => item.cartItemId !== cartItemId),
+        }),
 
       updateQuantity: (cartItemId, quantity) =>
-        set((state) => {
-          if (quantity <= 0) {
-            return {
-              items: state.items.filter(
-                (item) => item.cartItemId !== cartItemId,
-              ),
-            };
-          }
-          return {
-            items: state.items.map((item) =>
-              item.cartItemId === cartItemId ? { ...item, quantity } : item,
-            ),
-          };
+        set({
+          items:
+            quantity <= 0
+              ? get().items.filter((item) => item.cartItemId !== cartItemId)
+              : get().items.map((item) =>
+                  item.cartItemId === cartItemId ? { ...item, quantity } : item,
+                ),
         }),
 
       clearCart: () => set({ items: [] }),
-      toggleCart: () => set((state) => ({ isOpen: !state.isOpen })),
+      toggleCart: () => set((s) => ({ isOpen: !s.isOpen })),
       openCart: () => set({ isOpen: true }),
       closeCart: () => set({ isOpen: false }),
 
-      totalItems: () => {
-        const state = get();
-        return state.items.reduce((total, item) => total + item.quantity, 0);
-      },
+      totalItems: () =>
+        get().items.reduce((total, item) => total + item.quantity, 0),
 
-      totalPrice: () => {
-        const state = get();
-        return state.items.reduce(
+      totalPrice: () =>
+        get().items.reduce(
           (total, item) => total + item.price * item.quantity,
           0,
-        );
-      },
+        ),
     }),
     {
-      name: 'cart-storage',
-      storage: createUserStorage('cart-storage'),
+      name: getStorageKey(localStorage.getItem('cart-user-id') || 'guest'),
+      storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ items: state.items }),
     },
   ),

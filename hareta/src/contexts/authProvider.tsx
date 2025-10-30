@@ -12,70 +12,74 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Check authentication status
-  const checkAuth = useCallback(async (): Promise<User | null> => {
+  // 1️⃣ Restore last known user instantly (just for UI state)
+  useEffect(() => {
+    const saved = localStorage.getItem('auth-user');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      setUser(parsed);
+      useCartStore.getState().setUserId(parsed.email);
+      useDeliveryStore.getState().setUserId(parsed.email);
+    }
+  }, []);
+
+  // 2️⃣ Securely verify user with backend
+  const checkAuth = useCallback(async () => {
     try {
       const response = await api.get('/api/auth/context-verif', {
         withCredentials: true,
       });
 
-      const { authenticated, user } = response.data;
-      if (authenticated && user) {
-        setUser(user);
+      const { authenticated, user: serverUser } = response.data;
 
-        useCartStore.getState().setUserId(user.email);
-        useDeliveryStore.getState().setUserId(user.email);
+      if (authenticated && serverUser) {
+        const authUser: User = {
+          email: serverUser.email,
+          role: serverUser.role,
+        };
+        setUser(authUser);
+        localStorage.setItem('auth-user', JSON.stringify(authUser));
 
-        return user;
+        useCartStore.getState().setUserId(authUser.email);
+        useDeliveryStore.getState().setUserId(authUser.email);
+
+        return authUser;
       } else {
-        setUser(null);
-
-        useCartStore.getState().setUserId(null);
-        useDeliveryStore.getState().setUserId(null);
-
+        logout();
         return null;
       }
-    } catch (error) {
-      console.error('Auth check failed:', error);
-      setUser(null);
-
-      useCartStore.getState().setUserId(null);
-      useDeliveryStore.getState().setUserId(null);
-
+    } catch (err) {
+      console.error('Auth check failed:', err);
+      logout();
       return null;
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  // Login
+  // 3️⃣ Login
   const login = useCallback((email: string, role: string) => {
-    setUser({ email, role });
+    const authUser: User = { email, role };
+    setUser(authUser);
+    localStorage.setItem('auth-user', JSON.stringify(authUser));
+
     useCartStore.getState().setUserId(email);
     useDeliveryStore.getState().setUserId(email);
   }, []);
 
-  // Logout
+  //Logout
   const logout = useCallback(async () => {
-    try {
-      await api.post('/api/auth/logout', null, {
-        withCredentials: true,
-        headers: { 'Content-Type': 'application/json' },
-      });
+    setUser(null);
+    localStorage.removeItem('auth-user');
 
-      setUser(null);
-      useCartStore.getState().setUserId(null);
-      useDeliveryStore.getState().setUserId(null);
-      useCartStore.getState().clearCart();
-      useDeliveryStore.getState().clearDelivery();
-    } catch (error) {
-      console.error('Logout failed:', error);
-      setUser(null);
-      useCartStore.getState().setUserId(null);
-      useDeliveryStore.getState().setUserId(null);
-    }
+    useCartStore.getState().setUserId(null);
+    useDeliveryStore.getState().setUserId(null);
+
+    useCartStore.getState().clearCart();
+    useDeliveryStore.getState().clearDelivery();
   }, []);
 
+  //Run check once on mount AFTER initial restore
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);

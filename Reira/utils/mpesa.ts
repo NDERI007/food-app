@@ -47,24 +47,16 @@ export async function getAccessToken(): Promise<string> {
 export async function stkPush(phone: string, amount: number, orderId: string) {
   const token = await getAccessToken();
 
-  const timestamp = new Date()
-    .toISOString()
-    .replace(/[-T:.Z]/g, "")
-    .slice(0, 14);
-  const password = Buffer.from(
-    `${MPESA_SHORTCODE}${MPESA_PASSKEY}${timestamp}`
-  ).toString("base64");
-
   const payload = {
     BusinessShortCode: MPESA_SHORTCODE,
-    Password: password,
-    Timestamp: timestamp,
+    Password: MPESA_PASSKEY,
+    Timestamp: "20160216165627",
     TransactionType: "CustomerPayBillOnline",
     Amount: amount,
     PartyA: phone,
     PartyB: MPESA_SHORTCODE,
     PhoneNumber: phone,
-    CallBackURL: "https://iura.onrender.com/api/mpesa/callback",
+    CallBackURL: "https://cc4d1b74796d.ngrok-free.app/api/mpesa/callback",
     AccountReference: orderId,
     TransactionDesc: `Order ${orderId}`,
   };
