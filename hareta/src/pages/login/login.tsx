@@ -69,7 +69,11 @@ export default function Login() {
   const handleVerifyOtp = async (data: OtpSchemaType) => {
     setIsVerifying(true);
     try {
-      await api.post('/api/auth/verify-otp', { email, code: data.otp });
+      await api.post(
+        '/api/auth/verify-otp',
+        { email, code: data.otp },
+        { withCredentials: true },
+      );
       // Hydrate AuthContext from server session
       const user = await checkAuth();
 

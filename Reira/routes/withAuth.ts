@@ -78,15 +78,28 @@ router.post("/send-otp", authLimiter, async (req, res) => {
 // Verify OTP
 router.post("/verify-otp", authLimiter, async (req, res) => {
   let { email, code } = req.body;
-  // Normalize email
-  email = email?.toLowerCase().trim();
-  code = code?.trim();
+
+  email = email?.toLowerCase().trim().replace(/\s+/g, "");
+  // Remove ALL whitespace, zero-width chars, and non-digits
+  code = code?.replace(/[\s\u200B-\u200D\uFEFF]/g, "").trim();
+
+  // Validation
   if (!email || !code) {
     return res.status(400).json({ error: "Email and OTP required" });
   }
+
+  // Validate OTP format (should be 6 digits)
+  if (!/^\d{6}$/.test(code)) {
+    return res
+      .status(400)
+      .json({ error: "Invalid OTP format. Must be 6 digits." });
+  }
+
+  // Check attempt limit
   const verifyAttempts = parseInt(
     (await cache.get(`otp_verify_attempts:${email}`)) || "0"
   );
+
   if (verifyAttempts >= MAX_OTP_ATTEMPTS) {
     const lockTTL = await cache.ttl(`otp_verify_attempts:${email}`);
     return res.status(429).json({
@@ -95,17 +108,25 @@ router.post("/verify-otp", authLimiter, async (req, res) => {
     });
   }
 
+  // Get stored OTP
   const storedCode = await cache.get(`otp:${email}`);
-  if (!storedCode) return res.status(400).json({ error: "OTP expired" });
-  if (storedCode !== code)
-    return res.status(400).json({ error: "Invalid OTP" });
-  // Timing-safe comparison
-  const isValid =
-    storedCode === code &&
-    crypto.timingSafeEqual(
-      Buffer.from(storedCode.padEnd(10, "0")),
-      Buffer.from(code.padEnd(10, "0"))
-    );
+
+  if (!storedCode) {
+    return res.status(400).json({ error: "OTP expired or not found" });
+  }
+
+  // 🔧 FIX 2: Proper timing-safe comparison
+  let isValid = false;
+  try {
+    // Ensure both are same length for timingSafeEqual
+    const storedBuffer = Buffer.from(storedCode.padEnd(10, "0"));
+    const codeBuffer = Buffer.from(code.padEnd(10, "0"));
+
+    isValid = crypto.timingSafeEqual(storedBuffer, codeBuffer);
+  } catch (err) {
+    console.error("Timing-safe comparison error:", err);
+    isValid = false;
+  }
 
   if (!isValid) {
     // Increment failed attempts
@@ -113,6 +134,11 @@ router.post("/verify-otp", authLimiter, async (req, res) => {
     await cache.expire(`otp_verify_attempts:${email}`, OTP_TTL);
 
     const remainingAttempts = Math.max(0, MAX_OTP_ATTEMPTS - newAttempts);
+
+    // Log for debugging (remove in production)
+    console.log(
+      `[OTP] Failed attempt for ${email}. Attempts: ${newAttempts}/${MAX_OTP_ATTEMPTS}`
+    );
 
     // If exceeded max attempts → lock
     if (newAttempts >= MAX_OTP_ATTEMPTS) {
@@ -122,6 +148,7 @@ router.post("/verify-otp", authLimiter, async (req, res) => {
         attemptsRemaining: 0,
       });
     }
+
     return res.status(400).json({
       error: "Invalid OTP",
       attemptsRemaining: remainingAttempts,
