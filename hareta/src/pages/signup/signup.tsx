@@ -18,7 +18,7 @@ export default function Signup() {
   const [email, setEmail] = useState('');
   const [disabled, setDisabled] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
-  const { checkAuth } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   // Step 1 form (email + username)
@@ -70,27 +70,59 @@ export default function Signup() {
   const handleVerifyOtp = async (data: OtpSchemaType) => {
     setIsVerifying(true);
     try {
-      await api.post(
+      // 1️⃣ Verify OTP with backend
+      const response = await api.post(
         '/api/auth/verify-otp',
         { email, code: data.otp },
         { withCredentials: true },
       );
-      // Hydrate AuthContext from server session
-      const user = await checkAuth();
 
-      if (!user) {
+      // 2️⃣ Extract user from response
+      const { user: serverUser } = response.data;
+
+      if (!serverUser) {
         setIsVerifying(false);
         toast.error('Authentication failed. Please try again.');
         return;
       }
 
-      toast.success('Account created successfully!');
-      navigate('/dashboard');
+      // 3️⃣ Immediately sync user to AuthContext + stores
+      // This calls your AuthProvider's login() function
+      login(serverUser.email, serverUser.role);
+
+      toast.success('Logged in successfully!');
+
+      // 5️⃣ Navigate based on role
+      if (serverUser.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err: unknown) {
       setIsVerifying(false);
+
       if (axios.isAxiosError(err)) {
-        const backendMsg = (err.response?.data as { error?: string })?.error;
-        toast.error(backendMsg || 'Failed to verify OTP');
+        const errorData = err.response?.data as {
+          error?: string;
+          code?: string;
+          attemptsRemaining?: number;
+        };
+
+        const backendMsg = errorData?.error;
+        const errorCode = errorData?.code;
+
+        // Better error handling with error codes
+        if (errorCode === 'OTP_NOT_FOUND') {
+          toast.error('OTP expired. Please request a new one.');
+        } else if (errorCode === 'TOO_MANY_ATTEMPTS') {
+          toast.error('Too many failed attempts. Please request a new OTP.');
+        } else if (errorCode === 'INVALID_OTP' && errorData.attemptsRemaining) {
+          toast.error(
+            `Invalid OTP. ${errorData.attemptsRemaining} attempts remaining.`,
+          );
+        } else {
+          toast.error(backendMsg || 'Failed to verify OTP');
+        }
       } else {
         toast.error('Unexpected error occurred');
       }

@@ -75,7 +75,7 @@ export function withAuth(requiredRoles?: string[]) {
       role: sessionData.role,
     };
 
-    // 🔒 Role-based access control
+    // Role-based access control
     if (requiredRoles && !requiredRoles.includes(sessionData.role)) {
       return res
         .status(403)

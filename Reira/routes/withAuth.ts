@@ -202,17 +202,35 @@ router.post("/verify-otp", authLimiter, async (req, res) => {
       // decide: proceed (recommended)
     }
 
-    res.cookie("sessionId", sessionId, {
+    const cookieOptions = {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      secure: true, // ✅ Changed: Always true since Render uses HTTPS
+      sameSite: "none" as const, // ✅ Changed: Always "none" for cross-origin
       maxAge: SESSION_TTL * 1000,
-      path: "/", //Always sent to every route on your domain
+      path: "/",
+    };
+
+    res.cookie("sessionId", sessionId, cookieOptions);
+
+    // This is CRITICAL - your frontend needs this data immediately
+    return res.status(200).json({
+      message: "Authenticated!",
+      user: {
+        email,
+        role,
+      },
+      // Optional: for debugging cookie issues
+      debug: {
+        cookieSet: true,
+        sessionCreated: true,
+      },
     });
-    return res.status(200).json({ message: "Authenticated!" });
   } catch (err) {
     console.error("RPC call failed:", err);
-    return res.status(500).json({ error: "Unexpected server error." });
+    return res.status(500).json({
+      error: "Unexpected server error.",
+      code: "UNEXPECTED_ERROR",
+    });
   }
 });
 
@@ -257,7 +275,7 @@ router.get("/context-verif", async (req, res) => {
 
   // Optional: manual max-age check
   const now = Date.now();
-  const maxAgeMs = 1000 * 60 * 60 * 24 * 7; // 7 days, same as cookie
+  const maxAgeMs = SESSION_TTL * 1000;
 
   if (now - sessionData.createdAt > maxAgeMs) {
     await cache.del(key);
@@ -271,8 +289,8 @@ router.get("/context-verif", async (req, res) => {
     // 🔁 Refresh browser cookie maxAge (2h sliding)
     res.cookie("sessionId", sessionId, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      secure: true,
+      sameSite: "none" as const,
       maxAge: SESSION_TTL * 1000,
       path: "/",
     });
