@@ -16,7 +16,7 @@ interface BatchNotification {
   timestamp: string;
 }
 
-const AdminOrderMonitor = () => {
+const OrderMonitor = () => {
   const [notifications, setNotifications] = useState<BatchNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showPanel, setShowPanel] = useState(false);
@@ -247,4 +247,4 @@ const AdminOrderMonitor = () => {
   );
 };
 
-export default AdminOrderMonitor;
+export default OrderMonitor;

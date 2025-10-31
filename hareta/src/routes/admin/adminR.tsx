@@ -1,6 +1,7 @@
 import { lazy } from 'react';
 import type { RouteObject } from 'react-router-dom';
 import ProtectedRoute from 'contexts/protectedRoutes';
+import OrderMonitor from '@admin/orders/orderMonitor';
 
 const AdminDashboard = lazy(() => import('@admin/dashboard/dashboard'));
 const ProductsPage = lazy(() => import('@admin/products/products'));
@@ -18,6 +19,7 @@ const adminRoutes: RouteObject[] = [
     children: [
       { path: 'products', element: <ProductsPage /> },
       { path: 'categories', element: <CategoriesPage /> },
+      { path: 'orders', element: <OrderMonitor /> },
       //{ path: 'products/:id', element: <ProductDetail /> },
       //{ path: 'categories', element: <CategoriesPage /> },
     ],
