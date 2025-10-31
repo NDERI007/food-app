@@ -100,51 +100,47 @@ const AdminProducts: React.FC = () => {
 
       {/* Main Content */}
       <main className='mx-auto max-w-7xl px-4 pb-12 sm:px-6 lg:px-8'>
-        <div className='rounded-2xl bg-gray-950/50 p-4 shadow-lg ring-1 ring-purple-800/30 backdrop-blur-sm sm:p-6'>
-          {loading ? (
-            <div className='flex h-64 items-center justify-center'>
-              <div className='text-center'>
-                <div className='mx-auto h-8 w-8 animate-spin rounded-full border-4 border-gray-600 border-t-purple-600'></div>
-                <p className='mt-2 text-sm text-gray-400'>
-                  Loading products...
-                </p>
-              </div>
+        {loading ? (
+          <div className='flex h-64 items-center justify-center'>
+            <div className='text-center'>
+              <div className='mx-auto h-8 w-8 animate-spin rounded-full border-4 border-gray-600 border-t-purple-600'></div>
+              <p className='mt-2 text-sm text-gray-400'>Loading products...</p>
             </div>
-          ) : menuItems.length === 0 ? (
-            <div className='flex h-64 flex-col items-center justify-center gap-3 rounded-xl border border-gray-700 bg-gray-800 text-center'>
-              <Package className='h-12 w-12 text-gray-500' />
-              <div>
-                <h3 className='text-lg font-semibold text-gray-100'>
-                  No products yet
-                </h3>
-                <p className='mt-1 text-sm text-gray-400'>
-                  Get started by adding your first product
-                </p>
-              </div>
-              <button
-                onClick={handleAddNew}
-                className='mt-2 rounded-lg bg-purple-700 px-4 py-2 text-sm font-medium text-white hover:bg-purple-600'
-              >
-                Add Your First Product
-              </button>
+          </div>
+        ) : menuItems.length === 0 ? (
+          <div className='flex h-64 flex-col items-center justify-center gap-3 rounded-xl border border-gray-700 bg-gray-800 text-center'>
+            <Package className='h-12 w-12 text-gray-500' />
+            <div>
+              <h3 className='text-lg font-semibold text-gray-100'>
+                No products yet
+              </h3>
+              <p className='mt-1 text-sm text-gray-400'>
+                Get started by adding your first product
+              </p>
             </div>
-          ) : (
-            <div className='space-y-4'>
-              {menuItems.map((item) => (
-                <ProductCard
-                  key={item.id}
-                  item={item}
-                  onToggleAvailability={(item) =>
-                    toggleAvailability(item, queryClient)
-                  }
-                  onEdit={handleEdit}
-                  onDelete={(id) => deleteMenuItem(id, queryClient)}
-                  onManageVariants={setManagingVariantsFor}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+            <button
+              onClick={handleAddNew}
+              className='mt-2 rounded-lg bg-purple-700 px-4 py-2 text-sm font-medium text-white hover:bg-purple-600'
+            >
+              Add Your First Product
+            </button>
+          </div>
+        ) : (
+          <div className='space-y-4'>
+            {menuItems.map((item) => (
+              <ProductCard
+                key={item.id}
+                item={item}
+                onToggleAvailability={(item) =>
+                  toggleAvailability(item, queryClient)
+                }
+                onEdit={handleEdit}
+                onDelete={(id) => deleteMenuItem(id, queryClient)}
+                onManageVariants={setManagingVariantsFor}
+              />
+            ))}
+          </div>
+        )}
       </main>
 
       {/* Product Form Slide-over */}
