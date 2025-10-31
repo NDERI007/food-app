@@ -6,21 +6,16 @@ import rateLimit from "express-rate-limit";
 import cookieParser from "cookie-parser";
 import session from "express-session";
 import { RedisStore } from "connect-redis";
-import Redis from "ioredis";
 import apiRoutes from "./index";
 import dotenv from "dotenv";
 import { initializeSocket } from "@config/socketio";
 import startOrderPoller from "@utils/poller";
 import { startBatchScheduler } from "@utils/schedulerINT";
+import { redis } from "@config/redis";
 
 dotenv.config();
 
 const app = express();
-
-// Redis client for sessions
-const redis = new Redis(process.env.REDIS_URL!, {
-  retryStrategy: (times) => Math.min(times * 100, 2000),
-});
 
 // Session middleware configuration
 const sessionMiddleware = session({
@@ -40,7 +35,7 @@ app.use(cookieParser());
 app.use(helmet());
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    origin: "http://localhost:5173",
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization"],
   })

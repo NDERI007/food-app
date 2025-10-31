@@ -11,6 +11,7 @@ declare global {
         userID: string;
         sessionId: string;
         role: string;
+        two_factor_enabled: false;
       };
     }
   }
@@ -40,6 +41,7 @@ export function withAuth(requiredRoles?: string[]) {
       userID: string;
       email: string;
       role: string;
+      two_factor_enabled: false;
       createdAt: number;
     };
     try {
@@ -73,6 +75,7 @@ export function withAuth(requiredRoles?: string[]) {
       userID: sessionData.userID,
       sessionId,
       role: sessionData.role,
+      two_factor_enabled: sessionData.two_factor_enabled,
     };
 
     // Role-based access control

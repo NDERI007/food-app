@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import { toast } from 'sonner';
 import {
   emailSchema,
@@ -20,6 +20,7 @@ export default function Login() {
   const [isVerifying, setIsVerifying] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+
   // Step 1 form (email)
   const {
     register: registerEmail,
@@ -53,7 +54,7 @@ export default function Login() {
       setEmail(data.email);
       setStep(2);
 
-      resetEmail(); // clear email form
+      resetEmail();
       setDisabled(true);
       setTimeout(() => setDisabled(false), 30_000);
     } catch (err: unknown) {
@@ -85,19 +86,19 @@ export default function Login() {
         return;
       }
 
-      // 3️⃣ Immediately sync user to AuthContext + stores
-      // This calls your AuthProvider's login() function
+      if (serverUser.two_factor_enabled) {
+        // Navigate to MFA verification page
+        navigate('/mfa-verify', {
+          state: {
+            email: serverUser.email,
+            user: serverUser,
+          },
+        });
+        return;
+      }
+
+      // 4️⃣ If no MFA required, complete login immediately
       login(serverUser.email, serverUser.role);
-
-      // At this point:
-      // ✅ user state is set in AuthContext
-      // ✅ Cart store has userId
-      // ✅ Delivery store has userId
-      // ✅ User can navigate and use the app
-
-      // 4️⃣ Optionally verify cookie (non-blocking)
-      // This is just to confirm the cookie was set properly
-      // If it fails, no problem - user is already logged in from step 3
 
       toast.success('Logged in successfully!');
 
@@ -110,33 +111,31 @@ export default function Login() {
     } catch (err: unknown) {
       setIsVerifying(false);
 
-      if (axios.isAxiosError(err)) {
-        const errorData = err.response?.data as {
-          error?: string;
-          code?: string;
-          attemptsRemaining?: number;
-        };
+      const error = err as AxiosError<{
+        error?: string;
+        code?: string;
+        attemptsRemaining?: number;
+      }>;
 
-        const backendMsg = errorData?.error;
-        const errorCode = errorData?.code;
+      const errorData = error.response?.data;
+      const backendMsg = errorData?.error;
+      const errorCode = errorData?.code;
 
-        // Better error handling with error codes
-        if (errorCode === 'OTP_NOT_FOUND') {
-          toast.error('OTP expired. Please request a new one.');
-        } else if (errorCode === 'TOO_MANY_ATTEMPTS') {
-          toast.error('Too many failed attempts. Please request a new OTP.');
-        } else if (errorCode === 'INVALID_OTP' && errorData.attemptsRemaining) {
-          toast.error(
-            `Invalid OTP. ${errorData.attemptsRemaining} attempts remaining.`,
-          );
-        } else {
-          toast.error(backendMsg || 'Failed to verify OTP');
-        }
+      // Better error handling with error codes
+      if (errorCode === 'OTP_NOT_FOUND') {
+        toast.error('OTP expired. Please request a new one.');
+      } else if (errorCode === 'TOO_MANY_ATTEMPTS') {
+        toast.error('Too many failed attempts. Please request a new OTP.');
+      } else if (errorCode === 'INVALID_OTP' && errorData?.attemptsRemaining) {
+        toast.error(
+          `Invalid OTP. ${errorData.attemptsRemaining} attempts remaining.`,
+        );
       } else {
-        toast.error('Unexpected error occurred');
+        toast.error(backendMsg || 'Failed to verify OTP');
       }
     }
   };
+
   // Render
   return (
     <div className='flex min-h-screen items-center justify-center bg-green-50'>
@@ -144,7 +143,7 @@ export default function Login() {
         {step === 1 && (
           <form onSubmit={handleSubmitEmail(handleSendOtp)}>
             <h2 className='mb-6 text-center text-2xl font-bold text-green-900'>
-              What’s your email?
+              What's your email?
             </h2>
 
             <div className='mb-4 flex flex-col'>
@@ -220,7 +219,7 @@ export default function Login() {
                 onClick={() => {
                   resetOtp();
                   setStep(1);
-                  setEmail(''); // optional: clear email when going back
+                  setEmail('');
                 }}
                 disabled={isVerifying}
                 className='w-1/3 rounded-md bg-gray-200 px-4 py-2 text-gray-700 shadow-sm hover:bg-gray-300 active:scale-95'

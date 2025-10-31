@@ -6,6 +6,8 @@ import prodRoutes from "./routes/product";
 import feedbackRoutes from "./routes/feedback";
 import mpesaRoutes from "./routes/callbackMpesa";
 import orderRoutes from "./routes/orders";
+import userRoutes from "./routes/user";
+import mfaRoutes from "./routes/MFA";
 
 const router = Router();
 
@@ -17,5 +19,7 @@ router.use("/prod", prodRoutes);
 router.use("/feedback", feedbackRoutes);
 router.use("/mpesa", mpesaRoutes);
 router.use("/orders", orderRoutes);
+router.use("/profile", userRoutes);
+router.use("/mfa", mfaRoutes);
 
 export default router;

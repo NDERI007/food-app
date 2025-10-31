@@ -1,16 +1,8 @@
 import { Worker, Job } from "bullmq";
-import Redis from "ioredis";
-import dotenv from "dotenv";
 import { OrderNotificationJob } from "./queue";
 import { addOrderAtomic } from "./redisBatchScripts";
 import { logger } from "./logger";
-
-dotenv.config();
-
-const connection = new Redis(process.env.REDIS_URL!, {
-  retryStrategy: (times) => Math.min(times * 100, 2000),
-  maxRetriesPerRequest: null,
-});
+import { connection } from "@config/redis";
 
 // Worker to process individual order notifications
 const ORDERS_KEY = "admin:order-notifications:orders";

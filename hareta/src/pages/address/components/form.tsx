@@ -146,7 +146,7 @@ export default function AddressForm({
         {savedAddresses.map((saved) => (
           <div
             key={saved.id}
-            className='flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-3'
+            className='flex items-center justify-between rounded-lg border border-gray-100 bg-white px-4 py-3'
           >
             <div className='flex items-center gap-3'>
               <div className='rounded-full bg-green-100 p-2'>

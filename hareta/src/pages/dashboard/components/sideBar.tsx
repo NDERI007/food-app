@@ -1,5 +1,5 @@
 import { useAuth } from '@utils/hooks/useAuth';
-import { Bookmark, X, Package, Heart, Settings, LogOut } from 'lucide-react';
+import { Bookmark, X, Package, Settings, LogOut } from 'lucide-react';
 import type { ComponentType, SVGProps } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -9,7 +9,7 @@ type SidebarProps = {
 };
 
 export default function Sidebar({ open, onClose }: SidebarProps) {
-  const { logout, isLoading, user } = useAuth();
+  const { isAuthenticated, logout, isLoading, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -107,6 +107,24 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               <div className='h-9 animate-pulse rounded-md bg-gray-100'></div>
               <div className='h-9 animate-pulse rounded-md bg-gray-100'></div>
             </div>
+          ) : !isAuthenticated ? (
+            <>
+              {/* Auth Actions */}
+              <div className='space-y-2 border-b border-gray-200 p-3'>
+                <button
+                  onClick={() => handleNavigation('/login')}
+                  className='w-full rounded-md bg-green-600 py-2 text-sm font-medium text-white transition hover:bg-green-700'
+                >
+                  Sign In
+                </button>
+                <button
+                  onClick={() => handleNavigation('/signup')}
+                  className='w-full rounded-md border border-gray-300 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50'
+                >
+                  Create Account
+                </button>
+              </div>
+            </>
           ) : (
             <>
               {/* User Info */}
@@ -137,7 +155,6 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                   label='Saved Addresses'
                   path='/address'
                 />
-                <NavButton icon={Heart} label='Favorites' path='/favorites' />
                 <NavButton
                   icon={Settings}
                   label='Account Settings'

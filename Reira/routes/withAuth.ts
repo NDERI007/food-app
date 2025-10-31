@@ -174,7 +174,7 @@ router.post("/verify-otp", authLimiter, async (req, res) => {
     if (!data || !Array.isArray(data) || data.length === 0) {
       return res.status(500).json({ error: "No profile data returned." });
     }
-    const { id: user_id, role } = data[0];
+    const { id: user_id, role, two_factor_enabled } = data[0];
 
     // define a schema
     const userIdSchema = z.uuid();
@@ -189,6 +189,7 @@ router.post("/verify-otp", authLimiter, async (req, res) => {
       userID,
       email,
       role: role,
+      two_factor_enabled: two_factor_enabled,
       createdAt: Date.now(), // 🔹 timestamp in ms
     };
     try {
@@ -218,6 +219,7 @@ router.post("/verify-otp", authLimiter, async (req, res) => {
       user: {
         email,
         role,
+        two_factor_enabled,
       },
       // Optional: for debugging cookie issues
       debug: {

@@ -1,13 +1,4 @@
-// redisBatchScripts.ts
-import Redis from "ioredis";
-import dotenv from "dotenv";
-
-dotenv.config();
-
-export const connection = new Redis(process.env.REDIS_URL!, {
-  retryStrategy: (times) => Math.min(times * 100, 2000),
-  maxRetriesPerRequest: null,
-});
+import { connection } from "@config/redis";
 
 /**
  * Lua: add order atomically (RPUSH + INCRBYFLOAT + EXPIRE + LTRIM)

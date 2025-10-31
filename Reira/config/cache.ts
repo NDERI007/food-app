@@ -1,37 +1,19 @@
-import Redis from "ioredis";
 import { LRUCache } from "lru-cache";
-import dotenv from "dotenv";
-import z from "zod";
+import { redis } from "./redis";
 
-dotenv.config();
-
-const envSchema = z.object({
-  REDIS_URL: z.url(),
-});
-const env = envSchema.parse(process.env);
 // --- Fallback: in-memory cache ---
 const lru = new LRUCache<string, string>({
   max: 1000,
   ttl: 1000 * 60 * 5, // default 5 minutes
 });
 
-let redis: InstanceType<typeof Redis> | null = null;
+redis.on("connect", () => {
+  console.log("✅ Connected to Redis");
+});
 
-if (env.REDIS_URL) {
-  redis = new Redis(env.REDIS_URL, {
-    retryStrategy: (times) => Math.min(times * 100, 2000), // reconnect backoff
-  });
-
-  redis.on("connect", () => {
-    console.log("✅ Connected to Redis");
-  });
-
-  redis.on("error", (err) => {
-    console.error("❌ Redis error:", err);
-  });
-} else {
-  console.warn("⚠️ REDIS_URL not set — using LRU fallback.");
-}
+redis.on("error", (err) => {
+  console.error("❌ Redis error:", err);
+});
 
 // --- Unified Cache Wrapper ---
 export const cache = {
@@ -117,6 +99,5 @@ export const cache = {
     return true;
   },
 };
-export { redis };
 export default cache;
 //If you stringify everything (even in LRU), you mimic Redis perfectly and avoid mutation issues.

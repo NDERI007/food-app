@@ -1,3 +1,4 @@
+// components/settings/ConfirmModal.tsx
 import { motion, AnimatePresence } from 'framer-motion';
 
 type ConfirmModalProps = {
@@ -5,6 +6,9 @@ type ConfirmModalProps = {
   message: string;
   onConfirm: () => void;
   onCancel: () => void;
+  confirmText?: string;
+  cancelText?: string;
+  loading?: boolean;
 };
 
 export function ConfirmModal({
@@ -12,6 +16,9 @@ export function ConfirmModal({
   message,
   onConfirm,
   onCancel,
+  confirmText = 'Confirm',
+  cancelText = 'Cancel',
+  loading = false,
 }: ConfirmModalProps) {
   return (
     <AnimatePresence>
@@ -21,6 +28,7 @@ export function ConfirmModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
+          onClick={onCancel}
         >
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
@@ -28,6 +36,7 @@ export function ConfirmModal({
             exit={{ scale: 0.9, opacity: 0 }}
             transition={{ type: 'spring', damping: 15, stiffness: 200 }}
             className='w-full max-w-sm rounded-xl bg-[#FEFAEF] p-5 shadow-xl ring-1 ring-green-900/30'
+            onClick={(e) => e.stopPropagation()}
           >
             <p className='mb-4 text-base font-medium text-green-900'>
               {message}
@@ -36,15 +45,17 @@ export function ConfirmModal({
             <div className='flex justify-end gap-3'>
               <button
                 onClick={onCancel}
-                className='rounded-md border border-green-900/40 bg-transparent px-4 py-2 text-sm font-medium text-green-900 transition-colors hover:bg-green-900/10'
+                disabled={loading}
+                className='rounded-md border border-green-900/40 bg-transparent px-4 py-2 text-sm font-medium text-green-900 transition-colors hover:bg-green-900/10 disabled:opacity-50'
               >
-                Cancel
+                {cancelText}
               </button>
               <button
                 onClick={onConfirm}
-                className='rounded-md bg-green-900 px-4 py-2 text-sm font-medium text-[#FEFAEF] transition-colors hover:bg-green-800'
+                disabled={loading}
+                className='rounded-md bg-green-900 px-4 py-2 text-sm font-medium text-[#FEFAEF] transition-colors hover:bg-green-800 disabled:opacity-50'
               >
-                Confirm
+                {loading ? 'Processing...' : confirmText}
               </button>
             </div>
           </motion.div>

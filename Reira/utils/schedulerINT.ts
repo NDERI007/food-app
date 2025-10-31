@@ -1,16 +1,11 @@
 import { flushAndPublishAtomic } from "./redisBatchScripts";
 import supabase from "@config/supabase";
 import { logger } from "./logger";
-import Redis from "ioredis";
+import { redis } from "@config/redis";
 
 const ORDERS_KEY = "admin:order-notifications:orders";
 const TOTAL_KEY = "admin:order-notifications:total";
 const LAST_KEY = "admin:order-notifications:lastUpdated";
-
-const redisPub = new Redis(process.env.REDIS_URL!, {
-  maxRetriesPerRequest: null,
-  retryStrategy: (times) => Math.min(times * 100, 2000),
-});
 
 export const startBatchScheduler = () => {
   console.log("Batch scheduler initialized (1-minute window)");
@@ -44,10 +39,7 @@ export const startBatchScheduler = () => {
       logger.info(batchPayload, "Batch flushed & published (atomic)");
 
       // 🔔 Publish to Redis channel for socket servers to relay
-      await redisPub.publish(
-        "admin:notifications",
-        JSON.stringify(batchPayload)
-      );
+      await redis.publish("admin:notifications", JSON.stringify(batchPayload));
 
       // Persist aggregate to Postgres (RPC)
       const isoDay = new Date().toISOString().slice(0, 10);

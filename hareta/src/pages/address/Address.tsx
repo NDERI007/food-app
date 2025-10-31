@@ -125,7 +125,7 @@ export default function AddressPage() {
   };
 
   return (
-    <div className='min-h-screen bg-gradient-to-br from-green-50 to-blue-50 p-8'>
+    <div className='min-h-screen p-8'>
       <div className='mx-auto max-w-4xl'>
         {/* Header */}
         <div className='mb-6 rounded-2xl bg-white p-8 shadow-lg'>
