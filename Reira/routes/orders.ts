@@ -541,11 +541,6 @@ router.post("/:orderId/confirm-delivery", async (req, res) => {
   try {
     const userID = req.user?.userID;
     const { orderId } = req.params;
-    const { delivery_code } = req.body;
-
-    if (!delivery_code) {
-      return res.status(400).json({ message: "Delivery code is required" });
-    }
 
     // Verify delivery code and update
     const { data, error } = await supabase
@@ -558,8 +553,6 @@ router.post("/:orderId/confirm-delivery", async (req, res) => {
       })
       .eq("id", orderId)
       .eq("user_id", userID)
-      .eq("delivery_code", delivery_code)
-      .eq("delivered_by_rider", true)
       .eq("delivery_confirmed", false)
       .select()
       .single();

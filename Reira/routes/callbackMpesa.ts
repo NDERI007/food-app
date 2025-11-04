@@ -1,5 +1,6 @@
 import express from "express";
 import supabase from "@config/supabase";
+import { publishOrderUpdate } from "@config/socketio";
 
 const router = express.Router();
 
@@ -175,6 +176,13 @@ router.post("/callback-simulate", async (req, res) => {
     }
 
     console.log("🟢 Order updated:", orderData);
+    if (orderData && orderData.length > 0) {
+      const orderID = orderData[0].id;
+      await publishOrderUpdate(orderID, {
+        payment_status: "paid",
+        status: "confirmed",
+      });
+    }
     console.log("🎉 Sending success response");
 
     return res.status(200).json({

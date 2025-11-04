@@ -4,6 +4,7 @@ import Redis from "ioredis";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import { socketAuthMiddleware } from "middleware/socketauth";
+import supabase from "./supabase";
 
 dotenv.config();
 
@@ -115,11 +116,31 @@ const setupOrdersNamespace = (io: Server) => {
     const user = socket.data.user;
     console.log(`👤 User connected: ${user.email} (${socket.id})`);
 
-    socket.on("join_order", (orderID: string) => {
-      // TODO: Verify user owns this order before joining
+    socket.on("join_order", async (orderID: string) => {
+      const user = socket.data.user;
+
+      // ✅ Verify the order belongs to the user
+      const { data: order, error } = await supabase
+        .from("orders")
+        .select("id, user_id")
+        .eq("id", orderID)
+        .single();
+
+      if (error || !order) {
+        console.log(`❌ Order not found: ${orderID}`);
+        return socket.emit("error", { message: "Order not found" });
+      }
+
+      if (order.user_id !== user.userID) {
+        console.log(`🚫 Unauthorized order access attempt by ${user.email}`);
+        return socket.emit("error", {
+          message: "Not allowed to access this order",
+        });
+      }
+
+      // ✅ Safe to join
       socket.join(`order:${orderID}`);
       console.log(`✅ ${user.email} joined order room: ${orderID}`);
-
       socket.emit("joined_order", { orderID, status: "connected" });
     });
 

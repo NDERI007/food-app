@@ -1,20 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@utils/hooks/useAuth';
+import { io, Socket } from 'socket.io-client';
 import {
   Check,
   Package,
-  Truck,
-  MapPin,
-  Calendar,
   Mail,
   Download,
   Loader2,
   AlertCircle,
   Phone,
+  CheckCircle,
+  Clock,
 } from 'lucide-react';
-import axios from 'axios';
-import { supabase } from '@utils/supabase/Client';
 import { api } from '@utils/hooks/apiUtils';
 
 interface OrderItem {
@@ -31,7 +29,12 @@ interface OrderData {
   delivery_address_main_text?: string;
   delivery_address_secondary_text?: string;
   delivery_instructions?: string;
-  status: string;
+  status:
+    | 'pending'
+    | 'confirmed'
+    | 'out_for_delivery'
+    | 'delivered'
+    | 'cancelled';
   payment_method: string;
   payment_status: string;
   payment_reference?: string;
@@ -41,6 +44,8 @@ interface OrderData {
   total_amount: number;
   order_notes?: string;
   created_at: string;
+  delivery_code?: string;
+  delivered_at?: string;
   items?: OrderItem[];
 }
 
@@ -53,13 +58,17 @@ const OrderConfirmation = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [waitingTime, setWaitingTime] = useState(0);
-  const MAX_WAIT_TIME = 60;
+  const [connectionStatus, setConnectionStatus] = useState<
+    'connecting' | 'connected' | 'error'
+  >('connecting');
+  const [confirmingDelivery, setConfirmingDelivery] = useState(false);
 
+  const MAX_WAIT_TIME = 60;
+  const socketRef = useRef<Socket | null>(null);
   const orderID = searchParams.get('orderID');
 
   useEffect(() => {
     if (authLoading) return;
-
     if (!isAuthenticated) {
       navigate('/login', { state: { from: '/order-confirmation' } });
     }
@@ -83,7 +92,6 @@ const OrderConfirmation = () => {
         const statusResponse = await api.get(
           `/api/orders/${orderID}/payment-status`,
         );
-
         if (!isMounted) return true;
 
         if (statusResponse.data.has_failed) {
@@ -96,9 +104,7 @@ const OrderConfirmation = () => {
 
         if (statusResponse.data.is_complete) {
           const orderResponse = await api.get(`/api/orders/${orderID}`);
-
           if (!isMounted) return true;
-
           setOrderData(orderResponse.data.order);
           setLoading(false);
           return true;
@@ -108,72 +114,84 @@ const OrderConfirmation = () => {
       } catch (err) {
         console.error('Error fetching order details:', err);
         if (!isMounted) return false;
-
         setError('Failed to load order details');
         setLoading(false);
         return false;
       }
     };
 
-    const setupRealtimeSubscription = () => {
-      const channel = supabase
-        .channel(`order-${orderID}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'orders',
-            filter: `id=eq.${orderID}`,
-          },
-          async (payload) => {
-            console.log('Order updated:', payload);
+    const setupSocketConnection = () => {
+      const socket = io(`${import.meta.env.VITE_API_URL}/orders`, {
+        withCredentials: true,
+        transports: ['websocket', 'polling'],
+      });
 
-            const newPaymentStatus = payload.new.payment_status;
+      socketRef.current = socket;
 
-            if (newPaymentStatus === 'paid') {
-              clearTimeout(timeoutId);
-              clearInterval(waitingInterval);
-              await fetchOrderDetails();
-              supabase.removeChannel(channel);
-            }
+      socket.on('connect', () => {
+        console.log('✅ Connected to Socket.IO');
+        setConnectionStatus('connected');
+        socket.emit('join_order', orderID);
+      });
 
-            if (
-              newPaymentStatus === 'failed' ||
-              newPaymentStatus === 'cancelled'
-            ) {
-              clearTimeout(timeoutId);
-              clearInterval(waitingInterval);
-              if (isMounted) {
-                setError(
-                  `Payment ${newPaymentStatus}. Please try again or contact support.`,
-                );
-                setLoading(false);
-              }
-              supabase.removeChannel(channel);
-            }
-          },
-        )
-        .subscribe((status) => {
-          if (status === 'SUBSCRIBED') {
-            console.log('Subscribed to order updates');
-          } else if (status === 'CHANNEL_ERROR') {
-            console.error('Error subscribing to channel');
-            if (isMounted) {
-              setError('Connection error. Please refresh the page.');
-              setLoading(false);
-            }
-          }
-        });
+      socket.on('joined_order', (data) => {
+        console.log('✅ Joined order room:', data);
+      });
 
-      return channel;
+      socket.on('order_update', async (data) => {
+        console.log('📦 Received order update:', data);
+
+        // If order just got paid → fetch full details
+        if (data.payment_status === 'paid') {
+          clearTimeout(timeoutId);
+          clearInterval(waitingInterval);
+          await fetchOrderDetails();
+        }
+
+        // If payment failed or cancelled
+        if (
+          data.payment_status === 'failed' ||
+          data.payment_status === 'cancelled'
+        ) {
+          clearTimeout(timeoutId);
+          clearInterval(waitingInterval);
+          setError(
+            `Payment ${data.payment_status}. Please try again or contact support.`,
+          );
+          setLoading(false);
+          return;
+        }
+
+        // ✅ Always update the order state live
+        setOrderData((prev) =>
+          prev
+            ? { ...prev, ...data } // Merge changes into existing data
+            : data.id === orderID // If we had no data loaded yet
+              ? { ...data } // Set initial data
+              : prev,
+        );
+      });
+
+      socket.on('connect_error', (err) => {
+        console.error('❌ Socket connection error:', err);
+        setConnectionStatus('error');
+      });
+
+      socket.on('disconnect', (reason) => {
+        console.log('👋 Socket disconnected:', reason);
+        if (reason === 'io server disconnect') {
+          socket.connect();
+        }
+      });
+
+      return socket;
     };
 
     const initialize = async () => {
       const isResolved = await fetchOrderDetails();
 
       if (!isResolved && isMounted) {
-        const channel = setupRealtimeSubscription();
+        setupSocketConnection();
 
         waitingInterval = setInterval(() => {
           if (isMounted) {
@@ -183,7 +201,6 @@ const OrderConfirmation = () => {
 
         timeoutId = setTimeout(() => {
           clearInterval(waitingInterval);
-          supabase.removeChannel(channel);
           if (isMounted) {
             setError(
               'Payment verification is taking longer than expected. Please check your email or contact support.',
@@ -191,6 +208,9 @@ const OrderConfirmation = () => {
             setLoading(false);
           }
         }, MAX_WAIT_TIME * 1000);
+      } else if (isResolved && isMounted) {
+        // Still connect to socket for real-time updates
+        setupSocketConnection();
       }
     };
 
@@ -200,6 +220,12 @@ const OrderConfirmation = () => {
       isMounted = false;
       if (timeoutId) clearTimeout(timeoutId);
       if (waitingInterval) clearInterval(waitingInterval);
+
+      if (socketRef.current) {
+        socketRef.current.emit('leave_order', orderID);
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
     };
   }, [orderID, isAuthenticated, authLoading]);
 
@@ -219,12 +245,24 @@ const OrderConfirmation = () => {
 
   const getEstimatedDelivery = (orderDate: string) => {
     const date = new Date(orderDate);
-    const startDate = new Date(date);
-    const endDate = new Date(date);
-    startDate.setDate(date.getDate() + 3);
-    endDate.setDate(date.getDate() + 5);
+    const now = new Date();
+    const orderHour = date.getHours();
 
-    return `${startDate.toLocaleDateString('en-KE', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-KE', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    // Same-day delivery for orders before 7 PM
+    if (date.toDateString() === now.toDateString() && orderHour < 19) {
+      return 'Today, within 30-60 minutes';
+    }
+
+    // Orders after 7 PM deliver next day morning
+    const deliveryDate = new Date(date);
+    if (orderHour >= 19) {
+      deliveryDate.setDate(date.getDate() + 1);
+      return `Tomorrow (${deliveryDate.toLocaleDateString('en-KE', { month: 'short', day: 'numeric' })}) by 10 AM`;
+    }
+
+    // For past orders, show next available slot
+    deliveryDate.setDate(date.getDate() + 1);
+    return `${deliveryDate.toLocaleDateString('en-KE', { month: 'short', day: 'numeric' })} by 10 AM`;
   };
 
   if (authLoading) {
@@ -238,9 +276,7 @@ const OrderConfirmation = () => {
     );
   }
 
-  if (!isAuthenticated) {
-    return null;
-  }
+  if (!isAuthenticated) return null;
 
   if (loading) {
     return (
@@ -262,6 +298,24 @@ const OrderConfirmation = () => {
             className='rounded-lg p-4'
             style={{ backgroundColor: '#fefaef' }}
           >
+            <div className='mb-2 flex items-center justify-center gap-2'>
+              <div
+                className={`h-2 w-2 rounded-full ${
+                  connectionStatus === 'connected'
+                    ? 'bg-green-500'
+                    : connectionStatus === 'error'
+                      ? 'bg-red-500'
+                      : 'animate-pulse bg-yellow-500'
+                }`}
+              ></div>
+              <p className='text-xs text-gray-600'>
+                {connectionStatus === 'connected'
+                  ? 'Connected'
+                  : connectionStatus === 'error'
+                    ? 'Connection error'
+                    : 'Connecting...'}
+              </p>
+            </div>
             <p className='text-sm text-gray-700'>
               This usually takes a few seconds
             </p>
@@ -333,98 +387,208 @@ const OrderConfirmation = () => {
           </p>
         </div>
 
-        {/* Timeline */}
-        <div className='mb-6 rounded-2xl bg-white p-8 shadow-lg'>
-          <div className='mb-8 flex items-center justify-between'>
-            <div className='flex-1'>
-              <div className='mb-2 flex items-center'>
-                <div className='flex h-10 w-10 items-center justify-center rounded-full bg-green-900'>
-                  <Check className='h-5 w-5 text-white' />
-                </div>
-                <div className='mx-2 h-1 flex-1 bg-green-900'></div>
+        {/* Confirm Delivery Button */}
+        {orderData?.status === 'confirmed' && (
+          <div className='mb-6 rounded-2xl bg-gradient-to-br from-green-900 to-green-800 p-8 text-white shadow-lg'>
+            <div className='mb-4 flex items-center gap-3'>
+              <div className='flex h-12 w-12 items-center justify-center rounded-full bg-white/20'>
+                <Package className='h-6 w-6 text-white' />
               </div>
-              <p className='text-xs font-semibold text-green-900'>
-                Order Placed
-              </p>
-            </div>
-            <div className='flex-1'>
-              <div className='mb-2 flex items-center'>
-                <div className='flex h-10 w-10 items-center justify-center rounded-full bg-gray-200'>
-                  <Package className='h-5 w-5 text-gray-400' />
-                </div>
-                <div className='mx-2 h-1 flex-1 bg-gray-200'></div>
+              <div>
+                <h2 className='text-xl font-bold'>
+                  {orderData.delivery_type === 'pickup'
+                    ? 'Ready for Pickup!'
+                    : 'Delivery in Progress'}
+                </h2>
+                <p className='text-sm text-green-100'>
+                  {orderData.delivery_type === 'pickup'
+                    ? 'Your order is ready. Come pick it up and confirm receipt.'
+                    : 'Your order is on the way. Confirm when you receive it.'}
+                </p>
               </div>
-              <p className='text-xs text-gray-500'>Processing</p>
             </div>
-            <div className='flex-1'>
-              <div className='mb-2 flex items-center'>
-                <div className='flex h-10 w-10 items-center justify-center rounded-full bg-gray-200'>
-                  <Truck className='h-5 w-5 text-gray-400' />
-                </div>
-                <div className='mx-2 h-1 flex-1 bg-gray-200'></div>
-              </div>
-              <p className='text-xs text-gray-500'>
-                {orderData?.delivery_type === 'pickup' ? 'Ready' : 'Shipped'}
-              </p>
-            </div>
-            <div className='flex-1'>
-              <div className='mb-2 flex items-center'>
-                <div className='flex h-10 w-10 items-center justify-center rounded-full bg-gray-200'>
-                  <MapPin className='h-5 w-5 text-gray-400' />
-                </div>
-              </div>
-              <p className='text-xs text-gray-500'>
-                {orderData?.delivery_type === 'pickup'
-                  ? 'Picked Up'
-                  : 'Delivered'}
-              </p>
-            </div>
-          </div>
 
-          <div className='border-t border-gray-200 pt-6'>
-            {orderData?.delivery_type === 'delivery' && (
-              <div className='mb-4 flex items-center text-gray-700'>
-                <Calendar className='mr-3 h-5 w-5 text-green-900' />
-                <div>
-                  <p className='text-sm font-semibold text-green-900'>
-                    Estimated Delivery
-                  </p>
-                  <p className='text-sm text-gray-600'>
-                    {getEstimatedDelivery(orderData.created_at)}
-                  </p>
-                </div>
+            <button
+              onClick={async () => {
+                if (
+                  window.confirm(
+                    'Have you received your order? This will mark it as delivered.',
+                  )
+                ) {
+                  setConfirmingDelivery(true);
+                  try {
+                    const response = await api.post(
+                      `/api/orders/${orderData.id}/confirm-delivery`,
+                    );
+
+                    if (response.data.success) {
+                      // Socket.IO will update the order status automatically
+                      // But we can also update locally for immediate feedback
+                      setOrderData((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              status: 'delivered',
+                              delivered_at: response.data.delivered_at,
+                            }
+                          : null,
+                      );
+                    }
+                  } catch (error: any) {
+                    const errorMsg =
+                      error.response?.data?.error ||
+                      'Failed to confirm delivery. Please try again.';
+                    alert(errorMsg);
+                  } finally {
+                    setConfirmingDelivery(false);
+                  }
+                }
+              }}
+              disabled={confirmingDelivery}
+              className='w-full rounded-xl bg-white py-4 font-semibold text-green-900 transition-all hover:bg-green-50 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50'
+            >
+              <div className='flex items-center justify-center gap-2'>
+                {confirmingDelivery ? (
+                  <>
+                    <Loader2 className='h-5 w-5 animate-spin' />
+                    Confirming...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className='h-5 w-5' />
+                    Confirm{' '}
+                    {orderData.delivery_type === 'pickup'
+                      ? 'Pickup'
+                      : 'Delivery'}{' '}
+                    Received
+                  </>
+                )}
               </div>
-            )}
-            {user?.email && (
-              <div className='mb-4 flex items-center text-gray-700'>
-                <Mail className='mr-3 h-5 w-5 text-green-900' />
-                <div>
-                  <p className='text-sm font-semibold text-green-900'>
-                    Confirmation sent to
-                  </p>
-                  <p className='text-sm text-gray-600'>{user.email}</p>
-                </div>
-              </div>
-            )}
-            {orderData?.mpesa_phone && (
-              <div className='flex items-center text-gray-700'>
-                <Phone className='mr-3 h-5 w-5 text-green-900' />
-                <div>
-                  <p className='text-sm font-semibold text-green-900'>
-                    Payment from
-                  </p>
-                  <p className='text-sm text-gray-600'>
-                    {orderData.mpesa_phone}
-                  </p>
-                  {orderData.payment_reference && (
-                    <p className='mt-1 text-xs text-gray-500'>
-                      Ref: {orderData.payment_reference}
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
+            </button>
+
+            <div className='mt-4 rounded-lg bg-white/10 p-4'>
+              <p className='text-sm text-green-100'>
+                <strong className='text-white'>Note:</strong> Our delivery
+                person will take a photo as proof of delivery. Please confirm
+                once you've received your order.
+              </p>
+            </div>
           </div>
+        )}
+
+        {/* Delivery Confirmed Badge */}
+        {orderData?.status === 'confirmed' && (
+          <div className='mb-6 rounded-2xl border-2 border-green-200 bg-green-50 p-6 shadow-lg'>
+            <div className='flex items-center gap-3'>
+              <div className='flex h-12 w-12 items-center justify-center rounded-full bg-green-600'>
+                <CheckCircle className='h-6 w-6 text-white' />
+              </div>
+              <div>
+                <h3 className='text-lg font-bold text-green-900'>
+                  {orderData.delivery_type === 'pickup'
+                    ? 'Order Picked Up'
+                    : 'Delivery Confirmed'}
+                </h3>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Order Status */}
+        {orderData?.status !== 'delivered' && (
+          <div className='mb-6 rounded-2xl bg-white p-8 shadow-lg'>
+            <h2 className='mb-4 text-xl font-bold text-green-900'>
+              Order Status
+            </h2>
+
+            <div className='space-y-4'>
+              <div className='flex items-start gap-4'>
+                <div className='flex h-10 w-10 items-center justify-center rounded-full bg-green-900 text-white'>
+                  <Check className='h-5 w-5' />
+                </div>
+                <div className='flex-1'>
+                  <p className='font-semibold text-green-900'>
+                    Order Confirmed
+                  </p>
+                  <p className='text-sm text-gray-600'>
+                    Payment received and order is being prepared
+                  </p>
+                </div>
+              </div>
+
+              {orderData?.status === 'out_for_delivery' ? (
+                <div className='flex items-start gap-4'>
+                  <div className='flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white'>
+                    <Clock className='h-5 w-5' />
+                  </div>
+                  <div className='flex-1'>
+                    <p className='font-semibold text-blue-900'>
+                      {orderData.delivery_type === 'pickup'
+                        ? 'Ready for Pickup'
+                        : 'Out for Delivery'}
+                    </p>
+                    <p className='text-sm text-gray-600'>
+                      {orderData.delivery_type === 'pickup'
+                        ? 'Your order is ready! Come pick it up anytime.'
+                        : 'Your order is on its way to you'}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className='flex items-start gap-4'>
+                  <div className='flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 text-gray-400'>
+                    <Package className='h-5 w-5' />
+                  </div>
+                  <div className='flex-1'>
+                    <p className='font-semibold text-gray-500'>
+                      Preparing Order
+                    </p>
+                    <p className='text-sm text-gray-600'>
+                      {orderData?.delivery_type === 'pickup'
+                        ? "We'll notify you when your order is ready for pickup"
+                        : `Estimated delivery: ${getEstimatedDelivery(orderData?.created_at || '')}`}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Contact Info */}
+        <div className='mb-6 rounded-2xl bg-white p-8 shadow-lg'>
+          <h2 className='mb-4 text-xl font-bold text-green-900'>
+            Order Details
+          </h2>
+
+          {user?.email && (
+            <div className='mb-4 flex items-center text-gray-700'>
+              <Mail className='mr-3 h-5 w-5 text-green-900' />
+              <div>
+                <p className='text-sm font-semibold text-green-900'>
+                  Confirmation sent to
+                </p>
+                <p className='text-sm text-gray-600'>{user.email}</p>
+              </div>
+            </div>
+          )}
+
+          {orderData?.mpesa_phone && (
+            <div className='flex items-center text-gray-700'>
+              <Phone className='mr-3 h-5 w-5 text-green-900' />
+              <div>
+                <p className='text-sm font-semibold text-green-900'>
+                  Payment from
+                </p>
+                <p className='text-sm text-gray-600'>{orderData.mpesa_phone}</p>
+                {orderData.payment_reference && (
+                  <p className='mt-1 text-xs text-gray-500'>
+                    Ref: {orderData.payment_reference}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Order Items */}
@@ -552,12 +716,6 @@ const OrderConfirmation = () => {
             className='flex-1 rounded-xl bg-green-900 py-4 font-semibold text-white transition-colors hover:bg-green-800'
           >
             View All Orders
-          </button>
-          <button
-            onClick={() => window.print()}
-            className='flex items-center justify-center rounded-xl border-2 border-green-900 bg-white px-6 py-4 font-semibold text-green-900 transition-colors hover:bg-green-50'
-          >
-            <Download className='h-5 w-5' />
           </button>
         </div>
       </div>
