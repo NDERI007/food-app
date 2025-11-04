@@ -104,7 +104,7 @@ export const VariantForm: React.FC<VariantFormProps> = ({
             htmlFor='price'
             className='mb-1 block text-sm font-medium text-gray-300'
           >
-            Price ($)
+            Price
           </label>
           <input
             id='price'

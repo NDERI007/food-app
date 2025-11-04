@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import { supabase } from '@utils/supabase/Client';
+import { api } from '@utils/hooks/apiUtils';
 
 interface OrderItem {
   id: string;
@@ -79,7 +80,7 @@ const OrderConfirmation = () => {
 
     const fetchOrderDetails = async () => {
       try {
-        const statusResponse = await axios.get(
+        const statusResponse = await api.get(
           `/api/orders/${orderID}/payment-status`,
         );
 
@@ -94,7 +95,7 @@ const OrderConfirmation = () => {
         }
 
         if (statusResponse.data.is_complete) {
-          const orderResponse = await axios.get(`/api/orders/${orderID}`);
+          const orderResponse = await api.get(`/api/orders/${orderID}`);
 
           if (!isMounted) return true;
 

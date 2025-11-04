@@ -10,8 +10,18 @@ const menuItemSchema = z.object({
     .string()
     .min(1, 'Product name is required')
     .min(3, 'Name must be at least 3 characters'),
-  description: z.string().optional().default(''),
-  price: z.coerce.number().min(0.01, 'Price must be greater than 0'),
+  price: z
+    .union([
+      z.coerce.number().min(0.01, 'Price must be greater than 0'),
+      z.literal(''),
+      z.null(),
+      z.undefined(),
+    ])
+    .optional()
+    .transform((val) => {
+      if (val === '' || val === null || val === undefined) return undefined;
+      return val;
+    }),
   available: z.boolean().default(true),
   category_id: z.string().optional().default(''),
   image: z
@@ -49,8 +59,7 @@ export const ProductFormSlideOver: React.FC<ProductFormSlideOverProps> = ({
     resolver: zodResolver(menuItemSchema),
     defaultValues: {
       name: editingItem?.name || '',
-      description: editingItem?.description || '',
-      price: editingItem?.price || 0,
+      price: editingItem?.price ?? undefined,
       available: editingItem?.available ?? true,
       category_id: editingItem?.category_id || '',
       image: null,
@@ -61,8 +70,7 @@ export const ProductFormSlideOver: React.FC<ProductFormSlideOverProps> = ({
     if (editingItem) {
       reset({
         name: editingItem.name,
-        description: editingItem.description || '',
-        price: editingItem.price,
+        price: editingItem.price ?? undefined,
         available: editingItem.available,
         category_id: editingItem.category_id || '',
         image: null,
@@ -77,8 +85,7 @@ export const ProductFormSlideOver: React.FC<ProductFormSlideOverProps> = ({
     } else {
       reset({
         name: '',
-        description: '',
-        price: 0,
+        price: undefined,
         available: true,
         category_id: '',
         image: null,
@@ -143,7 +150,7 @@ export const ProductFormSlideOver: React.FC<ProductFormSlideOverProps> = ({
                   type='text'
                   {...register('name')}
                   className='w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-gray-100 focus:ring-2 focus:ring-purple-600 focus:outline-none'
-                  placeholder='e.g., Margherita Pizza'
+                  placeholder='e.g., Ugali kahawa'
                 />
                 {errors.name && (
                   <p className='mt-1 text-xs text-red-400'>
@@ -156,14 +163,14 @@ export const ProductFormSlideOver: React.FC<ProductFormSlideOverProps> = ({
               <div className='grid grid-cols-2 gap-4'>
                 <div>
                   <label className='mb-1.5 block text-sm font-medium text-gray-300'>
-                    Price *
+                    Price
                   </label>
                   <input
                     type='number'
                     step='0.01'
                     {...register('price')}
                     className='w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-gray-100 focus:ring-2 focus:ring-purple-600 focus:outline-none'
-                    placeholder='0.00'
+                    placeholder='Leave empty for variants'
                   />
                   {errors.price && (
                     <p className='mt-1 text-xs text-red-400'>
@@ -188,19 +195,6 @@ export const ProductFormSlideOver: React.FC<ProductFormSlideOverProps> = ({
                     ))}
                   </select>
                 </div>
-              </div>
-
-              {/* Description */}
-              <div>
-                <label className='mb-1.5 block text-sm font-medium text-gray-300'>
-                  Description
-                </label>
-                <textarea
-                  {...register('description')}
-                  rows={4}
-                  className='w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-gray-100 focus:ring-2 focus:ring-purple-600 focus:outline-none'
-                  placeholder='Describe your product...'
-                />
               </div>
 
               {/* Image Upload */}

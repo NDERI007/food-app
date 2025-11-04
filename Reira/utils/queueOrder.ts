@@ -17,7 +17,7 @@ export const orderNotificationQueue = new Queue("order-notifications", {
 
 // Job data interface
 export interface OrderNotificationJob {
-  orderId: string;
+  orderID: string;
   userID: string;
   totalAmount: number;
   deliveryType: "pickup" | "delivery";

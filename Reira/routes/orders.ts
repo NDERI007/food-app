@@ -1,5 +1,4 @@
 import supabase from "@config/supabase";
-import { stkPush } from "@utils/mpesa";
 import express from "express";
 import { withAuth } from "middleware/auth";
 
@@ -57,6 +56,78 @@ router.get("/", async (req, res) => {
     res.status(500).json({ message: "Failed to fetch orders" });
   }
 });
+router.get("/:orderID/details", async (req, res) => {
+  try {
+    const { orderID } = req.params;
+
+    // Validate UUID format
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(orderID)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid order ID format",
+      });
+    }
+
+    console.log(`📦 Fetching order details for: ${orderID}`);
+
+    const { data, error } = await supabase.rpc("get_order_details", {
+      order_uuid: orderID,
+    });
+
+    if (error) {
+      console.error("❌ RPC Error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Database error",
+      });
+    }
+
+    if (!data) {
+      console.log(`⚠️ Order not found: ${orderID}`);
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    console.log(`✅ Order found with ${data.order_items?.length ?? 0} items`);
+
+    // Transform and validate data
+    const order = {
+      id: data.id,
+      delivery_type: data.delivery_type,
+      address: data.delivery_address_main_text || null,
+      place_id: data.delivery_place_id || null,
+      instructions: data.delivery_instructions || null,
+      mpesa_phone: data.mpesa_phone || null,
+      payment_reference: data.payment_reference || null,
+      total_amount: Number(data.total_amount) || 0,
+      created_at: data.created_at,
+      items: Array.isArray(data.order_items)
+        ? data.order_items.map((item: any) => ({
+            quantity: Number(item.quantity) || 0,
+            name: item.name || "Unknown Item",
+            variant_size: item.variant_size || null,
+          }))
+        : [],
+    };
+
+    // Validation check
+    if (order.items.length === 0) {
+      console.warn(`⚠️ Order ${orderID} has no items`);
+    }
+
+    return res.json(order);
+  } catch (err) {
+    console.error("❌ Server error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+});
 
 /**
  * GET /api/orders/:orderId
@@ -66,6 +137,8 @@ router.get("/:orderID", async (req, res) => {
   try {
     const userID = req.user?.userID;
     const { orderID } = req.params;
+
+    console.log("📋 Fetching order:", { orderID, userID });
 
     if (!userID) {
       return res.status(401).json({ message: "Unauthorized" });
@@ -93,10 +166,10 @@ router.get("/:orderID", async (req, res) => {
         order_items (
           id,
           quantity,
-          price,
+          total_price,
           menu_items (
             name,
-            image_url
+            image
           )
         )
       `
@@ -105,30 +178,41 @@ router.get("/:orderID", async (req, res) => {
       .eq("user_id", userID)
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error("❌ Supabase error:", error);
+      throw error;
+    }
 
     if (!data) {
+      console.log("⚠️ Order not found");
       return res.status(404).json({ message: "Order not found" });
     }
+
+    console.log("✅ Order data fetched:", data);
 
     // Transform the data to match your interface
     const { order_items, ...orderData } = data;
 
     const transformedOrder = {
       ...orderData,
-      items: order_items?.map((item) => ({
-        id: item.id,
-        product_name: item.menu_items[0]?.name,
-        quantity: item.quantity,
-        price: item.price,
-        image_url: item.menu_items[0]?.image_url,
-      })),
+      items:
+        order_items?.map((item) => ({
+          id: item.id,
+          product_name: item.menu_items?.[0]?.name || "Unknown Item",
+          quantity: item.quantity,
+          price: item.total_price,
+          image_url: item.menu_items?.[0]?.image || null,
+        })) || [],
     };
 
+    console.log("📦 Transformed order:", transformedOrder);
     res.json({ order: transformedOrder });
   } catch (error) {
-    console.error("Error fetching order:", error);
-    res.status(500).json({ message: "Failed to fetch order" });
+    console.error("❌ Error fetching order:", error);
+    res.status(500).json({
+      message: "Failed to fetch order",
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 });
 
@@ -193,10 +277,6 @@ router.get("/:orderID/payment-status", async (req, res) => {
   }
 });
 
-/**
- * POST /api/orders/create
- * Create a new order
- */
 interface OrderItem {
   product_id: string;
   variant_id?: string | null;
@@ -210,17 +290,15 @@ interface CreateOrderRequest {
   delivery_place_id?: string;
   delivery_lat?: number;
   delivery_lng?: number;
-
   payment_method: "mpesa";
   mpesa_phone: string;
-
   subtotal: number;
   delivery_fee: number;
   total_amount: number;
   order_notes?: string;
-
   items: OrderItem[];
 }
+import { stkPush } from "@utils/mpesa";
 
 router.post("/create", async (req, res) => {
   try {
@@ -228,18 +306,20 @@ router.post("/create", async (req, res) => {
     const orderData: CreateOrderRequest = req.body;
 
     // =====================================================
-    // 1. VALIDATION
+    // 1. BASIC VALIDATION
     // =====================================================
     if (!orderData.items?.length) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Order items are required" });
+      return res.status(400).json({
+        success: false,
+        message: "Order items are required",
+      });
     }
 
     if (!["delivery", "pickup"].includes(orderData.delivery_type)) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid delivery type" });
+      return res.status(400).json({
+        success: false,
+        message: "Invalid delivery type",
+      });
     }
 
     if (
@@ -248,219 +328,211 @@ router.post("/create", async (req, res) => {
     ) {
       return res.status(400).json({
         success: false,
-        message:
-          "Delivery address and place ID are required for delivery orders",
+        message: "Delivery address required for delivery orders",
       });
     }
 
     if (!orderData.mpesa_phone) {
-      return res
-        .status(400)
-        .json({ success: false, message: "M-PESA phone number is required" });
-    }
-
-    if (
-      orderData.total_amount !==
-      orderData.subtotal + orderData.delivery_fee
-    ) {
       return res.status(400).json({
         success: false,
-        message: "Total amount must equal subtotal + delivery fee",
+        message: "M-PESA phone number is required",
       });
     }
 
-    // =====================================================
-    // 2. FETCH PRODUCTS & VARIANTS
-    // =====================================================
-    const productIds = [...new Set(orderData.items.map((i) => i.product_id))];
-    const variantIds = orderData.items
-      .filter((i) => i.variant_id)
-      .map((i) => i.variant_id!);
+    // Validate and clean phone number
+    const phoneRegex = /^(254|0)?[17]\d{8}$/;
+    let cleanPhone = orderData.mpesa_phone.replace(/[\s\-\(\)]/g, "");
 
-    const { data: products, error: productsError } = await supabase
-      .from("menu_items")
-      .select("id, name, description, price, available")
-      .in("id", productIds);
-
-    if (productsError || !products?.length) {
-      throw new Error("Failed to fetch products");
+    if (cleanPhone.startsWith("0")) {
+      cleanPhone = "254" + cleanPhone.slice(1);
+    } else if (!cleanPhone.startsWith("254")) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid phone format. Use: 254XXXXXXXXX or 07XXXXXXXX",
+      });
     }
 
-    let variants: any[] = [];
-    if (variantIds.length > 0) {
-      const { data: variantsData, error: variantsError } = await supabase
-        .from("product_variants")
-        .select("id, product_id, size_name, price, is_available")
-        .in("id", variantIds);
-
-      if (variantsError) throw new Error("Failed to fetch variants");
-      variants = variantsData ?? [];
+    if (!phoneRegex.test(cleanPhone)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid M-PESA phone number",
+      });
     }
 
-    // =====================================================
-    // 3. VALIDATE ITEMS & CALCULATE SUBTOTAL
-    // =====================================================
-    const unavailable: string[] = [];
-    let calculatedSubtotal = 0;
-
-    const validatedItems = orderData.items.map((item) => {
-      const product = products.find((p) => p.id === item.product_id);
-      if (!product) throw new Error(`Product ${item.product_id} not found`);
-
-      if (!product.available) unavailable.push(product.name);
-
-      if (item.variant_id) {
-        const variant = variants.find((v) => v.id === item.variant_id);
-        if (!variant) throw new Error(`Variant ${item.variant_id} not found`);
-        if (!variant.is_available)
-          unavailable.push(`${product.name} - ${variant.size_name}`);
-
-        const price = Number(variant.price);
-        calculatedSubtotal += price * item.quantity;
-
-        return {
-          product_id: product.id,
-          variant_id: variant.id,
-          item_name: `${product.name} - ${variant.size_name}`,
-          item_description: product.description,
-          quantity: item.quantity,
-          unit_price: price,
-        };
-      } else {
-        const price = Number(product.price);
-        calculatedSubtotal += price * item.quantity;
-
-        return {
-          product_id: product.id,
-          variant_id: null,
-          item_name: product.name,
-          item_description: product.description,
-          quantity: item.quantity,
-          unit_price: price,
-        };
-      }
+    console.log("🔍 RPC PAYLOAD:", {
+      p_user_id: userID,
+      p_delivery_type: orderData.delivery_type,
+      p_mpesa_phone: cleanPhone,
+      p_subtotal: orderData.subtotal,
+      p_delivery_fee: orderData.delivery_fee,
+      p_total_amount: orderData.total_amount,
+      p_items: orderData.items,
+      p_delivery_address_main_text: orderData.delivery_address_main_text,
+      p_delivery_address_secondary_text:
+        orderData.delivery_address_secondary_text,
+      p_delivery_place_id: orderData.delivery_place_id,
+      p_delivery_lat: orderData.delivery_lat,
+      p_delivery_lng: orderData.delivery_lng,
+      p_delivery_instructions: orderData.order_notes ?? null,
     });
 
-    if (unavailable.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Some items are unavailable",
-        unavailable_items: unavailable,
-      });
-    }
-
-    if (Math.abs(calculatedSubtotal - orderData.subtotal) > 0.01) {
-      return res.status(400).json({
-        success: false,
-        message: "Price mismatch detected",
-        calculated: calculatedSubtotal,
-        provided: orderData.subtotal,
-      });
-    }
-
     // =====================================================
-    // 4. CREATE ORDER
+    // 2. CREATE ORDER VIA RPC
     // =====================================================
-    const { data: order, error: orderError } = await supabase
-      .from("orders")
-      .insert({
-        user_id: userID,
-        delivery_type: orderData.delivery_type,
-        delivery_address_main_text:
+    const { data: orderID, error: rpcError } = await supabase.rpc(
+      "create_order_with_items",
+      {
+        p_user_id: userID,
+        p_delivery_type: orderData.delivery_type,
+        p_mpesa_phone: cleanPhone,
+        p_subtotal: orderData.subtotal,
+        p_delivery_fee: orderData.delivery_fee,
+        p_total_amount: orderData.total_amount,
+        p_items: orderData.items,
+        p_delivery_address_main_text:
           orderData.delivery_type === "delivery"
             ? orderData.delivery_address_main_text
             : null,
-        delivery_address_secondary_text:
+        p_delivery_address_secondary_text:
           orderData.delivery_type === "delivery"
             ? orderData.delivery_address_secondary_text
             : null,
-        delivery_place_id:
+        p_delivery_place_id:
           orderData.delivery_type === "delivery"
             ? orderData.delivery_place_id
             : null,
-        delivery_lat:
+        p_delivery_lat:
           orderData.delivery_type === "delivery"
             ? orderData.delivery_lat
             : null,
-        delivery_lng:
+        p_delivery_lng:
           orderData.delivery_type === "delivery"
             ? orderData.delivery_lng
             : null,
-        delivery_instructions: orderData.order_notes ?? null,
-        payment_method: "mpesa",
-        mpesa_phone: orderData.mpesa_phone,
-        payment_status: "unpaid",
-        subtotal: orderData.subtotal,
-        delivery_fee: orderData.delivery_fee,
-        total_amount: orderData.total_amount,
-        status: "pending",
-      })
-      .select("id, total_amount, status, payment_status, created_at")
-      .single();
-
-    if (orderError) {
-      console.error("Supabase order insert error:", orderError);
-      return res.status(500).json({
-        success: false,
-        error: {
-          message: orderError.message,
-          details: orderError.details,
-          hint: orderError.hint,
-          code: orderError.code,
-        },
-      });
-    }
-
-    // =====================================================
-    // 5. INSERT ORDER ITEMS
-    // =====================================================
-    const { error: itemsError } = await supabase.from("order_items").insert(
-      validatedItems.map((i) => ({
-        order_id: order.id,
-        ...i,
-      }))
+        p_delivery_instructions: orderData.order_notes ?? null,
+      }
     );
 
-    if (itemsError) {
-      await supabase.from("orders").delete().eq("id", order.id);
-      throw new Error("Failed to insert order items");
+    if (rpcError) {
+      console.error("❌ RPC Error:", rpcError);
+
+      let errorMessage = "Failed to create order";
+
+      if (rpcError.message.includes("unavailable")) {
+        errorMessage = rpcError.message;
+      } else if (rpcError.message.includes("requires a variant")) {
+        errorMessage = rpcError.message;
+      } else if (rpcError.message.includes("mismatch")) {
+        errorMessage = "Price validation failed. Please refresh and try again.";
+      } else if (rpcError.message.includes("Invalid product_id")) {
+        errorMessage = "Some products are no longer available.";
+      }
+
+      return res.status(400).json({
+        success: false,
+        message: errorMessage,
+      });
     }
 
+    if (!orderID) {
+      return res.status(500).json({
+        success: false,
+        message: "Order creation failed",
+      });
+    }
+
+    console.log(`✅ Order created: ${orderID}`);
+
     // =====================================================
-    // 6. TRIGGER M-PESA PAYMENT
+    // 3. INITIATE M-PESA STK PUSH (SYNCHRONOUS)
     // =====================================================
     try {
+      console.log(`💳 Initiating STK push for order ${orderID}`);
+
       const stkResponse = await stkPush(
-        orderData.mpesa_phone,
+        cleanPhone,
         orderData.total_amount,
-        order.id
+        orderID
       );
-      console.log("✅ STK Push triggered:", stkResponse);
-      await supabase
+
+      console.log(`✅ STK push successful for order ${orderID}`);
+
+      // Update order with checkout request ID
+      const { error: updateError } = await supabase
         .from("orders")
-        .update({ checkout_request_id: stkResponse.CheckoutRequestID })
-        .eq("id", order.id);
+        .update({
+          checkout_request_id: stkResponse.CheckoutRequestID,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", orderID);
+
+      if (updateError) {
+        console.error("⚠️ Failed to update checkout_request_id:", updateError);
+        // Don't fail the request - STK was sent successfully
+      }
+
       return res.status(201).json({
         success: true,
-        message: "Order created and STK push sent successfully",
-        order: order.id,
+        message:
+          "Order created successfully. Please check your phone for the M-PESA payment prompt.",
+        order: orderID,
       });
-    } catch (error) {
-      console.error("M-PESA STK Push error:", error);
-      return res.status(201).json({
-        success: true,
-        message: "Order created, but M-PESA STK push failed",
-        order: order.id,
+    } catch (stkError: any) {
+      console.error(`❌ STK push failed for order ${orderID}:`, stkError);
+
+      // Order was created but payment initiation failed
+      // Mark order as failed so it doesn't stay in pending limbo
+      try {
+        await supabase
+          .from("orders")
+          .update({
+            payment_status: "failed",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", orderID);
+      } catch (e) {
+        console.error("Failed to update order status:", e);
+      }
+
+      // Provide user-friendly error message
+      let userMessage = "Failed to initiate M-PESA payment. Please try again.";
+
+      // Check for specific M-PESA errors
+      const errorCode =
+        stkError.response?.data?.errorCode ||
+        stkError.response?.data?.ResponseCode ||
+        stkError.errorCode;
+
+      if (errorCode === "1032") {
+        userMessage = "Payment request was canceled.";
+      } else if (errorCode === "1") {
+        userMessage = "Insufficient M-PESA balance.";
+      } else if (errorCode === "2001") {
+        userMessage = "Invalid M-PESA PIN or credentials.";
+      } else if (
+        stkError.code === "ETIMEDOUT" ||
+        stkError.code === "ECONNREFUSED"
+      ) {
+        userMessage =
+          "M-PESA service is temporarily unavailable. Please try again.";
+      } else if (stkError.response?.status >= 500) {
+        userMessage = "M-PESA service error. Please try again in a moment.";
+      }
+
+      return res.status(500).json({
+        success: false,
+        message: userMessage,
+        order: orderID, // Return orderID so user can reference it
       });
     }
   } catch (error) {
-    console.error("Order creation error:", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-    return res.status(500).json({ success: false, message });
+    console.error("❌ Order creation error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error. Please try again.",
+    });
   }
 });
-
 /**
  * POST /api/orders/:orderId/confirm-delivery
  * Customer confirms delivery

@@ -13,7 +13,7 @@ local last_key   = KEYS[3]
 local order_json = ARGV[1]
 local order_amount = ARGV[2]
 local expiry = tonumber(ARGV[3]) or 120
-local last_iso = ARGV[4] or ""
+local last_iso = ARGV[4]
 local max_len = tonumber(ARGV[5]) or 1000
 
 redis.call('RPUSH', orders_key, order_json)
@@ -34,8 +34,8 @@ return { tostring(llen), tostring(total) }
  * Lua: flush & publish atomically
  * KEYS: 1=orders_list_key, 2=total_key, 3=last_key
  * ARGV: 1=pubsub_channel, 2=max_orders_to_send
- * Returns nil when nothing to publish, else {len_str, total_str}
- * It publishes JSON message: { type:'batch', count:len, totalRevenue:total, orders:[...], timestamp:lastUpdated }
+ * Returns nil when nothing to publish, else {len_str, total_str, orders_json}
+ * Publishes JSON: { type:'batch', count:len, totalRevenue:total, orders:[...], timestamp:lastUpdated }
  */
 const FLUSH_PUBLISH_LUA = `
 local orders_key = KEYS[1]
@@ -56,20 +56,24 @@ local orders = redis.call('LRANGE', orders_key, start_idx, -1)
 local total = redis.call('GET', total_key) or "0"
 local lastUpdated = redis.call('GET', last_key) or ""
 
-local orders_json = ""
+-- Build orders array properly
+local orders_json = "[]"
 if #orders > 0 then
-  orders_json = table.concat(orders, ",")
+  orders_json = "[" .. table.concat(orders, ",") .. "]"
 end
 
+-- Build complete message
 local message = '{"type":"batch","count":' .. tostring(len)
 message = message .. ',"totalRevenue":' .. tostring(total)
-message = message .. ',"orders":[' .. orders_json .. ']'
+message = message .. ',"orders":' .. orders_json
 message = message .. ',"timestamp":"' .. tostring(lastUpdated) .. '"}'
+
 redis.call('PUBLISH', channel, message)
 
 -- clear keys
 redis.call('DEL', orders_key, total_key, last_key)
 
+-- Return raw orders (already comma-separated JSON objects)
 return { tostring(len), tostring(total), orders_json }
 `;
 
@@ -89,7 +93,7 @@ type RedisAddOrderResult =
   | [string /* list length as string */, string /* total as string */]
   | null;
 type RedisFlushResult =
-  | [string /* count */, string /* total */, string /* orders */]
+  | [string /* count */, string /* total */, string /* orders JSON array */]
   | null;
 
 export async function addOrderAtomic(opts: {
@@ -112,6 +116,7 @@ export async function addOrderAtomic(opts: {
   } = opts;
 
   const orderJson = JSON.stringify(order);
+  const timestamp = new Date().toISOString();
 
   // @ts-ignore - calling custom defineCommand
   const res: RedisAddOrderResult = await (connection as any).redisAddOrder(
@@ -121,10 +126,11 @@ export async function addOrderAtomic(opts: {
     orderJson,
     String(amount),
     String(expirySeconds),
+    timestamp, // Pass timestamp as ARGV[4]
     String(maxListLen)
   );
 
-  return res; // either [llen, total] or null (should not be null for add)
+  return res; // either [llen, total] or null
 }
 
 export async function flushAndPublishAtomic(opts: {
@@ -151,5 +157,5 @@ export async function flushAndPublishAtomic(opts: {
     String(maxOrdersToSend)
   );
 
-  return res; // null or [countStr, totalStr]
+  return res; // null or [countStr, totalStr, ordersJsonArray]
 }

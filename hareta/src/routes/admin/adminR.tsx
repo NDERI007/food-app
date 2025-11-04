@@ -1,7 +1,7 @@
 import { lazy } from 'react';
 import type { RouteObject } from 'react-router-dom';
 import ProtectedRoute from 'contexts/protectedRoutes';
-import OrderMonitor from '@admin/orders/orderMonitor';
+import OrderMonitor from '@admin/dashboard/components/orderMonitor';
 
 const AdminDashboard = lazy(() => import('@admin/dashboard/dashboard'));
 const ProductsPage = lazy(() => import('@admin/products/products'));

@@ -92,4 +92,106 @@ router.post("/callback", async (req, res) => {
     return res.status(200).json({ error: "Callback processing error" });
   }
 });
+
+router.post("/callback-simulate", async (req, res) => {
+  console.log("🔵 Callback endpoint hit");
+
+  const NODE_ENV = process.env.NODE_ENV || "development";
+
+  if (NODE_ENV === "production") {
+    console.log("🔴 Production mode - rejecting");
+    return res.status(403).json({ error: "Not available in production" });
+  }
+
+  try {
+    console.log("🟢 Request body:", req.body);
+
+    const { checkoutRequestId } = req.body;
+
+    if (!checkoutRequestId) {
+      console.log("🔴 Missing checkoutRequestId");
+      return res.status(400).json({ error: "checkoutRequestId is required" });
+    }
+
+    console.log("🟡 Generating fake data...");
+    const fakeTransactionReference = `FAKE${Math.random()
+      .toString(36)
+      .substring(2, 12)
+      .toUpperCase()}`;
+    const fakePhoneNumber = "254712345678";
+    const fakeAmount = 100;
+    const fakeTransactionDate = new Date()
+      .toISOString()
+      .replace(/[-:TZ.]/g, "")
+      .slice(0, 14);
+
+    console.log("🟡 Inserting transaction...");
+    const { data, error: insertError } = await supabase
+      .from("mpesa_transactions")
+      .insert({
+        checkout_request_id: checkoutRequestId,
+        result_code: 0,
+        result_desc: "The service request is processed successfully.",
+        amount: fakeAmount,
+        transaction_reference: fakeTransactionReference,
+        phone_number: fakePhoneNumber,
+        transaction_date: fakeTransactionDate,
+        raw_response: {
+          simulated: true,
+          note: "This is a fake transaction for development",
+        },
+      })
+      .select();
+
+    if (insertError) {
+      console.error("🔴 Insert error:", insertError);
+      return res.status(500).json({
+        error: "Failed to simulate payment",
+        details: insertError.message,
+        code: insertError.code,
+      });
+    }
+
+    console.log("🟢 Transaction inserted:", data);
+    console.log("🟡 Updating order...");
+
+    const { data: orderData, error: updateError } = await supabase
+      .from("orders")
+      .update({
+        payment_status: "paid",
+        payment_reference: fakeTransactionReference,
+        status: "confirmed",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("checkout_request_id", checkoutRequestId)
+      .select();
+
+    if (updateError) {
+      console.error("🔴 Update error:", updateError);
+      return res.status(500).json({
+        error: "Failed to update order",
+        details: updateError.message,
+      });
+    }
+
+    console.log("🟢 Order updated:", orderData);
+    console.log("🎉 Sending success response");
+
+    return res.status(200).json({
+      success: true,
+      message: "Payment simulated successfully",
+      transactionReference: fakeTransactionReference,
+      checkoutRequestId,
+    });
+  } catch (error) {
+    console.error("💥 CATCH BLOCK ERROR:", error);
+    if (!res.headersSent) {
+      return res.status(500).json({
+        error: "Simulation error",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+});
+
 export default router;

@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import axios from 'axios';
 import { useAdminStore } from '@utils/hooks/adminStore';
 import { Plus, Package, X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -9,6 +8,7 @@ import type { MenuItem } from '@utils/schemas/menu';
 import { type MenuItemFormData, ProductFormSlideOver } from './components/form';
 import { ProductCard } from './components/prodCard';
 import { ProductVariantsManager } from './components/variantMng';
+import { api } from '@utils/hooks/apiUtils';
 
 const AdminProducts: React.FC = () => {
   const { deleteMenuItem, toggleAvailability } = useAdminStore();
@@ -29,14 +29,16 @@ const AdminProducts: React.FC = () => {
     try {
       const formDataToSend = new FormData();
       formDataToSend.append('name', data.name);
-      formDataToSend.append('description', data.description || '');
-      formDataToSend.append('price', data.price.toString());
+      // Only append price if it's defined
+      if (data.price !== undefined) {
+        formDataToSend.append('price', data.price.toString());
+      }
       formDataToSend.append('available', String(data.available));
       formDataToSend.append('category_id', data.category_id || '');
       if (data.image) formDataToSend.append('image', data.image);
 
       if (editingItem) {
-        await axios.put(
+        await api.put(
           `/api/prod/menu-items/${editingItem.id}`,
           formDataToSend,
           {
@@ -45,7 +47,7 @@ const AdminProducts: React.FC = () => {
         );
         toast.success('Product updated successfully!');
       } else {
-        await axios.post(`/api/prod/menu-items`, formDataToSend, {
+        await api.post(`/api/prod/menu-items`, formDataToSend, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
         toast.success('Product added successfully!');

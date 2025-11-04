@@ -19,6 +19,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   onManageVariants,
 }) => {
   const [showConfirm, setShowConfirm] = useState(false);
+  const hasPrice = item.price !== null && item.price !== undefined;
+
   return (
     <div className='overflow-hidden rounded-lg border border-gray-700 bg-gray-800 shadow-md transition-shadow duration-200 hover:shadow-xl'>
       <div className='flex flex-col gap-4 p-4 md:flex-row'>
@@ -74,13 +76,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             </div>
           </div>
 
-          <div className='mb-3 space-y-1 text-sm text-gray-400'>
-            <p className='font-medium text-green-400'>
-              KES {item.price.toFixed(2)}
-            </p>
-            <p className='line-clamp-2'>
-              {item.description || 'No description available.'}
-            </p>
+          <div className='mb-3 space-y-1 text-sm'>
+            {hasPrice ? (
+              <p className='font-medium text-green-400'>
+                KES {item.price.toFixed(2)}
+              </p>
+            ) : (
+              <p className='text-gray-400 italic'>Has variants</p>
+            )}
           </div>
 
           {/* Mobile: Action buttons */}

@@ -20,6 +20,9 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
 
   const addItem = useCartStore((state) => state.addItem);
 
+  // Determine if product has a direct price or needs variants
+  const hasDirectPrice = product.price !== null && product.price !== undefined;
+
   // Fetch full product details (including variants) only when modal opens
   const { data: variants = [], isLoading: loadingDetails } = useProductVariants(
     isOpen ? product.id : '',
@@ -48,16 +51,34 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
   }
 
   function handleAddFromModal() {
-    if (hasVariants && !selectedVariant) return;
+    // If product has variants, require variant selection
+    if (!hasDirectPrice && !selectedVariant) return;
     addItem(product, quantity, selectedVariant ?? undefined);
     closeModal();
   }
 
-  const currentPrice = selectedVariant?.price ?? product.price;
+  // Calculate current price based on product type
+  const currentPrice = useMemo(() => {
+    if (selectedVariant) return selectedVariant.price;
+    if (hasDirectPrice) return product.price;
+    // If no direct price and no variant selected yet, use first available variant price
+    if (hasVariants) {
+      const firstAvailable = variants.find((v) => v.is_available);
+      return firstAvailable?.price ?? 0;
+    }
+    return 0;
+  }, [selectedVariant, hasDirectPrice, product.price, hasVariants, variants]);
+
   const subtotal = currentPrice * quantity;
 
-  // Calculate display price based on variants
+  // Calculate display price for card view
   const displayPrice = useMemo(() => {
+    // If product has a direct price, show it
+    if (hasDirectPrice) {
+      return `KES ${product.price.toFixed(2)}`;
+    }
+
+    // If product uses variants, show price range from variants
     if (product.variants && product.variants.length > 0) {
       const prices = product.variants.map((v) => v.price);
       const minPrice = Math.min(...prices);
@@ -66,8 +87,10 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
       if (minPrice === maxPrice) return `KES ${minPrice.toFixed(2)}`;
       return `From KES ${minPrice.toFixed(2)}`;
     }
-    return `KES ${product.price.toFixed(2)}`;
-  }, [product.variants, product.price]);
+
+    // Fallback - shouldn't normally reach here
+    return '';
+  }, [hasDirectPrice, product.price, product.variants]);
 
   // Get image object if available
   const imageData = typeof product.image === 'object' ? product.image : null;
@@ -159,16 +182,9 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
         {/* Content */}
         <div className='p-4'>
           {/* Title */}
-          <h3 className='mb-2 line-clamp-2 text-base font-semibold text-gray-900'>
+          <h3 className='mb-2 line-clamp-2 text-base font-bold text-gray-900'>
             {product.name}
           </h3>
-
-          {/* Description */}
-          {product.description && (
-            <p className='mb-3 line-clamp-2 text-sm text-gray-600'>
-              {product.description}
-            </p>
-          )}
 
           {/* Price and Add Button Row */}
           <div className='flex items-center justify-between'>
@@ -186,7 +202,7 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
               disabled={!product.available}
               className={`rounded-full p-2 transition ${
                 product.available
-                  ? 'bg-green-600 text-white hover:scale-110 hover:bg-green-700'
+                  ? 'bg-gradient-to-br from-green-400 to-emerald-600 shadow-lg shadow-green-500/30 hover:scale-110 hover:shadow-xl hover:shadow-green-500/40'
                   : 'cursor-not-allowed bg-gray-200 text-gray-400'
               }`}
               aria-label='Add to cart'
@@ -210,9 +226,7 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
           {/* Panel */}
           <div className='relative z-10 mx-auto max-h-[90vh] w-full max-w-2xl overflow-auto rounded-2xl bg-white p-4 shadow-2xl sm:p-6'>
             <div className='flex items-start justify-between'>
-              <h2 className='text-lg font-semibold sm:text-xl'>
-                {product.name}
-              </h2>
+              <h2 className='text-lg sm:text-xl'>{product.name}</h2>
               <button
                 onClick={closeModal}
                 aria-label='Close'
@@ -263,15 +277,8 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
                 </div>
 
                 <div className='flex flex-col gap-4 md:col-span-2'>
-                  {/* Description in Modal */}
-                  {product.description && (
-                    <p className='text-sm text-gray-600'>
-                      {product.description}
-                    </p>
-                  )}
-
-                  {/* Variants Selection */}
-                  {hasVariants && (
+                  {/* Variants Selection - Only show if product doesn't have direct price */}
+                  {!hasDirectPrice && hasVariants && (
                     <div className='space-y-3'>
                       <label className='text-sm font-medium text-gray-700'>
                         Select Size
@@ -306,6 +313,16 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
                     </div>
                   )}
 
+                  {/* Show price directly for non-variant products */}
+                  {hasDirectPrice && (
+                    <div className='text-sm text-gray-600'>
+                      Price:{' '}
+                      <span className='font-semibold text-green-600'>
+                        KES {product.price.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+
                   {/* Quantity + Price summary */}
                   <div className='flex flex-col gap-3 border-t border-gray-200 pt-4 sm:flex-row sm:items-center sm:justify-between'>
                     <QuantitySelector
@@ -326,10 +343,10 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
                   <div className='flex flex-col gap-2 sm:flex-row sm:gap-3'>
                     <button
                       onClick={handleAddFromModal}
-                      disabled={hasVariants && !selectedVariant}
+                      disabled={!hasDirectPrice && !selectedVariant}
                       className='flex-1 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-gray-400 sm:text-base'
                     >
-                      {hasVariants && !selectedVariant
+                      {!hasDirectPrice && !selectedVariant
                         ? 'Select an option'
                         : `Add ${quantity > 1 ? `${quantity} ` : ''}to cart`}
                     </button>

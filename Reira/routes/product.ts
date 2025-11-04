@@ -75,7 +75,7 @@ async function deleteCategoryIcon(iconUrl: string) {
 }
 
 // Routes
-// GET /api/menu-items?category_id=some_id
+// GET /api/menu-items/
 router.get("/menu-items", async (req, res) => {
   try {
     const { category_id } = req.query;
@@ -96,9 +96,9 @@ router.get("/menu-items", async (req, res) => {
       throw error;
     }
 
-    res.json(data);
+    res.json(data || []);
   } catch (error) {
-    console.error("Error fetching menu items:", error);
+    console.error("Error fetching menu items (full):", error);
     res.status(500).json({ error: "Failed to fetch menu items" });
   }
 });
@@ -110,7 +110,7 @@ router.post(
   upload.single("image"),
   async (req, res) => {
     try {
-      const { name, description, price, available, category_id } = req.body;
+      const { name, price, available, category_id } = req.body;
 
       let imageData = null;
       if (req.file) {
@@ -122,7 +122,6 @@ router.post(
         .insert([
           {
             name,
-            description: description || null,
             price: parseFloat(price),
             image: imageData,
             available: available === "true",
@@ -149,7 +148,7 @@ router.put(
   async (req, res) => {
     try {
       const { id } = req.params;
-      const { name, description, price, available, category_id } = req.body;
+      const { name, price, available, category_id } = req.body;
 
       const { data: existingItem, error: fetchError } = await supabase
         .from("menu_items")
@@ -169,7 +168,6 @@ router.put(
 
       const updateData: any = {
         name,
-        description: description || null,
         price: parseFloat(price),
         available: available === "true",
         category_id: category_id || null,

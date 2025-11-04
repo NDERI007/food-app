@@ -1,8 +1,8 @@
 import { Worker, Job } from "bullmq";
-import { OrderNotificationJob } from "./queue";
-import { addOrderAtomic } from "./redisBatchScripts";
-import { logger } from "./logger";
 import { connection } from "@config/redis";
+import { addOrderAtomic } from "@utils/redisBatchScripts";
+import { OrderNotificationJob } from "@utils/queueOrder";
+import { logger } from "@utils/logger";
 
 // Worker to process individual order notifications
 const ORDERS_KEY = "admin:order-notifications:orders";
@@ -30,7 +30,7 @@ export const orderNotificationWorker = new Worker(
         const [llenStr, totalStr] = res;
         logger?.info(
           {
-            orderId: orderData.orderId,
+            orderId: orderData.orderID,
             batchSize: Number(llenStr),
             total: Number(totalStr),
           },
