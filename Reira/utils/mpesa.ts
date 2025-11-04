@@ -78,7 +78,7 @@ export async function stkPush(phone: string, amount: number, orderId: string) {
 
         // Call your own callback endpoint to simulate success
         const callbackResponse = await fetch(
-          "https://88a41e5757ff.ngrok-free.app/api/mpesa/callback-simulate",
+          "https://b1aa7f3970c6.ngrok-free.app/api/mpesa/callback-simulate",
           {
             method: "POST",
             headers: {

@@ -144,39 +144,10 @@ router.get("/:orderID", async (req, res) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const { data, error } = await supabase
-      .from("orders")
-      .select(
-        `
-        id,
-        delivery_type,
-        delivery_address_main_text,
-        delivery_address_secondary_text,
-        delivery_instructions,
-        status,
-        payment_method,
-        payment_status,
-        payment_reference,
-        mpesa_phone,
-        subtotal,
-        delivery_fee,
-        total_amount,
-        order_notes,
-        created_at,
-        order_items (
-          id,
-          quantity,
-          total_price,
-          menu_items (
-            name,
-            image
-          )
-        )
-      `
-      )
-      .eq("id", orderID)
-      .eq("user_id", userID)
-      .single();
+    const { data, error } = await supabase.rpc("get_order_with_items", {
+      p_order_id: orderID,
+      p_user_id: userID,
+    });
 
     if (error) {
       console.error("❌ Supabase error:", error);
@@ -189,24 +160,9 @@ router.get("/:orderID", async (req, res) => {
     }
 
     console.log("✅ Order data fetched:", data);
+    console.log("📦 Transformed order:", data);
 
-    // Transform the data to match your interface
-    const { order_items, ...orderData } = data;
-
-    const transformedOrder = {
-      ...orderData,
-      items:
-        order_items?.map((item) => ({
-          id: item.id,
-          product_name: item.menu_items?.[0]?.name || "Unknown Item",
-          quantity: item.quantity,
-          price: item.total_price,
-          image_url: item.menu_items?.[0]?.image || null,
-        })) || [],
-    };
-
-    console.log("📦 Transformed order:", transformedOrder);
-    res.json({ order: transformedOrder });
+    res.json({ order: data });
   } catch (error) {
     console.error("❌ Error fetching order:", error);
     res.status(500).json({
