@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import axios, { AxiosError } from 'axios';
@@ -18,6 +18,8 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [disabled, setDisabled] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
+  const sendingRef = useRef(false); // local guard to prevent re-entry
+  const cooldownTimeoutRef = useRef<number | null>(null);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -25,7 +27,7 @@ export default function Login() {
   const {
     register: registerEmail,
     handleSubmit: handleSubmitEmail,
-    formState: { errors: emailErrors },
+    formState: { errors: emailErrors, isSubmitting: formIsSubmitting },
     reset: resetEmail,
   } = useForm<emailSchemaType>({
     resolver: zodResolver(emailSchema),
@@ -43,6 +45,8 @@ export default function Login() {
 
   // Handlers
   const handleSendOtp = async (data: emailSchemaType) => {
+    if (sendingRef.current) return;
+    sendingRef.current = true;
     try {
       await api.post(
         '/api/auth/send-otp',
@@ -55,9 +59,15 @@ export default function Login() {
       setStep(2);
 
       resetEmail();
-      setDisabled(true);
-      setTimeout(() => setDisabled(false), 30_000);
+
+      cooldownTimeoutRef.current = window.setTimeout(() => {
+        setDisabled(false);
+        sendingRef.current = false; // allow future sends after cooldown
+        cooldownTimeoutRef.current = null;
+      }, 30_000);
     } catch (err: unknown) {
+      setDisabled(false);
+      sendingRef.current = false;
       if (axios.isAxiosError(err)) {
         const backendMsg = (err.response?.data as { error?: string })?.error;
         toast.error(backendMsg || 'Failed to send OTP');
@@ -66,6 +76,13 @@ export default function Login() {
       }
     }
   };
+  useEffect(() => {
+    return () => {
+      if (cooldownTimeoutRef.current) {
+        clearTimeout(cooldownTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleVerifyOtp = async (data: OtpSchemaType) => {
     setIsVerifying(true);
@@ -164,12 +181,8 @@ export default function Login() {
 
             <button
               type='submit'
-              disabled={disabled}
-              className={`w-full rounded-md px-4 py-2 text-white transition-all duration-150 ${
-                disabled
-                  ? 'cursor-not-allowed bg-gray-400 shadow-none'
-                  : 'bg-green-900 shadow-md hover:bg-green-800 hover:shadow-lg active:scale-95 active:bg-green-950 active:shadow-inner'
-              }`}
+              disabled={disabled || formIsSubmitting}
+              className='w-full rounded-md bg-green-900 px-4 py-2 text-white shadow-md transition-all duration-150 hover:bg-green-800 hover:shadow-lg active:scale-95 active:bg-green-950 active:shadow-inner disabled:cursor-not-allowed disabled:bg-gray-400 disabled:shadow-none disabled:active:scale-100'
             >
               {disabled ? 'Please wait...' : 'Continue'}
             </button>
@@ -222,7 +235,7 @@ export default function Login() {
                   setEmail('');
                 }}
                 disabled={isVerifying}
-                className='w-1/3 rounded-md bg-gray-200 px-4 py-2 text-gray-700 shadow-sm hover:bg-gray-300 active:scale-95'
+                className='active:scale-95disabled:cursor-not-allowed w-1/3 rounded-md bg-gray-200 px-4 py-2 text-gray-700 shadow-sm hover:bg-gray-300 disabled:bg-gray-400 disabled:shadow-none disabled:active:scale-100'
               >
                 Back
               </button>

@@ -7,6 +7,7 @@ import SettingsPage from '@pages/settings/accountSettings';
 import CheckOut from '@pages/checkout/checkout';
 import OrderConfirmation from '@pages/confirmation/orderConfirmation';
 import MfaVerify from '@pages/mfa/verify';
+import OrderHistory from '@pages/orders/order';
 
 const Home = lazy(() => import('@pages/home/homepage'));
 
@@ -20,7 +21,8 @@ const homeRoutes: RouteObject[] = [
       { path: '/settings', element: <SettingsPage /> },
       { path: '/checkout', element: <CheckOut /> },
       { path: '/order-confirmation', element: <OrderConfirmation /> },
-      { path: 'mfa-verify', element: <MfaVerify /> },
+      { path: '/mfa-verify', element: <MfaVerify /> },
+      { path: '/orders', element: <OrderHistory /> },
     ],
   },
 ];

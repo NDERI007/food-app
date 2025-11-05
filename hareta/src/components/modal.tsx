@@ -3,7 +3,7 @@ import { useState } from 'react';
 interface FallbackModalProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: { name: string; landmark?: string }) => void;
+  onSubmit: (data: { name: string; landmark: string }) => void;
 }
 
 export default function FallbackModal({
@@ -13,6 +13,7 @@ export default function FallbackModal({
 }: FallbackModalProps) {
   const [name, setName] = useState('');
   const [landmark, setLandmark] = useState('');
+  const [error, setError] = useState(''); // In the button onClick:
 
   if (!open) return null;
 
@@ -25,6 +26,7 @@ export default function FallbackModal({
           Location's name
           <input
             type='text'
+            required
             value={name}
             onChange={(e) => setName(e.target.value)}
             className='mb-3 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none'
@@ -34,6 +36,7 @@ export default function FallbackModal({
           Nearest Landmark
           <input
             type='text'
+            required
             placeholder='e.g. Near Rubis station'
             value={landmark}
             onChange={(e) => setLandmark(e.target.value)}
@@ -42,6 +45,7 @@ export default function FallbackModal({
         </label>
 
         <div className='flex justify-end gap-2'>
+          {error && <p className='mb-2 text-sm text-red-600'>{error}</p>}
           <button
             onClick={onClose}
             className='rounded-md bg-gray-100 px-4 py-2 text-sm hover:bg-gray-200'
@@ -50,11 +54,13 @@ export default function FallbackModal({
           </button>
           <button
             onClick={() => {
-              if (!name.trim()) return;
+              if (!name.trim() || !landmark.trim()) {
+                setError('Both fields are required');
+                return;
+              }
               onSubmit({ name, landmark });
               onClose();
             }}
-            className='rounded-md bg-green-800 px-4 py-2 text-sm text-white hover:bg-green-900'
           >
             Save
           </button>

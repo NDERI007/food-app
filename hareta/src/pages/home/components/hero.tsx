@@ -235,10 +235,9 @@ export default function HeroStickyHeadline({ onSubmit }: HeroSearchBarProps) {
           const customPlace = {
             id: uuidv4(),
             place_id: null,
-            secondary_text: 'Nduini, Kenya',
+            secondary_text: data.landmark,
             main_text: data.name,
             source: 'manual',
-            description: data.landmark, // Just name if no room
           };
 
           // Save to store with properly formatted address

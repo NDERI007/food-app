@@ -11,7 +11,7 @@ router.use(withAuth());
  * GET /api/orders
  * Get all orders for authenticated user
  */
-router.get("/", async (req, res) => {
+router.get("/history", async (req, res) => {
   try {
     const userID = req.user?.userID;
 
@@ -19,43 +19,25 @@ router.get("/", async (req, res) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const { data, error } = await supabase
-      .from("orders")
-      .select(
-        `
-        id,
-        status,
-        total_amount,
-        payment_status,
-        payment_method,
-        delivery_type,
-        delivery_instructions,
-        created_at,
-        order_items (
-          id,
-          quantity,
-          price,
-          subtotal,
-          menu_items (
-            id,
-            name,
-            description,
-            image_url
-          )
-        ),
-      `
-      )
-      .eq("user_id", userID)
-      .order("created_at", { ascending: false });
+    const { data, error } = await supabase.rpc("get_orders_history_for_user", {
+      p_user_id: userID,
+    });
 
-    if (error) throw error;
+    if (error) {
+      console.error("❌ Supabase error:", error);
+      return res.status(500).json({ message: "Database error", error });
+    }
 
-    res.json({ orders: data || [] });
+    return res.json({ orders: data ?? [] });
   } catch (error) {
-    console.error("Error fetching orders:", error);
-    res.status(500).json({ message: "Failed to fetch orders" });
+    console.error("❌ Error fetching order history:", error);
+    res.status(500).json({
+      message: "Failed to fetch order history",
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 });
+
 router.get("/:orderID/details", async (req, res) => {
   try {
     const { orderID } = req.params;
@@ -280,7 +262,7 @@ router.post("/create", async (req, res) => {
 
     if (
       orderData.delivery_type === "delivery" &&
-      (!orderData.delivery_address_main_text || !orderData.delivery_place_id)
+      !orderData.delivery_address_main_text
     ) {
       return res.status(400).json({
         success: false,

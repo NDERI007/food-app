@@ -17,13 +17,35 @@ router.get("/auto-comp", validateQuery(PlacesQuerySchema), async (req, res) => {
     const limit = Math.min(parsed.limit ?? 10, 20);
     const sessionToken = parsed.sessionToken;
 
-    const dbResults = await dbSearch(q, limit);
-    if (dbResults.length > 0) {
-      return res.json(dbResults.slice(0, limit));
+    // Fetch both simultaneously
+    const [dbResults, googleResults] = await Promise.all([
+      dbSearch(q, limit),
+      googleAutocomplete(q, sessionToken),
+    ]);
+
+    // Deduplicate by place_id - DB results take priority
+    const seen = new Set<string>();
+    const combined = [];
+
+    // Add DB results first
+    for (const place of dbResults) {
+      if (place.place_id) {
+        seen.add(place.place_id);
+      }
+      combined.push(place);
     }
 
-    const googleResults = await googleAutocomplete(q, sessionToken);
-    return res.json(googleResults.slice(0, limit));
+    // Add Google results only if not already in DB
+    for (const place of googleResults) {
+      if (!place.place_id || !seen.has(place.place_id)) {
+        if (place.place_id) {
+          seen.add(place.place_id);
+        }
+        combined.push(place);
+      }
+    }
+
+    return res.json(combined.slice(0, limit));
   } catch (err) {
     console.error("API error", err);
     return res.status(500).json({ error: "server_error" });
