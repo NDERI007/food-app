@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import {
   Clock,
   MapPin,
@@ -8,15 +9,18 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { useOrderDetails } from '@utils/hooks/useOrderDetails';
+import { useUpdateOrderStatus } from '@utils/hooks/updateStatus';
 
 interface OrderDetailsProps {
   orderID: string;
   onClose: () => void;
+  onOrderUpdated?: (orderID: string) => void;
 }
 
 export default function OrderDetailsDrawer({
   orderID,
   onClose,
+  onOrderUpdated,
 }: OrderDetailsProps) {
   if (!orderID) return null;
 
@@ -28,166 +32,277 @@ export default function OrderDetailsDrawer({
     refetch,
   } = useOrderDetails(orderID);
 
+  const { updateOrderStatus, isUpdating } = useUpdateOrderStatus();
+
+  const handleComplete = async () => {
+    await updateOrderStatus(orderID, 'complete');
+    onOrderUpdated?.(orderID);
+    onClose();
+  };
+
+  const handleCancel = async () => {
+    await updateOrderStatus(orderID, 'cancel');
+    onOrderUpdated?.(orderID);
+    onClose();
+  };
+
   const formatTime = (dateString: string) =>
     new Date(dateString).toLocaleTimeString('en-KE', {
       hour: '2-digit',
       minute: '2-digit',
     });
 
-  return (
-    <>
-      <div
-        className='fixed inset-0 z-40 bg-black opacity-50'
-        onClick={onClose}
-      />
+  // Drag-to-close state
+  const sheetRef = useRef<HTMLDivElement | null>(null);
+  const startYRef = useRef<number | null>(null);
+  const translateYRef = useRef(0);
+  const [translateY, setTranslateY] = useState(0); // px
+  const [isDragging, setIsDragging] = useState(false);
 
-      <div className='fixed top-0 right-0 z-50 h-full w-full max-w-md transform bg-white shadow-2xl'>
-        <div className='sticky top-0 z-10 flex items-center justify-between border-b bg-gray-100 p-4'>
-          <h2 className='text-lg font-bold'>Order Receipt</h2>
+  // Balanced sensitivity: must drag at least 120px to close
+  const CLOSE_THRESHOLD = 120;
+
+  // Pointer event handlers (works for touch and mouse)
+  useEffect(() => {
+    const el = sheetRef.current;
+    if (!el) return;
+
+    const onPointerDown = (e: PointerEvent) => {
+      // only start drag if on mobile viewport (bottom sheet)
+      if (window.innerWidth >= 768) return;
+      startYRef.current = e.clientY;
+      translateYRef.current = 0;
+      setIsDragging(true);
+      // capture pointer to get subsequent events even if pointer leaves element
+      // @ts-ignore
+      el.setPointerCapture?.(e.pointerId);
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (!isDragging || startYRef.current === null) return;
+      const delta = Math.max(0, e.clientY - startYRef.current);
+      translateYRef.current = delta;
+      setTranslateY(delta);
+    };
+
+    const onPointerUp = (e: PointerEvent) => {
+      if (!isDragging) return;
+      setIsDragging(false);
+
+      // release capture
+      // @ts-ignore
+      try {
+        el.releasePointerCapture?.(e.pointerId);
+      } catch {
+        /* noop */
+      }
+
+      const final = translateYRef.current ?? 0;
+      // close if dragged beyond threshold or a fast flick (velocity not measured here)
+      if (final >= CLOSE_THRESHOLD) {
+        // reset and close
+        setTranslateY(0);
+        translateYRef.current = 0;
+        startYRef.current = null;
+        onClose();
+      } else {
+        // snap back (no animation per your choice) — instantly reset
+        setTranslateY(0);
+        translateYRef.current = 0;
+        startYRef.current = null;
+      }
+    };
+
+    el.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
+
+    return () => {
+      el.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
+    };
+  }, [isDragging, onClose]);
+
+  // Prevent body scroll while open
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
+  // Inline style for transform when dragging (only applied on mobile)
+  const sheetStyle =
+    typeof translateY === 'number' && window?.innerWidth < 768
+      ? { transform: `translateY(${translateY}px)` }
+      : undefined;
+
+  return (
+    <div
+      className='fixed inset-0 z-[9999] flex bg-black/50 backdrop-blur-sm md:justify-end'
+      onClick={onClose}
+      aria-modal='true'
+      role='dialog'
+    >
+      {/* Drawer / Bottom sheet */}
+      <div
+        ref={sheetRef}
+        onClick={(e) => e.stopPropagation()}
+        // mobile: bottom sheet (full width), pushed down by header; md+: side drawer
+        style={sheetStyle}
+        className={
+          'flex h-full w-full max-w-full flex-col rounded-t-2xl border-t border-gray-800 bg-gray-900 text-gray-100 shadow-2xl ' +
+          'pt-16 md:max-w-[420px] md:rounded-none md:border-l md:pt-0'
+        }
+      >
+        {/* Mobile drag handle (small visible bar) */}
+        <div className='flex justify-center md:hidden'>
+          <div className='mt-2 mb-1 h-1 w-12 rounded-full bg-gray-700' />
+        </div>
+
+        {/* Header */}
+        <div className='bg-gray-850 flex items-center justify-between border-b border-gray-800 px-4 py-3 md:py-4'>
+          <h2 className='text-lg font-bold text-gray-200'>Order Receipt</h2>
+
+          {/* Close button always visible and reachable */}
           <button
             onClick={onClose}
-            className='rounded-full p-1 transition-colors hover:bg-gray-200'
             aria-label='Close'
+            className='rounded-lg p-2 text-gray-400 hover:bg-gray-800 hover:text-gray-200'
           >
             <X className='h-5 w-5' />
           </button>
         </div>
 
-        <div className='h-[calc(100%-64px)] overflow-y-auto p-4 font-mono text-sm'>
-          {/* Loading State */}
+        {/* Content */}
+        <div className='flex-1 space-y-5 overflow-y-auto p-4 text-sm'>
           {isLoading && (
-            <div className='flex flex-col items-center justify-center py-12 text-gray-500'>
-              <div className='mb-3 h-8 w-8 animate-spin rounded-full border-b-2 border-gray-900'></div>
-              <p>Loading order details...</p>
+            <div className='flex flex-col items-center justify-center py-16 text-gray-400'>
+              <div className='mb-4 h-8 w-8 animate-spin rounded-full border-b-2 border-purple-400' />
+              Loading order details...
             </div>
           )}
 
-          {/* Error State */}
           {isError && (
-            <div className='flex flex-col items-center justify-center py-12'>
-              <AlertCircle className='mb-3 h-12 w-12 text-red-500' />
-              <h3 className='mb-2 text-lg font-semibold text-gray-900'>
-                Failed to Load Order
-              </h3>
-              <p className='mb-4 text-center text-sm text-gray-600'>
-                {error?.message || 'An unexpected error occurred'}
-              </p>
+            <div className='space-y-4 py-14 text-center text-gray-300'>
+              <AlertCircle className='mx-auto h-12 w-12 text-red-400' />
+              <div className='font-semibold text-gray-200'>Failed to Load</div>
+              <p className='text-xs text-gray-400'>{error?.message}</p>
               <button
                 onClick={() => refetch()}
-                className='flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-white transition-colors hover:bg-blue-600'
+                className='inline-flex items-center gap-2 rounded-lg bg-purple-700 px-4 py-2 text-white hover:bg-purple-600'
               >
-                <RefreshCw className='h-4 w-4' />
-                Try Again
+                <RefreshCw className='h-4 w-4' /> Retry
               </button>
             </div>
           )}
 
-          {/* Not Found State */}
-          {!isLoading && !isError && !order && (
-            <div className='flex flex-col items-center justify-center py-12 text-gray-500'>
-              <Package className='mb-3 h-12 w-12' />
-              <h3 className='mb-2 text-lg font-semibold text-gray-900'>
-                Order Not Found
-              </h3>
-              <p className='text-center text-sm'>
-                This order may have been deleted or doesn't exist.
-              </p>
-            </div>
-          )}
-
-          {/* Success State */}
           {order && (
-            <div className='space-y-4'>
-              {/* Header */}
-              <div className='flex items-center justify-between'>
-                <div className='flex items-center gap-2 text-gray-700'>
-                  <Clock className='h-4 w-4' />
-                  <span>{formatTime(order.created_at)}</span>
+            <>
+              {/* Timestamp + ID */}
+              <div className='flex items-center justify-between text-xs text-gray-400'>
+                <div className='flex items-center gap-2'>
+                  <Clock className='h-4 w-4 text-purple-400' />
+                  {formatTime(order.created_at)}
                 </div>
-                <div className='text-xs text-gray-500'>
-                  #{order.id.slice(0, 12)}
-                </div>
+                <span className='text-gray-500'>#{order.id.slice(0, 10)}</span>
               </div>
 
-              {/* Delivery Info */}
-              <div className='space-y-2 border-t border-b py-3'>
-                <div className='flex items-center gap-2 font-semibold'>
-                  <MapPin className='h-4 w-4' />
-                  <span>{(order.delivery_type || '').toUpperCase()}</span>
+              {/* Delivery */}
+              <div className='space-y-2 border-y border-gray-800 py-3'>
+                <div className='flex items-center gap-2 font-semibold text-gray-200'>
+                  <MapPin className='h-4 w-4 text-purple-400' />
+                  {(order.delivery_type || '').toUpperCase()}
                 </div>
-                {order.delivery_type === 'delivery' && order.address && (
-                  <p className='pl-6 text-xs text-gray-700'>{order.address}</p>
+                {order.address && (
+                  <p className='pl-6 text-xs text-gray-400'>{order.address}</p>
                 )}
                 {order.instructions && (
-                  <p className='pl-6 text-xs text-gray-600 italic'>
+                  <p className='pl-6 text-xs text-gray-500 italic'>
                     Note: {order.instructions}
                   </p>
                 )}
               </div>
 
-              {/* Order Items */}
-              <div className='border-b py-3'>
-                <h3 className='mb-2 flex items-center gap-2 font-semibold'>
-                  <Package className='h-4 w-4' />
+              {/* Items */}
+              <div>
+                <h3 className='flex items-center gap-2 font-semibold text-gray-200'>
+                  <Package className='h-4 w-4 text-purple-400' />
                   Items ({order.items?.length ?? 0})
                 </h3>
-                <div className='space-y-2 pl-6'>
-                  {(order.items ?? []).length === 0 ? (
-                    <p className='text-xs text-gray-500 italic'>
-                      No items found
-                    </p>
-                  ) : (
-                    (order.items ?? []).map((item, idx) => (
-                      <div
-                        key={idx}
-                        className='flex justify-between text-gray-700'
-                      >
-                        <span>
-                          {item.quantity}x {item.name}
-                          {item.variant_size && (
-                            <span className='ml-1 text-xs text-gray-500'>
-                              ({item.variant_size})
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                    ))
-                  )}
+                <div className='mt-2 space-y-1 pl-6 text-sm text-gray-300'>
+                  {(order.items ?? []).map((item, i) => (
+                    <div key={i} className='flex justify-between'>
+                      <span>
+                        {item.quantity}× {item.name}
+                        {item.variant_size && (
+                          <span className='ml-1 text-xs text-gray-500'>
+                            ({item.variant_size})
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
 
-              {/* Payment Info */}
-              <div className='space-y-1 border-b py-3'>
-                <div className='flex items-center gap-2'>
-                  <Phone className='h-4 w-4' />
-                  <span className='font-medium'>
-                    {order.mpesa_phone ?? 'N/A'}
-                  </span>
+              {/* Payment */}
+              <div className='space-y-1 border-y border-gray-800 py-3'>
+                <div className='flex items-center gap-2 text-gray-200'>
+                  <Phone className='h-4 w-4 text-purple-400' />
+                  {order.mpesa_phone ?? 'N/A'}
                 </div>
-                <p className='pl-6 text-xs text-gray-600'>
+                <p className='pl-6 text-xs text-gray-500'>
                   Ref: {order.payment_reference ?? 'Pending'}
                 </p>
               </div>
 
-              {/* Summary */}
-              <div className='flex justify-between pt-2 text-base font-bold'>
-                <span>Total Items</span>
-                <span>
-                  {(order.items ?? []).reduce(
-                    (sum, i) => sum + (i.quantity ?? 0),
-                    0,
-                  )}
-                </span>
-              </div>
+              {/* Totals */}
+              <div className='pt-2'>
+                <div className='flex justify-between text-sm text-gray-400'>
+                  <span>Total Items</span>
+                  <span>
+                    {(order.items ?? []).reduce(
+                      (sum, i) => sum + (i.quantity ?? 0),
+                      0,
+                    )}
+                  </span>
+                </div>
 
-              <div className='flex justify-between border-t pt-3 text-lg font-bold'>
-                <span>Total Amount</span>
-                <span>KSh {order.total_amount?.toLocaleString() ?? '0'}</span>
+                <div className='flex justify-between border-t border-gray-800 pt-3 text-lg font-bold text-gray-100'>
+                  <span>Total</span>
+                  <span>KSh {order.total_amount?.toLocaleString() ?? '0'}</span>
+                </div>
               </div>
-            </div>
+            </>
           )}
         </div>
+
+        {/* Action Footer (sticky inside sheet) */}
+        {order && (
+          <div className='sticky bottom-0 flex gap-3 border-t border-gray-800 bg-gray-900 p-4'>
+            <button
+              onClick={handleComplete}
+              disabled={isUpdating}
+              className='flex-1 rounded-lg bg-green-600 py-2 text-sm font-medium transition hover:bg-green-500 disabled:opacity-50'
+            >
+              {isUpdating ? 'Processing...' : 'Mark as Completed'}
+            </button>
+
+            <button
+              onClick={handleCancel}
+              disabled={isUpdating}
+              className='flex-1 rounded-lg bg-red-600 py-2 text-sm font-medium transition hover:bg-red-500 disabled:opacity-50'
+            >
+              {isUpdating ? 'Processing...' : 'Cancel Order'}
+            </button>
+          </div>
+        )}
       </div>
-    </>
+    </div>
   );
 }

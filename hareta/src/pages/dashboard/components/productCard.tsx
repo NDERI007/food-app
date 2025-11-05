@@ -1,4 +1,4 @@
-import { memo, useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useCartStore } from '@utils/hooks/useCrt';
 import { ImageOff, Plus, Loader2, Check } from 'lucide-react';
 import { useProductVariants } from '@utils/hooks/productStore';
@@ -9,7 +9,7 @@ interface ProductCardProps {
   product: MenuItem;
 }
 
-const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
+function ProductCard({ product }: ProductCardProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(
@@ -192,7 +192,6 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
             <span className='text-lg font-bold text-green-600'>
               {displayPrice}
             </span>
-
             {/* Circular Add Button */}
             <button
               onClick={(e) => {
@@ -200,14 +199,14 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
                 openModal();
               }}
               disabled={!product.available}
-              className={`rounded-full p-2 transition ${
+              className={`group/btn relative flex items-center gap-1.5 overflow-hidden rounded-full px-4 py-2 font-medium transition-all duration-300 ${
                 product.available
-                  ? 'bg-gradient-to-br from-green-400 to-emerald-600 shadow-lg shadow-green-500/30 hover:scale-110 hover:shadow-xl hover:shadow-green-500/40'
+                  ? 'bg-emerald-50 text-emerald-700 shadow-sm hover:bg-emerald-100 hover:shadow-md active:scale-95'
                   : 'cursor-not-allowed bg-gray-200 text-gray-400'
               }`}
               aria-label='Add to cart'
             >
-              <Plus className='h-5 w-5' />
+              <Plus className='h-5 w-5 transition-transform group-hover/btn:rotate-90' />
             </button>
           </div>
         </div>
@@ -366,6 +365,7 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
       )}
     </>
   );
-});
+}
 
+// Custom comparison function - only re-render if these properties change
 export default ProductCard;

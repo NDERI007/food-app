@@ -14,8 +14,12 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const location = useLocation();
 
   const handleLogout = async () => {
-    await logout();
-    onClose();
+    try {
+      await logout();
+      onClose(); // ✅ just close the sidebar — no redirect needed
+    } catch (err) {
+      console.error('Logout failed:', err);
+    }
   };
 
   const handleNavigation = (path: string) => {
@@ -57,29 +61,23 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
   return (
     <>
-      {/* Backdrop - full screen on mobile, subtle on desktop */}
+      {/* Backdrop */}
       <div
         className='fixed inset-0 z-40 bg-black/20 backdrop-blur-sm md:bg-transparent md:backdrop-blur-none'
         onClick={onClose}
       />
 
-      {/* Sidebar - full screen on mobile, floating on desktop */}
+      {/* Sidebar */}
       <div
-        className={`fixed z-50 flex flex-col bg-gray-900 shadow-2xl transition-all duration-200 ${
-          // Mobile: full screen slide from left
-          'inset-y-0 right-0 left-0 sm:right-auto sm:w-80'
-        } ${
-          // Desktop: floating dropdown from top-right
-          'md:inset-auto md:top-14 md:right-5 md:left-auto md:w-64 md:rounded-xl md:border md:border-gray-700'
-        } `}
+        className={`fixed inset-y-0 right-0 left-0 z-50 flex flex-col bg-gray-900 shadow-2xl transition-all duration-200 sm:right-auto sm:w-80 md:inset-auto md:top-14 md:right-5 md:left-auto md:w-64 md:rounded-xl md:border md:border-gray-700`}
       >
-        {/* Mobile-only header with close button */}
+        {/* Mobile header */}
         <div className='flex flex-shrink-0 items-center justify-between border-b border-gray-700 px-4 py-3 md:hidden'>
           <div className='flex items-center gap-2.5'>
             <div className='flex h-7 w-7 items-center justify-center rounded-lg bg-green-600 text-xs font-bold text-white'>
               IF
             </div>
-            <span className='text-base font-semibold text-gray-900'>
+            <span className='text-base font-semibold text-gray-100'>
               IuraFoods
             </span>
           </div>
@@ -91,7 +89,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           </button>
         </div>
 
-        {/* Desktop-only close button (top-right corner) */}
+        {/* Desktop close */}
         <button
           onClick={onClose}
           className='absolute top-2 right-2 z-10 hidden rounded-md p-1.5 text-gray-400 transition hover:bg-gray-600 md:block'
@@ -99,7 +97,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           <X className='h-4 w-4' />
         </button>
 
-        {/* Content - scrollable */}
+        {/* Sidebar Content */}
         <div className='flex-1 overflow-y-auto text-gray-200'>
           {isLoading ? (
             <div className='space-y-2 p-3'>
@@ -125,6 +123,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                   </div>
                 </div>
               </div>
+
               {/* Navigation */}
               <div className='space-y-0.5 p-3'>
                 <div className='mb-2 px-2.5 text-xs font-semibold text-gray-500'>

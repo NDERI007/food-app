@@ -64,7 +64,7 @@ export function useMenuItems(categoryId?: string | null) {
 
           console.log('📊 Updating queries:', queries.length);
 
-          // Update each matching query
+          // First: Update the cache immediately for instant UI feedback
           queries.forEach(([queryKey]) => {
             queryClient.setQueryData<MenuItem[]>(queryKey, (old) => {
               if (!old) return old;
@@ -78,11 +78,9 @@ export function useMenuItems(categoryId?: string | null) {
                 const newItem = payload.new as MenuItem;
                 console.log('➕ Adding item:', newItem.id);
 
-                // Check if item already exists (avoid duplicates)
                 const exists = old.some((item) => item.id === newItem.id);
                 if (exists) return old;
 
-                // If we're viewing a specific category, only add if it matches
                 const categoryFilter = queryKey[1];
                 if (
                   categoryFilter &&
@@ -95,10 +93,14 @@ export function useMenuItems(categoryId?: string | null) {
                 return [...old, newItem];
               }
 
-              // UPDATE
               if (payload.eventType === 'UPDATE') {
                 const updatedItem = payload.new as MenuItem;
-                console.log('Updating item:', updatedItem.name);
+                console.log(
+                  '✏️ Updating item:',
+                  updatedItem.name,
+                  'available:',
+                  updatedItem.available,
+                );
 
                 return old.map((item) =>
                   item.id === updatedItem.id
@@ -109,6 +111,12 @@ export function useMenuItems(categoryId?: string | null) {
 
               return old;
             });
+          });
+
+          // Second: Invalidate to ensure consistency and trigger re-render
+          queryClient.invalidateQueries({
+            queryKey: ['menu-items'],
+            refetchType: 'active', // Don't refetch, just mark as stale
           });
         },
       )
