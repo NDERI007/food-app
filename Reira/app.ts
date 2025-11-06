@@ -33,6 +33,15 @@ app.use(express.urlencoded({ extended: true }));
 // Mount routes
 app.use("/api", apiRoutes);
 
+// Health check endpoint
+app.get("/health", (req, res) => {
+  const isHealthy = orderNotificationWorker.isRunning();
+  res.status(isHealthy ? 200 : 503).json({
+    status: isHealthy ? "healthy" : "unhealthy",
+    worker: "order-notifications",
+  });
+});
+
 // Create HTTP server (instead of app.listen)
 const httpServer = createServer(app);
 
@@ -46,24 +55,14 @@ startDailyCleanup();
 
 const PORT = parseInt(process.env.PORT || "8787", 10);
 
-app.get("/health", (req, res) => {
-  const isHealthy = orderNotificationWorker.isRunning();
-  res.status(isHealthy ? 200 : 503).json({
-    status: isHealthy ? "healthy" : "unhealthy",
-    worker: "order-notifications",
-  });
-});
-
-app.listen(PORT, () => {
-  console.log(`Health check server on port ${PORT}`);
-});
-
+// ✅ ONLY ONE listen() call
 httpServer.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📦 BullMQ worker active`);
   console.log(`🔍 Order poller running (60s interval)`);
   console.log(`⏱️  Batch scheduler running (60s window)`);
   console.log(`🔌 Socket.IO ready for admin connections`);
+  console.log(`💚 Health check available at /health`);
 });
 
 process.on("unhandledRejection", (reason) => {
