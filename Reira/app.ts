@@ -10,6 +10,7 @@ import { initializeSocket } from "@config/socketio";
 import startOrderPoller from "@utils/poller";
 import { redis } from "@config/redis";
 import { startBatchPublisher, startDailyCleanup } from "@utils/schedulerINT";
+import orderNotificationWorker from "Orderworker";
 
 dotenv.config();
 
@@ -44,6 +45,18 @@ startBatchPublisher();
 startDailyCleanup();
 
 const PORT = parseInt(process.env.PORT || "8787", 10);
+
+app.get("/health", (req, res) => {
+  const isHealthy = orderNotificationWorker.isRunning();
+  res.status(isHealthy ? 200 : 503).json({
+    status: isHealthy ? "healthy" : "unhealthy",
+    worker: "order-notifications",
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`Health check server on port ${PORT}`);
+});
 
 httpServer.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
