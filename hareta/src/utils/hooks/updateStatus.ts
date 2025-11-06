@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api } from './apiUtils';
 import { toast } from 'sonner';
+import axios from 'axios';
 
 export function useUpdateOrderStatus() {
   const [isUpdating, setIsUpdating] = useState(false);
@@ -23,10 +24,14 @@ export function useUpdateOrderStatus() {
       );
 
       return data;
-    } catch (err: any) {
-      console.error(err?.response?.data?.error || err.message);
-      toast.error(err?.response?.data?.error || 'Failed to update order');
-      throw new Error(err?.response?.data?.error || 'Failed to update order');
+    } catch (err: unknown) {
+      const message = axios.isAxiosError(err)
+        ? err.response?.data?.error || err.message
+        : 'Something went wrong';
+
+      toast.error(message);
+      console.error(message);
+      throw new Error(message);
     } finally {
       setIsUpdating(false);
     }

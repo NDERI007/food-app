@@ -1,8 +1,6 @@
 import cron from "node-cron";
 import { flushAndPublishAtomic } from "@utils/redisBatchScripts";
 import { logger } from "@utils/logger";
-import supabase from "@config/supabase";
-import { DateTime } from "luxon";
 
 const ORDERS_KEY = "admin:order-notifications:orders";
 const TOTAL_KEY = "admin:order-notifications:total";
@@ -40,29 +38,6 @@ export function startBatchPublisher() {
       if (!orders.length) {
         logger?.info("📭 No valid orders in batch");
         return;
-      }
-
-      // Call RPC to insert orders + update daily total
-      const today = DateTime.now().toISODate();
-      logger?.info({ orders }, "🧾 Orders being sent to RPC");
-
-      const { data, error } = await supabase.rpc("insert_payment_batch", {
-        p_day: today,
-        p_orders: orders,
-      });
-      logger?.info({ data, error }, "🧮 RPC result");
-
-      if (error) {
-        logger?.error({ error }, "❌ Failed to insert payment batch");
-      } else {
-        logger?.info(
-          {
-            count,
-            totalRevenue: total,
-            inserted: orders.length,
-          },
-          `✅ Published and saved batch of ${count} orders`
-        );
       }
     } catch (error) {
       logger?.error({ error }, "❌ Batch publisher error");

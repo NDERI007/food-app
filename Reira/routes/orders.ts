@@ -11,6 +11,29 @@ router.use(withAuth());
  * GET /api/orders
  * Get all orders for authenticated user
  */
+
+router.get("/reviewed", async (req, res) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const pageSize = parseInt(req.query.pageSize as string) || 20;
+    const status = req.query.status as string | undefined;
+
+    const { data, error } = await supabase.rpc("get_admin_reviewed_orders", {
+      page_number: page,
+      page_size: pageSize,
+      order_status: status || null,
+    });
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json(data);
+  } catch (err) {
+    console.error("Error fetching reviewed orders:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 router.post("/update-status", withAuth(["admin"]), async (req, res) => {
   try {
     const userID = req.user?.userID;

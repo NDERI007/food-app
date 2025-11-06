@@ -1,45 +1,41 @@
 import { useState, useEffect, useRef } from 'react';
-import { Bell, ChevronDown, TrendingUp, X } from 'lucide-react';
+import {
+  Bell,
+  Package,
+  X,
+  Clock,
+  Wifi,
+  WifiOff,
+  ChevronRight,
+} from 'lucide-react';
 import io from 'socket.io-client';
-import OrderDetailsDrawer from '@admin/orders/orderDrawer';
-import { useNavigate } from 'react-router-dom';
+import OrderDetailsDrawer from './orderDrawer';
+
+interface Order {
+  orderID: string;
+  totalAmount: number;
+  deliveryType: string;
+  createdAt: string;
+  paymentReference?: string;
+}
 
 interface BatchNotification {
   type: 'batch';
   count: number;
   totalRevenue: number;
-  orders: Array<{
-    orderID: string;
-    totalAmount: number;
-    deliveryType: string;
-    createdAt: string;
-    paymentReference?: string;
-  }>;
+  orders: Order[];
   timestamp: string;
 }
-
-const DESKTOP_PANEL_WIDTH = 384; // equals Tailwind w-96 (96 * 4 = 384px)
 
 const OrderMonitor = () => {
   const [notifications, setNotifications] = useState<BatchNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showPanel, setShowPanel] = useState(false);
-  const [todayStats, setTodayStats] = useState({ orders: 0, revenue: 0 });
   const [isConnected, setIsConnected] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
-  // For positioning
-  const bellRef = useRef<HTMLButtonElement | null>(null);
-  const panelRef = useRef<HTMLDivElement | null>(null);
-  const [panelCoords, setPanelCoords] = useState<{
-    top: number;
-    left: number;
-  } | null>(null);
-
   // Track which orders we've already notified about
   const notifiedOrderIds = useRef<Set<string>>(new Set());
-
-  const navigate = useNavigate();
 
   useEffect(() => {
     const socket = io('http://localhost:8787', {
@@ -54,6 +50,7 @@ const OrderMonitor = () => {
 
     socket.on('disconnect', () => setIsConnected(false));
     socket.on('connect_error', () => setIsConnected(false));
+
     socket.on('admin:notifications', (data: BatchNotification) => {
       // filter duplicates
       const newOrders = data.orders.filter(
@@ -63,19 +60,22 @@ const OrderMonitor = () => {
       newOrders.forEach((o) => notifiedOrderIds.current.add(o.orderID));
 
       const newBatchRevenue = newOrders.reduce((s, o) => s + o.totalAmount, 0);
-      const newBatch: BatchNotification = {
-        ...data,
-        count: newOrders.length,
-        totalRevenue: newBatchRevenue,
-        orders: newOrders,
-      };
 
-      setNotifications((prev) => [newBatch, ...prev].slice(0, 20));
+      // Flatten orders into individual notifications
+      const individualNotifications: BatchNotification[] = newOrders.map(
+        (order) => ({
+          type: 'batch',
+          count: 1,
+          totalRevenue: order.totalAmount,
+          orders: [order],
+          timestamp: order.createdAt,
+        }),
+      );
+
+      setNotifications((prev) =>
+        [...individualNotifications, ...prev].slice(0, 20),
+      );
       setUnreadCount((prev) => prev + newOrders.length);
-      setTodayStats((prev) => ({
-        orders: prev.orders + newOrders.length,
-        revenue: prev.revenue + newBatchRevenue,
-      }));
 
       if ('Notification' in window && Notification.permission === 'granted') {
         new Notification(
@@ -98,250 +98,232 @@ const OrderMonitor = () => {
     };
   }, []);
 
-  // Update desktop panel coordinates when opening & on resize/scroll
-  useEffect(() => {
-    if (!showPanel) {
-      setPanelCoords(null);
-      return;
-    }
-
-    const compute = () => {
-      const btn = bellRef.current;
-      if (!btn) return setPanelCoords(null);
-      const rect = btn.getBoundingClientRect();
-
-      const desiredRight = rect.right; // align panel's right edge with bell's right
-      // compute left = desiredRight - panelWidth
-      let left = Math.round(desiredRight - DESKTOP_PANEL_WIDTH);
-      // keep some padding from the edge
-      const minLeft = 8;
-      const maxLeft = window.innerWidth - DESKTOP_PANEL_WIDTH - 8;
-      left = Math.max(minLeft, Math.min(left, maxLeft));
-
-      const top = Math.round(rect.bottom + 8); // 8px gap below button
-      setPanelCoords({ top, left });
-    };
-
-    // compute immediately
-    compute();
-
-    // recompute on scroll / resize
-    window.addEventListener('resize', compute);
-    window.addEventListener('scroll', compute, true);
-
-    return () => {
-      window.removeEventListener('resize', compute);
-      window.removeEventListener('scroll', compute, true);
-    };
-  }, [showPanel]);
-
-  // close on outside clicks (desktop)
-  useEffect(() => {
-    if (!showPanel) return;
-
-    const onDocClick = (e: MouseEvent) => {
-      const p = panelRef.current;
-      const b = bellRef.current;
-      if (!p || !b) return;
-      const target = e.target as Node;
-      if (!p.contains(target) && !b.contains(target)) {
-        setShowPanel(false);
-      }
-    };
-
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
-  }, [showPanel]);
-
   const markAsRead = () => setUnreadCount(0);
 
   const formatCurrency = (amount: number) =>
     `KSh ${amount.toLocaleString('en-KE', { minimumFractionDigits: 2 })}`;
 
-  const formatTime = (timestamp: string) =>
-    new Date(timestamp).toLocaleTimeString('en-KE', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+  const formatTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMinutes = Math.floor((now.getTime() - date.getTime()) / 60000);
+
+    if (diffMinutes < 1) return 'Just now';
+    if (diffMinutes < 60) return `${diffMinutes}m ago`;
+
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+
+    return date.toLocaleDateString('en-KE', { month: 'short', day: 'numeric' });
+  };
+
+  const getTimeOfDay = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Morning';
+    if (hour < 17) return 'Afternoon';
+    return 'Evening';
+  };
 
   const handleOrderClick = (orderId: string) => {
     setSelectedOrderId(orderId);
     setShowPanel(false);
   };
 
-  const handleViewAllOrders = (batchOrders: BatchNotification['orders']) => {
-    if (batchOrders.length > 0) {
-      setSelectedOrderId(batchOrders[0].orderID);
-      setShowPanel(false);
-    }
-  };
-
   return (
     <>
-      <div className='ml-auto flex items-center gap-2 sm:gap-4'>
-        {/* Connection Status Indicator */}
+      {/* Bell Button */}
+      <div className='relative'>
+        <button
+          onClick={() => {
+            setShowPanel(!showPanel);
+            if (!showPanel) markAsRead();
+          }}
+          className='relative rounded-full bg-gray-700 p-2.5 transition-all hover:bg-gray-600 hover:shadow-lg hover:shadow-purple-500/20'
+          aria-label='Notifications'
+        >
+          <Bell className='h-5 w-5 text-gray-200' />
+          {unreadCount > 0 && (
+            <span className='absolute -top-1 -right-1 flex h-5 w-5 animate-pulse items-center justify-center rounded-full bg-purple-600 text-[10px] font-bold text-white'>
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Backdrop - Higher z-index */}
+      {showPanel && (
         <div
-          className={`h-2 w-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}
-          title={isConnected ? 'Connected' : 'Disconnected'}
+          className='fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm'
+          onClick={() => setShowPanel(false)}
         />
+      )}
 
-        {/* Orders Today - MOBILE */}
-        <div className='flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-[10px] font-medium text-green-900 sm:hidden'>
-          <TrendingUp className='h-3 w-3' />
-          {todayStats.orders}
-        </div>
+      {/* Slide-out Drawer - Even higher z-index */}
+      <div
+        className={`fixed top-14 right-0 z-[101] h-[calc(100vh-56px)] w-full transform border-l border-gray-700 bg-gradient-to-b from-gray-900 to-gray-800 shadow-2xl transition-transform duration-300 ease-out sm:w-[420px] ${
+          showPanel ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        {/* Header */}
+        <div className='border-b border-gray-700 bg-gradient-to-r from-gray-800 to-gray-900 p-4'>
+          <div className='mb-4 flex items-center justify-between'>
+            <div className='flex items-center gap-3'>
+              <div className='rounded-lg border border-purple-500/30 bg-purple-500/20 p-2 shadow-sm'>
+                <Bell className='h-5 w-5 text-purple-400' />
+              </div>
+              <div>
+                <h2 className='text-lg font-bold text-white'>Orders</h2>
+                <p className='text-xs text-gray-400'>Good {getTimeOfDay()}</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowPanel(false)}
+              className='rounded-lg p-2 transition-colors hover:bg-gray-700'
+              aria-label='Close'
+            >
+              <X className='h-5 w-5 text-gray-400 hover:text-white' />
+            </button>
+          </div>
 
-        {/* Today's Stats - DESKTOP */}
-        <div className='hidden items-center gap-2 rounded-lg bg-green-50 px-3 py-2 lg:flex'>
-          <TrendingUp className='h-4 w-4 text-green-900' />
-          <div className='text-xs'>
-            <p className='font-semibold text-green-900'>
-              {todayStats.orders} Orders Today
-            </p>
-            <p className='text-green-700'>
-              {formatCurrency(todayStats.revenue)}
-            </p>
+          {/* Connection Status */}
+          <div className='flex items-center justify-between'>
+            <div
+              className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium ${
+                isConnected
+                  ? 'border border-green-500/30 bg-green-500/20 text-green-400'
+                  : 'border border-red-500/30 bg-red-500/20 text-red-400'
+              }`}
+            >
+              {isConnected ? (
+                <>
+                  <Wifi className='h-3.5 w-3.5' />
+                  <span>Live</span>
+                </>
+              ) : (
+                <>
+                  <WifiOff className='h-3.5 w-3.5' />
+                  <span>Offline</span>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Notification Bell */}
-        <div className='relative' style={{ zIndex: 60 }}>
-          <button
-            ref={bellRef}
-            onClick={() => {
-              setShowPanel((s) => {
-                const next = !s;
-                if (next) markAsRead();
-                return next;
-              });
-            }}
-            className='relative rounded-full p-2 transition-colors hover:bg-gray-100 focus:ring-2 focus:ring-green-500 focus:outline-none'
-            aria-label='Notifications'
-          >
-            <Bell className='h-5 w-5 text-green-900 sm:h-6 sm:w-6' />
-            {unreadCount > 0 && (
-              <span className='absolute -top-1 -right-1 flex h-5 w-5 animate-pulse items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white'>
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </span>
-            )}
-          </button>
+        {/* Orders Timeline */}
+        <div className='h-[calc(100vh-180px)] overflow-y-auto bg-gray-900'>
+          <div className='p-4'>
+            <h3 className='mb-3 text-xs font-semibold tracking-wide text-gray-500 uppercase'>
+              Recent Activity
+            </h3>
 
-          {/* PANEL (same for mobile & desktop) */}
-          {showPanel && (
-            <div
-              className='fixed inset-0 z-[9999] flex justify-end bg-black/40 backdrop-blur-sm'
-              onClick={() => setShowPanel(false)}
-            >
-              <div
-                onClick={(e) => e.stopPropagation()}
-                className='animate-slideInRight flex h-full w-full max-w-[420px] flex-col border-l border-gray-200 bg-white pt-16 shadow-2xl sm:pt-0'
-              >
-                {/* Header */}
-                <div className='flex items-center justify-between border-b border-gray-200 bg-green-50 px-4 py-3 sm:py-4'>
-                  <h3 className='font-bold text-green-900'>
-                    Order Notifications
-                  </h3>
-                  <button
-                    onClick={() => setShowPanel(false)}
-                    className='rounded-full p-1'
-                  >
-                    <X className='h-5 w-5 text-green-900' />
-                  </button>
+            {notifications.length === 0 ? (
+              <div className='flex flex-col items-center justify-center py-12 text-center'>
+                <div className='mb-3 rounded-full border border-gray-700 bg-gray-800 p-4'>
+                  <Package className='h-8 w-8 text-gray-600' />
                 </div>
+                <p className='text-sm font-medium text-gray-300'>
+                  No orders yet
+                </p>
+                <p className='mt-1 text-xs text-gray-500'>
+                  New orders will appear here
+                </p>
+              </div>
+            ) : (
+              <div className='space-y-3'>
+                {notifications.map((batch, idx) => {
+                  const order = batch.orders[0];
+                  const isNew = idx < 3;
 
-                {/* Content */}
-                <div className='flex-1 divide-y divide-gray-100 overflow-y-auto'>
-                  {notifications.length === 0 && (
-                    <div className='p-8 text-center text-gray-500'>
-                      No new orders
-                    </div>
-                  )}
-
-                  {notifications.map((batch, idx) => (
-                    <details key={idx} open={idx === 0} className='group'>
-                      {/* Accordion Header */}
-                      <summary className='flex cursor-pointer list-none items-center justify-between bg-gray-50 p-4 select-none hover:bg-green-50'>
-                        <div className='flex flex-col'>
-                          <p className='font-semibold text-green-900'>
-                            {batch.count} New Order{batch.count > 1 ? 's' : ''}
-                          </p>
-                          <p className='text-xs text-gray-500'>
-                            {formatTime(batch.timestamp)}
-                          </p>
-                        </div>
-
+                  return (
+                    <div
+                      key={order.orderID}
+                      className='rounded-xl border border-gray-700 bg-gray-800 p-4 transition-all hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/10'
+                    >
+                      {/* Order Header */}
+                      <div className='mb-3 flex items-start justify-between'>
                         <div className='flex items-center gap-3'>
-                          <p className='font-bold whitespace-nowrap text-green-900'>
-                            {formatCurrency(batch.totalRevenue)}
-                          </p>
-
-                          {/* Custom Chevron */}
-                          <ChevronDown className='h-5 w-5 text-green-900 transition-transform group-open:rotate-180' />
+                          <div
+                            className={`rounded-lg p-2 ${
+                              order.deliveryType === 'Delivery'
+                                ? 'border border-blue-500/30 bg-blue-500/20'
+                                : 'border border-purple-500/30 bg-purple-500/20'
+                            }`}
+                          >
+                            <Package
+                              className={`h-4 w-4 ${
+                                order.deliveryType === 'Delivery'
+                                  ? 'text-blue-400'
+                                  : 'text-purple-400'
+                              }`}
+                            />
+                          </div>
+                          <div>
+                            <p className='text-sm font-semibold text-white'>
+                              {order.orderID}
+                            </p>
+                            <div className='mt-0.5 flex items-center gap-1'>
+                              <Clock className='h-3 w-3 text-gray-500' />
+                              <p className='text-xs text-gray-400'>
+                                {formatTime(order.createdAt)}
+                              </p>
+                            </div>
+                          </div>
                         </div>
-                      </summary>
+                        <span
+                          className={`rounded-md border px-2 py-1 text-xs font-medium ${
+                            isNew
+                              ? 'border-green-500/30 bg-green-500/20 text-green-400'
+                              : 'border-gray-600 bg-gray-700 text-gray-400'
+                          }`}
+                        >
+                          {isNew ? 'New' : order.deliveryType}
+                        </span>
+                      </div>
 
-                      {/* Accordion Body */}
-                      <div className='space-y-1 border-t border-gray-100 p-4'>
-                        {batch.orders.map((order) => (
-                          <button
-                            key={order.orderID}
-                            onClick={() => handleOrderClick(order.orderID)}
-                            className='flex w-full items-center justify-between rounded-md bg-gray-50 px-3 py-2 text-xs hover:bg-green-50'
-                          >
-                            <span className='truncate font-mono text-green-900'>
-                              #{order.orderID.slice(0, 8)}
-                            </span>
-                            <span className='ml-2 whitespace-nowrap text-gray-600'>
-                              {formatCurrency(order.totalAmount)}
-                            </span>
-                          </button>
-                        ))}
-
-                        {/* Actions */}
-                        <div className='flex gap-2 pt-3'>
-                          <button
-                            onClick={() => handleViewAllOrders(batch.orders)}
-                            className='flex-1 rounded-lg bg-green-900 py-2 text-sm font-semibold text-white hover:bg-green-800'
-                          >
-                            View Details
-                          </button>
-
-                          <button
-                            onClick={() => navigate('/admin/orders')}
-                            className='flex-1 rounded-lg border border-green-900 bg-white py-2 text-sm font-semibold text-green-900 hover:bg-green-50'
-                          >
-                            All Orders
-                          </button>
+                      {/* Order Details */}
+                      <div className='mb-3 flex items-center justify-between border-t border-gray-700 pt-3'>
+                        <div>
+                          <p className='mb-0.5 text-xs text-gray-500'>
+                            Payment Ref
+                          </p>
+                          <p className='font-mono text-xs font-medium text-purple-400'>
+                            {order.paymentReference || 'N/A'}
+                          </p>
+                        </div>
+                        <div className='text-right'>
+                          <p className='mb-0.5 text-xs text-gray-500'>Amount</p>
+                          <p className='text-lg font-bold text-white'>
+                            {formatCurrency(order.totalAmount)}
+                          </p>
                         </div>
                       </div>
-                    </details>
-                  ))}
-                </div>
+
+                      {/* View Details Button */}
+                      <button
+                        onClick={() => handleOrderClick(order.orderID)}
+                        className='flex w-full items-center justify-center gap-2 rounded-lg bg-purple-600 py-2.5 text-sm font-semibold text-white transition-all hover:bg-purple-500 hover:shadow-lg hover:shadow-purple-500/50'
+                      >
+                        View Details
+                        <ChevronRight className='h-4 w-4' />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
+      {/* Order Details Drawer - Highest z-index */}
       {selectedOrderId && (
         <OrderDetailsDrawer
           orderID={selectedOrderId}
           onClose={() => setSelectedOrderId(null)}
           onOrderUpdated={(orderID) => {
-            // Remove the order from notifications list
-            setNotifications(
-              (prev) =>
-                prev
-                  .map((batch) => ({
-                    ...batch,
-                    orders: batch.orders.filter((o) => o.orderID !== orderID),
-                    count: batch.orders.filter((o) => o.orderID !== orderID)
-                      .length,
-                  }))
-                  .filter((batch) => batch.count > 0), // Remove empty batches
+            setNotifications((prev) =>
+              prev.filter((batch) => batch.orders[0].orderID !== orderID),
             );
-
-            // Close drawer (the drawer already calls onClose, but safe to double ensure)
             setSelectedOrderId(null);
           }}
         />

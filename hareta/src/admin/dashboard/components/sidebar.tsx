@@ -1,5 +1,5 @@
 import { useAuth } from '@utils/hooks/useAuth';
-import { X, Package, LogOut, ShoppingCart, List } from 'lucide-react';
+import { X, Package, LogOut, List } from 'lucide-react';
 import type { ComponentType, SVGProps } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -129,11 +129,6 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 <div className='mb-2 px-2.5 text-xs font-semibold text-gray-500'>
                   ACCOUNT
                 </div>
-                <NavButton
-                  icon={ShoppingCart}
-                  label='Orders'
-                  path='/admin/orders'
-                />
                 <NavButton
                   icon={Package}
                   label='Products'

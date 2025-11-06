@@ -22,8 +22,7 @@ export default function OrderDetailsDrawer({
   onClose,
   onOrderUpdated,
 }: OrderDetailsProps) {
-  if (!orderID) return null;
-
+  // Call all hooks first (unconditionally)
   const {
     data: order,
     isLoading,
@@ -33,6 +32,21 @@ export default function OrderDetailsDrawer({
   } = useOrderDetails(orderID);
 
   const { updateOrderStatus, isUpdating } = useUpdateOrderStatus();
+
+  // Drag-to-close state
+  const sheetRef = useRef<HTMLDivElement | null>(null);
+  const startYRef = useRef<number | null>(null);
+  const translateYRef = useRef(0);
+  const [translateY, setTranslateY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const CLOSE_THRESHOLD = 120;
+
+  const formatTime = (dateString: string) =>
+    new Date(dateString).toLocaleTimeString('en-KE', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
 
   const handleComplete = async () => {
     await updateOrderStatus(orderID, 'complete');
@@ -46,26 +60,15 @@ export default function OrderDetailsDrawer({
     onClose();
   };
 
-  const formatTime = (dateString: string) =>
-    new Date(dateString).toLocaleTimeString('en-KE', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-
-  // Drag-to-close state
-  const sheetRef = useRef<HTMLDivElement | null>(null);
-  const startYRef = useRef<number | null>(null);
-  const translateYRef = useRef(0);
-  const [translateY, setTranslateY] = useState(0); // px
-  const [isDragging, setIsDragging] = useState(false);
-
-  // Balanced sensitivity: must drag at least 120px to close
-  const CLOSE_THRESHOLD = 120;
-
   // Pointer event handlers (works for touch and mouse)
   useEffect(() => {
     const el = sheetRef.current;
     if (!el) return;
+
+    const element = el as HTMLElement & {
+      setPointerCapture?: (pointerId: number) => void;
+      releasePointerCapture?: (pointerId: number) => void;
+    };
 
     const onPointerDown = (e: PointerEvent) => {
       // only start drag if on mobile viewport (bottom sheet)
@@ -73,9 +76,7 @@ export default function OrderDetailsDrawer({
       startYRef.current = e.clientY;
       translateYRef.current = 0;
       setIsDragging(true);
-      // capture pointer to get subsequent events even if pointer leaves element
-      // @ts-ignore
-      el.setPointerCapture?.(e.pointerId);
+      element.setPointerCapture?.(e.pointerId);
     };
 
     const onPointerMove = (e: PointerEvent) => {
@@ -89,24 +90,17 @@ export default function OrderDetailsDrawer({
       if (!isDragging) return;
       setIsDragging(false);
 
-      // release capture
-      // @ts-ignore
-      try {
-        el.releasePointerCapture?.(e.pointerId);
-      } catch {
-        /* noop */
-      }
+      element.releasePointerCapture?.(e.pointerId);
 
       const final = translateYRef.current ?? 0;
-      // close if dragged beyond threshold or a fast flick (velocity not measured here)
+      // close if dragged beyond threshold
       if (final >= CLOSE_THRESHOLD) {
-        // reset and close
         setTranslateY(0);
         translateYRef.current = 0;
         startYRef.current = null;
         onClose();
       } else {
-        // snap back (no animation per your choice) — instantly reset
+        // snap back
         setTranslateY(0);
         translateYRef.current = 0;
         startYRef.current = null;
@@ -135,6 +129,9 @@ export default function OrderDetailsDrawer({
     };
   }, []);
 
+  // Early return after all hooks are called
+  if (!orderID) return null;
+
   // Inline style for transform when dragging (only applied on mobile)
   const sheetStyle =
     typeof translateY === 'number' && window?.innerWidth < 768
@@ -152,14 +149,13 @@ export default function OrderDetailsDrawer({
       <div
         ref={sheetRef}
         onClick={(e) => e.stopPropagation()}
-        // mobile: bottom sheet (full width), pushed down by header; md+: side drawer
         style={sheetStyle}
         className={
           'flex h-full w-full max-w-full flex-col rounded-t-2xl border-t border-gray-800 bg-gray-900 text-gray-100 shadow-2xl ' +
           'pt-16 md:max-w-[420px] md:rounded-none md:border-l md:pt-0'
         }
       >
-        {/* Mobile drag handle (small visible bar) */}
+        {/* Mobile drag handle */}
         <div className='flex justify-center md:hidden'>
           <div className='mt-2 mb-1 h-1 w-12 rounded-full bg-gray-700' />
         </div>
@@ -168,7 +164,6 @@ export default function OrderDetailsDrawer({
         <div className='bg-gray-850 flex items-center justify-between border-b border-gray-800 px-4 py-3 md:py-4'>
           <h2 className='text-lg font-bold text-gray-200'>Order Receipt</h2>
 
-          {/* Close button always visible and reachable */}
           <button
             onClick={onClose}
             aria-label='Close'
@@ -282,7 +277,7 @@ export default function OrderDetailsDrawer({
           )}
         </div>
 
-        {/* Action Footer (sticky inside sheet) */}
+        {/* Action Footer */}
         {order && (
           <div className='sticky bottom-0 flex gap-3 border-t border-gray-800 bg-gray-900 p-4'>
             <button

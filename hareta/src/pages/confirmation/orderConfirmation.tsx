@@ -13,6 +13,8 @@ import { OrderDetailsCard } from './components/orderDetails';
 import { OrderItemsCard } from './components/orderItemscard';
 import { OrderStatusCard } from './components/orderStatus';
 import { SuccessHeader } from './components/successHeader';
+import axios from 'axios';
+import { ConfirmModal } from '@components/confirmModal';
 
 const MAX_WAIT_TIME = 60;
 
@@ -29,6 +31,8 @@ const OrderConfirmation = () => {
     'connecting' | 'connected' | 'error'
   >('connecting');
   const [confirmingDelivery, setConfirmingDelivery] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const socketRef = useRef<Socket | null>(null);
   const orderID = searchParams.get('orderID');
@@ -195,37 +199,36 @@ const OrderConfirmation = () => {
 
   const handleConfirmDelivery = async () => {
     if (!orderData) return;
+    setConfirmingDelivery(true);
+    setErrorMessage(null);
 
-    if (
-      window.confirm(
-        'Have you received your order? This will mark it as delivered.',
-      )
-    ) {
-      setConfirmingDelivery(true);
-      try {
-        const response = await api.post(
-          `/api/orders/${orderData.id}/confirm-delivery`,
+    try {
+      const res = await api.post(
+        `/api/orders/${orderData.id}/confirm-delivery`,
+      );
+
+      if (res.data.success) {
+        setOrderData((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: 'delivered',
+                delivered_at: res.data.delivered_at,
+              }
+            : null,
         );
-
-        if (response.data.success) {
-          setOrderData((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  status: 'delivered',
-                  delivered_at: response.data.delivered_at,
-                }
-              : null,
-          );
-        }
-      } catch (error: any) {
-        const errorMsg =
-          error.response?.data?.error ||
-          'Failed to confirm delivery. Please try again.';
-        alert(errorMsg);
-      } finally {
-        setConfirmingDelivery(false);
+        setShowConfirmModal(false);
       }
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        setErrorMessage(
+          error.response?.data?.error ?? 'Unable to confirm delivery.',
+        );
+      } else {
+        setErrorMessage('Something went wrong.');
+      }
+    } finally {
+      setConfirmingDelivery(false);
     }
   };
 
@@ -271,12 +274,32 @@ const OrderConfirmation = () => {
         />
 
         {orderData.status === 'confirmed' && (
-          <ConfirmDeliveryCard
-            deliveryType={orderData.delivery_type}
-            orderId={orderData.id}
-            confirmingDelivery={confirmingDelivery}
-            onConfirm={handleConfirmDelivery}
-          />
+          <div className='space-y-2'>
+            <ConfirmDeliveryCard
+              deliveryType={orderData.delivery_type}
+              orderId={orderData.id}
+              confirmingDelivery={confirmingDelivery}
+              onConfirm={() => setShowConfirmModal(true)}
+            />
+
+            {errorMessage && (
+              <p className='text-sm text-red-600'>{errorMessage}</p>
+            )}
+
+            <ConfirmModal
+              show={showConfirmModal}
+              message={
+                orderData.delivery_type === 'pickup'
+                  ? 'Have you picked up your order? This will mark it as completed.'
+                  : 'Have you received your order? This will mark it as delivered.'
+              }
+              onConfirm={handleConfirmDelivery}
+              onCancel={() => setShowConfirmModal(false)}
+              confirmText='Yes, Confirm'
+              cancelText='No'
+              loading={confirmingDelivery}
+            />
+          </div>
         )}
 
         {orderData.status === 'delivered' && (

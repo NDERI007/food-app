@@ -1,3 +1,5 @@
+import type { ImageVariants } from './menu';
+
 export interface OrderSummary {
   orderID: string;
   totalAmount: number;
@@ -7,10 +9,8 @@ export interface OrderSummary {
 
 export interface OrderItem {
   name: string;
-  image_url: string | null;
   quantity: number;
   variant_size: string | null;
-  unit_price: number;
 }
 
 export interface OrderDetails {
@@ -65,4 +65,32 @@ export interface OrderData {
   delivery_code?: string;
   delivered_at?: string;
   items?: Order_Item[]; // Changed from order_items to items (RPC format)
+}
+
+export interface OrderHistoryItem {
+  id: string;
+  delivery_type: 'pickup' | 'delivery';
+  delivery_address_main_text: string | null;
+  delivery_address_secondary_text: string | null;
+  delivery_instructions: string | null;
+  status: string;
+  payment_status: string;
+  payment_reference: string | null;
+  mpesa_phone: string | null;
+  subtotal: number;
+  delivery_fee: number;
+  total_amount: number;
+  created_at: string; // comes as ISO string
+  items: OrderHistoryProduct[];
+}
+
+export interface OrderHistoryProduct {
+  id: string;
+  product_id: string;
+  variant_id: string | null;
+  product_name: string;
+  quantity: number;
+  price: number; // already total price
+  image_url: ImageVariants | null;
+  variant_size: string | null;
 }

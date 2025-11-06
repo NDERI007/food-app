@@ -35,18 +35,15 @@ export const useDeliveryStore = create<DeliveryState>()(
           name: getStorageKey(userId),
         });
 
-        // ✅ Attempt to restore previous delivery data
         const stored = localStorage.getItem(getStorageKey(userId));
         if (stored) {
-          try {
-            const parsed = JSON.parse(stored);
-            set({
-              userId,
-              place: parsed.state?.place || null,
-              deliveryOption: parsed.state?.deliveryOption || 'delivery',
-            });
-            return;
-          } catch {}
+          const parsed = JSON.parse(stored);
+          set({
+            userId,
+            place: parsed.state?.place || null,
+            deliveryOption: parsed.state?.deliveryOption || 'delivery',
+          });
+          return;
         }
 
         // ✅ If no stored state → just adopt userId, do not clear anything

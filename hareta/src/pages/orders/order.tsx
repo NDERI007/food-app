@@ -5,10 +5,10 @@ import { api } from '@utils/hooks/apiUtils';
 import { toast } from 'sonner';
 import { useDeliveryStore } from '@utils/hooks/deliveryStore';
 import { useCartStore, type ReorderItem } from '@utils/hooks/useCrt';
-
+import type { OrderHistoryItem } from '@utils/schemas/order';
 export default function OrderHistory() {
   const navigate = useNavigate();
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<OrderHistoryItem[]>([]);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -19,10 +19,14 @@ export default function OrderHistory() {
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        const res = await api.get('/api/orders/history', {
-          withCredentials: true,
-        });
-        setOrders(res.data.orders || []);
+        const res = await api.get<{ orders: OrderHistoryItem[] }>(
+          '/api/orders/history',
+          {
+            withCredentials: true,
+          },
+        );
+
+        setOrders(res.data.orders ?? []);
       } catch (err) {
         console.error(err);
       } finally {
@@ -38,14 +42,14 @@ export default function OrderHistory() {
 
   const formatCurrency = (v: number) => `KES ${v}`;
 
-  const firstItemTitle = (order: any) => {
+  const firstItemTitle = (order: OrderHistoryItem) => {
     const first = order.items?.[0];
     if (!first) return `Order #${order.id.slice(0, 6)}`;
     const size = first.variant_size ? ` (${first.variant_size})` : '';
     return `${first.product_name}${size}`.toUpperCase();
   };
 
-  const reorder = (order: any) => {
+  const reorder = (order: OrderHistoryItem) => {
     try {
       // Store previous cart state for undo functionality
       const previousItems = useCartStore.getState().items;
@@ -53,7 +57,7 @@ export default function OrderHistory() {
       const previousPlace = useDeliveryStore.getState().place;
 
       // Convert order items to reorder format
-      const itemsToReorder: ReorderItem[] = order.items.map((item: any) => ({
+      const itemsToReorder: ReorderItem[] = order.items.map((item) => ({
         product_id: item.product_id,
         variant_id: item.variant_id,
         product_name: item.product_name,
@@ -77,9 +81,6 @@ export default function OrderHistory() {
         setDeliveryAddress({
           main_text: order.delivery_address_main_text,
           secondary_text: order.delivery_address_secondary_text || '',
-          place_id: order.delivery_place_id || '',
-          lat: order.delivery_lat || 0,
-          lng: order.delivery_lng || 0,
         });
       }
 
@@ -132,7 +133,7 @@ export default function OrderHistory() {
       )}
 
       <div className='mx-auto max-w-xl space-y-4'>
-        {orders.map((order: any) => {
+        {orders.map((order) => {
           const isOpen = expanded === order.id;
           return (
             <article
@@ -182,7 +183,7 @@ export default function OrderHistory() {
                 className={`overflow-hidden transition-[max-height,padding] duration-300 ${isOpen ? 'max-h-[640px] p-4' : 'max-h-0 p-0'} `}
               >
                 <div className='space-y-2 font-mono text-[14px] text-green-900'>
-                  {order.items.map((item: any) => (
+                  {order.items.map((item) => (
                     <div key={item.id} className='flex justify-between'>
                       <span>
                         {item.product_name.toUpperCase()}
