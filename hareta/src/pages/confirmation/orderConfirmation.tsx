@@ -117,6 +117,7 @@ const OrderConfirmation = () => {
           clearTimeout(timeoutId);
           clearInterval(waitingInterval);
           await fetchOrderDetails();
+          return;
         }
 
         if (

@@ -4,7 +4,6 @@ import { addOrderAtomic } from "@utils/redisBatchScripts";
 import { OrderNotificationJob } from "@utils/queueOrder";
 import { logger } from "@utils/logger";
 
-// Worker to process individual order notifications
 const ORDERS_KEY = "admin:order-notifications:orders";
 const TOTAL_KEY = "admin:order-notifications:total";
 const LAST_KEY = "admin:order-notifications:lastUpdated";
@@ -22,10 +21,9 @@ export const orderNotificationWorker = new Worker(
         order: orderData,
         amount: Number(orderData.totalAmount),
         expirySeconds: 120,
-        maxListLen: 1000, // tune if you want
+        maxListLen: 1000,
       });
 
-      // res = [llen_str, total_str]
       if (res) {
         const [llenStr, totalStr] = res;
         logger?.info(
@@ -41,13 +39,13 @@ export const orderNotificationWorker = new Worker(
       return { batched: true };
     } catch (err) {
       logger?.error({ err, jobId: job.id }, "Failed to add order atomically");
-      throw err; // let BullMQ handle retries according to queue config
+      throw err;
     }
   },
   { connection, concurrency: 10 }
 );
 
-// Error handling
+// Event handlers
 orderNotificationWorker.on("failed", (job, err) => {
   console.error(`❌ Job ${job?.id} failed:`, err);
 });
@@ -56,27 +54,8 @@ orderNotificationWorker.on("completed", (job) => {
   console.log(`✅ Job ${job.id} completed`);
 });
 
-process.on("SIGTERM", shutdown);
-process.on("SIGINT", shutdown);
-
-async function shutdown() {
-  console.log("SIGTERM received. Draining jobs...");
-
-  const timeout = setTimeout(() => {
-    console.warn("⏱ Timeout reached. Forcing exit.");
-    process.exit(1);
-  }, 85_000);
-
-  try {
-    await orderNotificationWorker.pause(true);
-    await orderNotificationWorker.close();
-    clearTimeout(timeout);
-    console.log("✅ Graceful shutdown complete.");
-    process.exit(0);
-  } catch (e) {
-    console.error("❌ Shutdown error:", e);
-    process.exit(1);
-  }
-}
+orderNotificationWorker.on("error", (err) => {
+  console.error("❌ Worker error:", err);
+});
 
 export default orderNotificationWorker;

@@ -10,7 +10,6 @@ import { initializeSocket } from "@config/socketio";
 import startOrderPoller from "@utils/poller";
 import { redis } from "@config/redis";
 import { startBatchPublisher, startDailyCleanup } from "@utils/schedulerINT";
-import orderNotificationWorker from "Orderworker";
 
 dotenv.config();
 
@@ -32,15 +31,6 @@ app.use(express.urlencoded({ extended: true }));
 
 // Mount routes
 app.use("/api", apiRoutes);
-
-// Health check endpoint
-app.get("/health", (req, res) => {
-  const isHealthy = orderNotificationWorker.isRunning();
-  res.status(isHealthy ? 200 : 503).json({
-    status: isHealthy ? "healthy" : "unhealthy",
-    worker: "order-notifications",
-  });
-});
 
 // Create HTTP server (instead of app.listen)
 const httpServer = createServer(app);

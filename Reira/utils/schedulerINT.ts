@@ -34,7 +34,14 @@ export function startBatchPublisher() {
       const count = parseInt(countStr, 10);
       const total = parseFloat(totalStr);
       const orders = JSON.parse(ordersJson || "[]");
-
+      logger?.info(
+        {
+          count,
+          totalRevenue: total,
+          inserted: orders.length,
+        },
+        `✅ Published and saved batch of ${count} orders`
+      );
       if (!orders.length) {
         logger?.info("📭 No valid orders in batch");
         return;
