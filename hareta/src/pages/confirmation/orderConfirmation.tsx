@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@utils/hooks/useAuth';
-import { io, Socket } from 'socket.io-client';
 import { api } from '@utils/hooks/apiUtils';
+
 import type { OrderData } from '@utils/schemas/order';
 import { ConfirmDeliveryCard } from './components/confirmationCard';
 import { DeliveryAddressCard } from './components/deliveryAddrcard';
@@ -15,6 +15,7 @@ import { OrderStatusCard } from './components/orderStatus';
 import { SuccessHeader } from './components/successHeader';
 import axios from 'axios';
 import { ConfirmModal } from '@components/confirmModal';
+import { supabase } from '@utils/supabase/Client';
 
 const MAX_WAIT_TIME = 60;
 
@@ -22,19 +23,17 @@ const OrderConfirmation = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
-
+  const [connectionStatus, setConnectionStatus] = useState<
+    'connecting' | 'connected' | 'error'
+  >('connecting');
   const [orderData, setOrderData] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [waitingTime, setWaitingTime] = useState(0);
-  const [connectionStatus, setConnectionStatus] = useState<
-    'connecting' | 'connected' | 'error'
-  >('connecting');
   const [confirmingDelivery, setConfirmingDelivery] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const socketRef = useRef<Socket | null>(null);
   const orderID = searchParams.get('orderID');
 
   // Auth redirect
@@ -45,7 +44,7 @@ const OrderConfirmation = () => {
     }
   }, [isAuthenticated, authLoading, navigate]);
 
-  // Main order fetching and socket logic
+  // Main order fetching and Supabase Realtime logic
   useEffect(() => {
     if (!orderID || !isAuthenticated || authLoading) {
       if (!orderID && !authLoading) {
@@ -92,76 +91,76 @@ const OrderConfirmation = () => {
       }
     };
 
-    const setupSocketConnection = () => {
-      const socket = io(`${import.meta.env.VITE_API_URL}/orders`, {
-        withCredentials: true,
-        transports: ['websocket', 'polling'],
-      });
+    const setupRealtimeSubscription = () => {
+      console.log('✅ Setting up Supabase Realtime subscription');
+      setConnectionStatus('connected');
 
-      socketRef.current = socket;
+      // Subscribe to changes on the orders table for this specific order
+      const channel = supabase
+        .channel(`order:${orderID}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'orders',
+            filter: `id=eq.${orderID}`,
+          },
+          async (payload) => {
+            console.log('📦 Received order update from Supabase:', payload);
 
-      socket.on('connect', () => {
-        console.log('✅ Connected to Socket.IO');
-        setConnectionStatus('connected');
-        socket.emit('join_order', orderID);
-      });
+            const updatedOrder = payload.new as any;
 
-      socket.on('joined_order', (data) => {
-        console.log('✅ Joined order room:', data);
-      });
+            // Check if payment status changed to paid
+            if (updatedOrder.payment_status === 'paid') {
+              clearTimeout(timeoutId);
+              clearInterval(waitingInterval);
 
-      socket.on('order_update', async (data) => {
-        console.log('📦 Received order update:', data);
+              // Fetch complete order details
+              const orderResponse = await api.get(`/api/orders/${orderID}`);
+              setOrderData(orderResponse.data.order);
+              setLoading(false);
+              return;
+            }
 
-        if (data.payment_status === 'paid') {
-          clearTimeout(timeoutId);
-          clearInterval(waitingInterval);
-          await fetchOrderDetails();
-          return;
-        }
+            // Handle failed/cancelled payments
+            if (
+              updatedOrder.payment_status === 'failed' ||
+              updatedOrder.payment_status === 'cancelled'
+            ) {
+              clearTimeout(timeoutId);
+              clearInterval(waitingInterval);
+              setError(
+                `Payment ${updatedOrder.payment_status}. Please try again or contact support.`,
+              );
+              setLoading(false);
+              return;
+            }
 
-        if (
-          data.payment_status === 'failed' ||
-          data.payment_status === 'cancelled'
-        ) {
-          clearTimeout(timeoutId);
-          clearInterval(waitingInterval);
-          setError(
-            `Payment ${data.payment_status}. Please try again or contact support.`,
-          );
-          setLoading(false);
-          return;
-        }
+            // Update with partial data for other changes
+            setOrderData((prev) =>
+              prev ? { ...prev, ...updatedOrder } : null,
+            );
+          },
+        )
+        .subscribe((status) => {
+          console.log('Supabase subscription status:', status);
+          if (status === 'SUBSCRIBED') {
+            setConnectionStatus('connected');
+          } else if (status === 'CHANNEL_ERROR') {
+            setConnectionStatus('error');
+            console.error('❌ Supabase subscription error');
+          }
+        });
 
-        setOrderData((prev) =>
-          prev
-            ? { ...prev, ...data }
-            : data.id === orderID
-              ? { ...data }
-              : prev,
-        );
-      });
-
-      socket.on('connect_error', (err) => {
-        console.error('❌ Socket connection error:', err);
-        setConnectionStatus('error');
-      });
-
-      socket.on('disconnect', (reason) => {
-        console.log('👋 Socket disconnected:', reason);
-        if (reason === 'io server disconnect') {
-          socket.connect();
-        }
-      });
-
-      return socket;
+      return channel;
     };
 
     const initialize = async () => {
       const isResolved = await fetchOrderDetails();
 
       if (!isResolved && isMounted) {
-        setupSocketConnection();
+        const channel = setupRealtimeSubscription();
 
         waitingInterval = setInterval(() => {
           if (isMounted) {
@@ -178,22 +177,29 @@ const OrderConfirmation = () => {
             setLoading(false);
           }
         }, MAX_WAIT_TIME * 1000);
+
+        // Store channel for cleanup
+        return channel;
       } else if (isResolved && isMounted) {
-        setupSocketConnection();
+        // Still subscribe even after order is loaded for real-time updates
+        return setupRealtimeSubscription();
       }
     };
 
-    initialize();
+    let channelCleanup: any;
+    initialize().then((channel) => {
+      channelCleanup = channel;
+    });
 
     return () => {
       isMounted = false;
       if (timeoutId) clearTimeout(timeoutId);
       if (waitingInterval) clearInterval(waitingInterval);
 
-      if (socketRef.current) {
-        socketRef.current.emit('leave_order', orderID);
-        socketRef.current.disconnect();
-        socketRef.current = null;
+      // Cleanup Supabase subscription
+      if (channelCleanup) {
+        supabase.removeChannel(channelCleanup);
+        console.log('👋 Unsubscribed from Supabase Realtime');
       }
     };
   }, [orderID, isAuthenticated, authLoading]);
@@ -209,6 +215,8 @@ const OrderConfirmation = () => {
       );
 
       if (res.data.success) {
+        // Supabase Realtime will handle the update automatically
+        // But we can optimistically update the UI
         setOrderData((prev) =>
           prev
             ? {
