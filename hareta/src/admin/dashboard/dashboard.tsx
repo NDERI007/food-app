@@ -1,12 +1,11 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { BarChart2, RefreshCw, CheckCircle, X, XCircle } from 'lucide-react';
 import OrderMonitor from './components/orderMonitor';
 import ReviewedDashboard from './components/reviewedOrders';
 import axios, { AxiosError } from 'axios';
 import { api } from '@utils/hooks/apiUtils';
 
-// Replace with your actual API URL
-const API_URL = '/api/orders/dashboard/today';
+const API_URL = '/api/revenue/today';
 
 interface RecentOrder {
   payment_reference: string;
@@ -35,7 +34,8 @@ export default function AdminDashboard() {
     recentOrders: [],
   });
 
-  const [loading, setLoading] = useState<boolean>(true);
+  // Start as false so UI won't be stuck in "Updating..." before fetch
+  const [loading, setLoading] = useState<boolean>(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
@@ -57,15 +57,21 @@ export default function AdminDashboard() {
 
       const response = await api.get(API_URL, {
         headers: { 'Content-Type': 'application/json' },
+        withCredentials: true,
         timeout: 10000,
       });
 
-      setData(
-        response.data ?? {
-          today: { orders: 0, revenue: 0 },
-          recentOrders: [],
+      // debug — inspect response shape
+      console.log('revenue API response:', response.data);
+
+      setData({
+        today: {
+          orders: response.data.orders ?? response.data.today?.orders ?? 0,
+          revenue: response.data.revenue ?? response.data.today?.revenue ?? 0,
         },
-      );
+        recentOrders: response.data.recentOrders ?? [],
+      });
+
       setLastUpdated(new Date());
     } catch (err) {
       let errorMsg = 'An unexpected error occurred';
@@ -86,14 +92,54 @@ export default function AdminDashboard() {
         errorMsg = err.message;
       }
 
-      showToast(errorMsg, 'error'); // Use showToast directly - no dependency needed
+      showToast(errorMsg, 'error');
       console.error('Dashboard error:', err);
     } finally {
       setLoading(false);
     }
-  }, []); // Empty dependency array - showToast used but not listed
+  }, []); // showToast not included — you can add it to deps or wrap showToast in useCallback
 
-  // ✅ No ESLint warning - truly empty deps
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout | null = null;
+
+    const startPolling = () => {
+      // prevent double intervals
+      if (intervalId) return;
+      intervalId = setInterval(() => {
+        loadData();
+      }, 300000); // 60 seconds
+    };
+
+    const stopPolling = () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        loadData(); // refresh immediately when user returns
+        startPolling();
+      }
+    };
+
+    // initial load + start polling
+    loadData();
+    startPolling();
+
+    // pause/resume when tab visibility changes
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // cleanup
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [loadData]);
+
   const formatTime = (date: Date): string => {
     return date.toLocaleTimeString('en-KE', {
       hour: '2-digit',
@@ -135,10 +181,8 @@ export default function AdminDashboard() {
 
       <div className='relative z-0 mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8'>
         <div className='relative z-0 grid grid-cols-1 gap-6 lg:grid-cols-4'>
-          {/* Left column: Order Monitor & Analytics */}
           <aside className='relative z-[102] order-2 lg:order-1 lg:col-span-1'>
             <div className='sticky top-20 space-y-6'>
-              {/* Order Monitor */}
               <div className='rounded-2xl border border-gray-700 bg-gray-800 shadow-xl'>
                 <div className='border-b border-gray-700 p-4'>
                   <OrderMonitor />
@@ -150,7 +194,6 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              {/* Analytics Card */}
               <div className='rounded-2xl border border-gray-700 bg-gray-800 p-4 shadow-xl'>
                 <div className='flex items-center gap-3'>
                   <div className='rounded-md bg-purple-500/20 p-2'>
@@ -160,25 +203,31 @@ export default function AdminDashboard() {
                     <div className='text-xs font-semibold text-gray-500 uppercase'>
                       Today's Orders
                     </div>
-                    {loading && !data ? (
+
+                    {/* show loading skeleton when loading, otherwise show data */}
+                    {loading ? (
                       <div className='mt-1 h-6 w-16 animate-pulse rounded bg-gray-700'></div>
                     ) : (
                       <div className='mt-1 text-2xl font-bold text-white'>
-                        {data?.today.orders || 0}
+                        {data.today.orders || 0}
                       </div>
                     )}
+
                     <div className='mt-3 text-xs font-semibold text-gray-500 uppercase'>
                       Revenue
                     </div>
-                    {loading && !data ? (
+                    {loading ? (
                       <div className='mt-1 h-6 w-24 animate-pulse rounded bg-gray-700'></div>
                     ) : (
                       <div className='mt-1 text-xl font-bold text-purple-400'>
                         KSh{' '}
-                        {(data?.today.revenue || 0).toLocaleString('en-KE', {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
+                        {Number(data.today.revenue || 0).toLocaleString(
+                          'en-KE',
+                          {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          },
+                        )}
                       </div>
                     )}
                   </div>
@@ -201,7 +250,6 @@ export default function AdminDashboard() {
             </div>
           </aside>
 
-          {/* Main column: Reviewed Orders */}
           <section className='order-1 lg:order-2 lg:col-span-3'>
             <ReviewedDashboard />
           </section>

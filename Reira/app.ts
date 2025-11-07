@@ -7,9 +7,8 @@ import cookieParser from "cookie-parser";
 import apiRoutes from "./index";
 import dotenv from "dotenv";
 import { initializeSocket } from "@config/socketio";
-import startOrderPoller from "@utils/poller";
 import { redis } from "@config/redis";
-import { startBatchPublisher, startDailyCleanup } from "@utils/schedulerINT";
+import { startNotificationCleanup } from "@services/cleanupNotif";
 
 dotenv.config();
 
@@ -38,10 +37,7 @@ const httpServer = createServer(app);
 // Initialize Socket.IO with session middleware
 initializeSocket(httpServer);
 
-// Start background services
-startOrderPoller(); // Polls for paid orders every 60s
-startBatchPublisher();
-startDailyCleanup();
+startNotificationCleanup();
 
 const PORT = parseInt(process.env.PORT || "8787", 10);
 
@@ -52,7 +48,6 @@ httpServer.listen(PORT, () => {
   console.log(`🔍 Order poller running (60s interval)`);
   console.log(`⏱️  Batch scheduler running (60s window)`);
   console.log(`🔌 Socket.IO ready for admin connections`);
-  console.log(`💚 Health check available at /health`);
 });
 
 process.on("unhandledRejection", (reason) => {

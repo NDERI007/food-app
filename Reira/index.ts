@@ -8,7 +8,7 @@ import mpesaRoutes from "./routes/callbackMpesa";
 import orderRoutes from "./routes/orders";
 import userRoutes from "./routes/user";
 import mfaRoutes from "./routes/MFA";
-
+import revenueRoutes from "./routes/revenue";
 const router = Router();
 
 // resource routes under /api/v1/places etc.
@@ -21,5 +21,6 @@ router.use("/mpesa", mpesaRoutes);
 router.use("/orders", orderRoutes);
 router.use("/profile", userRoutes);
 router.use("/mfa", mfaRoutes);
+router.use("/revenue", revenueRoutes);
 
 export default router;

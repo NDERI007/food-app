@@ -75,58 +75,11 @@ router.post("/update-status", withAuth(["admin"]), async (req, res) => {
       console.error("Supabase update error:", error);
       return res.status(500).json({ error: "Failed to update order" });
     }
+    await notificationService.removeOrder(orderID);
 
     return res.json({ success: true, orderID, newStatus: updateData.status });
   } catch (err) {
     console.error("Server error:", err);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-router.get("/dashboard/today", async (req, res) => {
-  try {
-    const today = new Date().toISOString().split("T")[0]; // Format: YYYY-MM-DD
-
-    // Fetch today's orders and revenue
-    const { data, error } = await supabase
-      .from("daily_order_revenue")
-      .select("payment_reference, mpesa_phone, amount, created_at")
-      .eq("day", today)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error("Supabase error:", error);
-      return res.status(500).json({ error: "Failed to fetch dashboard data" });
-    }
-
-    // Calculate totals
-    const totalOrders = data.length;
-    const totalRevenue = data.reduce(
-      (sum, order) => sum + parseFloat(order.amount),
-      0
-    );
-
-    // Format recent orders for display
-    const recentOrders = data.slice(0, 5).map((order) => ({
-      payment_reference: order.payment_reference,
-      phone: order.mpesa_phone,
-      amount: parseFloat(order.amount),
-      time: new Date(order.created_at).toLocaleTimeString("en-KE", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      }),
-    }));
-
-    res.json({
-      today: {
-        orders: totalOrders,
-        revenue: totalRevenue,
-      },
-      recentOrders,
-    });
-  } catch (error) {
-    console.error("Server error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -357,6 +310,7 @@ interface CreateOrderRequest {
   items: OrderItem[];
 }
 import { stkPush } from "@utils/mpesa";
+import { notificationService } from "@services/notification";
 
 router.post("/create", async (req, res) => {
   try {
@@ -631,46 +585,6 @@ router.post("/:orderId/confirm-delivery", async (req, res) => {
   } catch (error) {
     console.error("Error confirming delivery:", error);
     res.status(500).json({ message: "Failed to confirm delivery" });
-  }
-});
-
-/**
- * POST /api/orders/:orderId/cancel
- * Cancel an order (only if not yet confirmed by admin)
- */
-router.post("/:orderId/cancel", async (req, res) => {
-  try {
-    const userID = req.user?.userID;
-    const { orderId } = req.params;
-
-    const { data, error } = await supabase
-      .from("orders")
-      .update({
-        status: "cancelled",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", orderId)
-      .eq("user_id", userID)
-      .in("status", ["pending", "confirmed"])
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    if (!data) {
-      return res.status(400).json({
-        message: "Order cannot be cancelled at this stage",
-      });
-    }
-
-    res.json({
-      success: true,
-      message: "Order cancelled successfully",
-      order: data,
-    });
-  } catch (error) {
-    console.error("Error cancelling order:", error);
-    res.status(500).json({ message: "Failed to cancel order" });
   }
 });
 

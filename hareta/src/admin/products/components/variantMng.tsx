@@ -72,7 +72,7 @@ export const ProductVariantsManager: React.FC<{ productId: string }> = ({
                     {v.size_name}
                   </span>
                   <span className='ml-2 text-sm text-gray-400'>
-                    ${v.price.toFixed(2)}
+                    KES{v.price.toFixed(2)}
                   </span>
                   {!v.is_available && (
                     <span className='ml-2 rounded-full bg-red-900/40 px-2 py-0.5 text-xs text-red-300'>

@@ -1,6 +1,6 @@
 import express from "express";
 import supabase from "@config/supabase";
-import { publishOrderUpdate } from "@config/socketio";
+import { notificationService } from "@services/notification";
 
 const router = express.Router();
 
@@ -176,13 +176,22 @@ router.post("/callback-simulate", async (req, res) => {
     }
 
     console.log("🟢 Order updated:", orderData);
+
+    // ✨ Notify admins about confirmed order via Socket.IO + Redis
     if (orderData && orderData.length > 0) {
-      const orderID = orderData[0].id;
-      await publishOrderUpdate(orderID, {
-        payment_status: "paid",
-        status: "confirmed",
-      });
+      const order = orderData[0];
+
+      // Only notify when order is confirmed and paid
+      if (order.status === "confirmed" && order.payment_status === "paid") {
+        await notificationService.notifyConfirmedOrder({
+          id: order.id,
+          payment_reference: fakeTransactionReference,
+          amount: fakeAmount,
+          phone_number: fakePhoneNumber,
+        });
+      }
     }
+
     console.log("🎉 Sending success response");
 
     return res.status(200).json({
