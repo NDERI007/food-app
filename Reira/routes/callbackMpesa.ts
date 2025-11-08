@@ -1,6 +1,7 @@
 import express from "express";
 import supabase from "@config/supabase";
-import { notificationService } from "@services/notification";
+import { notificationService } from "@services/adminnotification";
+import { customerNotificationService } from "@services/clientnotification";
 
 const router = express.Router();
 
@@ -188,6 +189,12 @@ router.post("/callback-simulate", async (req, res) => {
           payment_reference: fakeTransactionReference,
           amount: fakeAmount,
           phone_number: fakePhoneNumber,
+        });
+        await customerNotificationService.notifyPaymentConfirmed({
+          orderId: order.id,
+          userId: order.user_id, // Make sure this field exists in your order
+          paymentReference: fakeTransactionReference,
+          amount: order.total_amount,
         });
       }
     }

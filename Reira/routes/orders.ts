@@ -310,7 +310,7 @@ interface CreateOrderRequest {
   items: OrderItem[];
 }
 import { stkPush } from "@utils/mpesa";
-import { notificationService } from "@services/notification";
+import { notificationService } from "@services/adminnotification";
 
 router.post("/create", async (req, res) => {
   try {
