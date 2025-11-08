@@ -8,7 +8,6 @@ import apiRoutes from "./index";
 import dotenv from "dotenv";
 import { initializeSocket } from "@config/socketio";
 import { redis } from "@config/redis";
-import { startNotificationCleanup } from "@services/cleanupNotif";
 
 dotenv.config();
 
@@ -36,8 +35,6 @@ const httpServer = createServer(app);
 
 // Initialize Socket.IO with session middleware
 initializeSocket(httpServer);
-
-startNotificationCleanup();
 
 const PORT = parseInt(process.env.PORT || "8787", 10);
 
