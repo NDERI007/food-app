@@ -1,11 +1,128 @@
-import express from "express";
 import supabase from "@config/supabase";
 import { notificationService } from "@services/adminnotification";
 import { customerNotificationService } from "@services/clientnotification";
+import express from "express";
 
 const router = express.Router();
 
+// =====================================================
+// SHARED: Process Payment Callback (Success or Failure)
+// =====================================================
+export async function processPaymentCallback(params: {
+  checkoutRequestId: string;
+  resultCode: number;
+  resultDesc: string;
+  transactionReference: string | null;
+  phoneNumber: string;
+  amount: number;
+  transactionDate: string;
+  rawResponse?: any;
+}): Promise<void> {
+  const {
+    checkoutRequestId,
+    resultCode,
+    resultDesc,
+    transactionReference,
+    phoneNumber,
+    amount,
+    transactionDate,
+    rawResponse = {},
+  } = params;
+
+  console.log("🔄 Processing payment callback:", {
+    checkoutRequestId,
+    resultCode,
+  });
+
+  // 1. Insert M-PESA transaction record
+  const { error: insertError } = await supabase
+    .from("mpesa_transactions")
+    .insert({
+      checkout_request_id: checkoutRequestId,
+      result_code: resultCode,
+      result_desc: resultDesc,
+      amount,
+      transaction_reference: transactionReference,
+      phone_number: phoneNumber,
+      transaction_date: transactionDate,
+      raw_response: rawResponse,
+    });
+
+  if (insertError) {
+    console.error("❌ Failed to insert transaction:", insertError);
+    throw insertError;
+  }
+
+  console.log("✅ Transaction inserted");
+
+  // 2. Determine order status based on result code
+  let paymentStatus = "unpaid";
+  let orderStatus = "pending";
+
+  if (resultCode === 0) {
+    paymentStatus = "paid";
+    orderStatus = "confirmed";
+  } else if (resultCode === 1032) {
+    paymentStatus = "cancelled";
+    orderStatus = "payment_cancelled";
+  } else {
+    paymentStatus = "failed";
+    orderStatus = "payment_failed";
+  }
+
+  // 3. Update order
+  const { data: orderData, error: updateError } = await supabase
+    .from("orders")
+    .update({
+      payment_status: paymentStatus,
+      payment_reference: transactionReference,
+      status: orderStatus,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("checkout_request_id", checkoutRequestId)
+    .select();
+
+  if (updateError) {
+    console.error("❌ Failed to update order:", updateError);
+    throw updateError;
+  }
+
+  console.log(`✅ Order updated to ${orderStatus}`);
+
+  // 4. Send notifications only for successful payments
+  if (orderData && orderData.length > 0 && resultCode === 0) {
+    const order = orderData[0];
+
+    if (order.status === "confirmed" && order.payment_status === "paid") {
+      // Notify admin
+      await notificationService.notifyConfirmedOrder({
+        id: order.id,
+        payment_reference: transactionReference || "N/A",
+        amount: amount,
+        phone_number: phoneNumber,
+      });
+
+      // Notify customer
+      await customerNotificationService.notifyPaymentConfirmed({
+        orderId: order.id,
+        userId: order.user_id,
+        paymentReference: transactionReference || "N/A",
+        amount: order.total_amount,
+      });
+
+      console.log("🔔 Notifications sent successfully");
+    }
+  }
+
+  console.log("🎉 Payment callback processing complete");
+}
+
+// =====================================================
+// REAL M-PESA CALLBACK (Production)
+// =====================================================
 router.post("/callback", async (req, res) => {
+  console.log("📞 Real M-PESA callback received");
+
   try {
     const body = req.body;
 
@@ -16,10 +133,12 @@ router.post("/callback", async (req, res) => {
     const callback = body.Body.stkCallback;
     const metadataItems = callback.CallbackMetadata?.Item || [];
     const metadata: Record<string, any> = {};
+
     for (const item of metadataItems) {
       metadata[item.Name] = item.Value;
     }
 
+    // Extract data from M-PESA callback
     const transactionReference = metadata["MpesaReceiptNumber"] ?? null;
     const phoneNumber = metadata["PhoneNumber"] ?? null;
     const amount = metadata["Amount"] ?? null;
@@ -28,190 +147,87 @@ router.post("/callback", async (req, res) => {
     const resultDesc = callback.ResultDesc;
     const checkoutRequestId = callback.CheckoutRequestID;
 
-    // ✅ Single transaction - insert mpesa record
-    const { error: insertError } = await supabase
-      .from("mpesa_transactions")
-      .insert({
-        checkout_request_id: checkoutRequestId,
-        result_code: resultCode,
-        result_desc: resultDesc,
-        amount,
-        transaction_reference: transactionReference,
-        phone_number: phoneNumber,
-        transaction_date: transactionDate,
-        raw_response: body,
-      });
+    // Respond immediately to M-PESA
+    res.status(200).json({ ResultCode: 0, ResultDesc: "Accepted" });
 
-    if (insertError) {
-      console.error("❌ Supabase insert failed:", insertError);
-    }
-
-    // ✅ Update order if exists - single query with conditional update
+    // Process callback asynchronously
     if (checkoutRequestId) {
-      let paymentStatus = "unpaid";
-      let orderStatus = "pending";
-
-      if (resultCode === 0) {
-        paymentStatus = "paid";
-        orderStatus = "confirmed";
-      } else if (resultCode === 1032) {
-        paymentStatus = "cancelled";
-        orderStatus = "payment_cancelled";
-      } else {
-        paymentStatus = "failed";
-        orderStatus = "payment_failed";
-      }
-
-      // Direct update - no select needed
-      const { error: updateError } = await supabase
-        .from("orders")
-        .update({
-          payment_status: paymentStatus,
-          payment_reference: transactionReference,
-          status: orderStatus,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("checkout_request_id", checkoutRequestId);
-
-      if (updateError) {
-        console.error("Failed to update order:", updateError);
-      } else {
-        console.log(`Order updated to ${orderStatus}`);
-      }
+      await processPaymentCallback({
+        checkoutRequestId,
+        resultCode,
+        resultDesc,
+        transactionReference,
+        phoneNumber,
+        amount,
+        transactionDate,
+        rawResponse: body,
+      });
     }
-
-    return res.status(200).json({
-      success: true,
-      message: resultDesc,
-      resultCode,
-      transactionReference,
-      phoneNumber,
-      amount,
-      transactionDate,
-    });
   } catch (error) {
-    console.error("Error handling M-PESA callback:", error);
-    return res.status(200).json({ error: "Callback processing error" });
+    console.error("💥 Error handling M-PESA callback:", error);
+    // Don't send error to M-PESA - already responded with 200
   }
 });
 
+// =====================================================
+// SIMULATED CALLBACK (Development Only)
+// =====================================================
 router.post("/callback-simulate", async (req, res) => {
-  console.log("🔵 Callback endpoint hit");
+  console.log("🧪 Simulated callback triggered");
 
   const NODE_ENV = process.env.NODE_ENV || "development";
 
   if (NODE_ENV === "production") {
-    console.log("🔴 Production mode - rejecting");
     return res.status(403).json({ error: "Not available in production" });
   }
 
   try {
-    console.log("🟢 Request body:", req.body);
-
-    const { checkoutRequestId } = req.body;
+    const { checkoutRequestId, amount, phone } = req.body;
 
     if (!checkoutRequestId) {
-      console.log("🔴 Missing checkoutRequestId");
       return res.status(400).json({ error: "checkoutRequestId is required" });
     }
 
-    console.log("🟡 Generating fake data...");
+    // Generate fake data
     const fakeTransactionReference = `FAKE${Math.random()
       .toString(36)
       .substring(2, 12)
       .toUpperCase()}`;
-    const fakePhoneNumber = "254712345678";
-    const fakeAmount = 100;
+    const fakePhoneNumber = phone || "254712345678";
+    const fakeAmount = amount || 100;
     const fakeTransactionDate = new Date()
       .toISOString()
       .replace(/[-:TZ.]/g, "")
       .slice(0, 14);
 
-    console.log("🟡 Inserting transaction...");
-    const { data, error: insertError } = await supabase
-      .from("mpesa_transactions")
-      .insert({
-        checkout_request_id: checkoutRequestId,
-        result_code: 0,
-        result_desc: "The service request is processed successfully.",
-        amount: fakeAmount,
-        transaction_reference: fakeTransactionReference,
-        phone_number: fakePhoneNumber,
-        transaction_date: fakeTransactionDate,
-        raw_response: {
-          simulated: true,
-          note: "This is a fake transaction for development",
-        },
-      })
-      .select();
-
-    if (insertError) {
-      console.error("🔴 Insert error:", insertError);
-      return res.status(500).json({
-        error: "Failed to simulate payment",
-        details: insertError.message,
-        code: insertError.code,
-      });
-    }
-
-    console.log("🟢 Transaction inserted:", data);
-    console.log("🟡 Updating order...");
-
-    const { data: orderData, error: updateError } = await supabase
-      .from("orders")
-      .update({
-        payment_status: "paid",
-        payment_reference: fakeTransactionReference,
-        status: "confirmed",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("checkout_request_id", checkoutRequestId)
-      .select();
-
-    if (updateError) {
-      console.error("🔴 Update error:", updateError);
-      return res.status(500).json({
-        error: "Failed to update order",
-        details: updateError.message,
-      });
-    }
-
-    console.log("🟢 Order updated:", orderData);
-
-    // ✨ Notify admins about confirmed order via Socket.IO + Redis
-    if (orderData && orderData.length > 0) {
-      const order = orderData[0];
-
-      // Only notify when order is confirmed and paid
-      if (order.status === "confirmed" && order.payment_status === "paid") {
-        await notificationService.notifyConfirmedOrder({
-          id: order.id,
-          payment_reference: fakeTransactionReference,
-          amount: fakeAmount,
-          phone_number: fakePhoneNumber,
-        });
-        await customerNotificationService.notifyPaymentConfirmed({
-          orderId: order.id,
-          userId: order.user_id, // Make sure this field exists in your order
-          paymentReference: fakeTransactionReference,
-          amount: order.total_amount,
-        });
-      }
-    }
-
-    console.log("🎉 Sending success response");
-
-    return res.status(200).json({
+    // Respond immediately
+    res.status(200).json({
       success: true,
-      message: "Payment simulated successfully",
+      message: "Processing simulation...",
       transactionReference: fakeTransactionReference,
-      checkoutRequestId,
     });
+
+    // Process using shared function
+    await processPaymentCallback({
+      checkoutRequestId,
+      resultCode: 0, // Success
+      resultDesc: "The service request is processed successfully.",
+      transactionReference: fakeTransactionReference,
+      phoneNumber: fakePhoneNumber,
+      amount: fakeAmount,
+      transactionDate: fakeTransactionDate,
+      rawResponse: {
+        simulated: true,
+        note: "This is a fake transaction for development",
+      },
+    });
+
+    console.log("🎉 Simulation complete");
   } catch (error) {
-    console.error("💥 CATCH BLOCK ERROR:", error);
+    console.error("💥 Simulation error:", error);
     if (!res.headersSent) {
-      return res.status(500).json({
-        error: "Simulation error",
+      res.status(500).json({
+        error: "Simulation failed",
         message: error instanceof Error ? error.message : String(error),
       });
     }

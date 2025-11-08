@@ -102,7 +102,7 @@ const setupCustomerNamespace = (io: Server) => {
     // Optional: Join order-specific room if they're tracking an order
     socket.on("track:order", (orderId: string) => {
       socket.join(`order:${orderId}`);
-      console.log(`📦 User ${user.userID} tracking order ${orderId}`);
+      console.log(`📦 User tracking order ${orderId}`);
     });
 
     socket.on("untrack:order", (orderId: string) => {

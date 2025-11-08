@@ -1,6 +1,6 @@
+import { Package } from 'lucide-react';
 import { formatCurrency } from '@utils/hooks/confirmfun';
 import type { Order_Item } from '@utils/schemas/order';
-import { Package } from 'lucide-react';
 
 interface OrderItemsCardProps {
   items: Order_Item[];
@@ -22,79 +22,39 @@ export const OrderItemsCard = ({
       <h2 className='mb-6 text-xl font-bold text-green-900'>Order Items</h2>
 
       <div className='space-y-4'>
-        {items.map((item) => {
-          // ✅ Extract best available image resolutions
-          const fullRes =
-            item.image_url?.variants?.avif?.['800'] ||
-            item.image_url?.variants?.jpg?.['800'];
-
-          const lqip = item.image_url?.lqip;
-
-          return (
-            <div
-              key={item.id}
-              className='flex items-center justify-between border-b border-gray-200 py-4 last:border-b-0'
-            >
-              <div className='flex items-center'>
-                <div
-                  className='relative mr-4 h-16 w-16 overflow-hidden rounded-lg'
-                  style={{ backgroundColor: '#fefaef' }}
-                >
-                  {fullRes ? (
-                    <picture>
-                      {/* prefer AVIF */}
-                      <source
-                        srcSet={item.image_url?.variants?.avif?.['800']}
-                        type='image/avif'
-                      />
-                      {/* fallback to JPG */}
-                      <source
-                        srcSet={item.image_url?.variants?.jpg?.['800']}
-                        type='image/jpeg'
-                      />
-
-                      <img
-                        src={lqip}
-                        data-full={fullRes}
-                        alt={item.product_name}
-                        className='h-full w-full scale-105 object-cover blur-sm transition-all duration-[600ms] ease-out'
-                        onLoad={(e) => {
-                          const img = e.currentTarget;
-                          const high = new Image();
-                          high.src = fullRes;
-                          high.onload = () => {
-                            img.src = fullRes;
-                            img.classList.remove('blur-sm', 'scale-105');
-                          };
-                        }}
-                      />
-                    </picture>
-                  ) : (
-                    <Package className='h-8 w-8 text-green-900' />
-                  )}
-                </div>
-
-                <div>
-                  <p className='font-semibold text-green-900'>
-                    {item.product_name}
-                  </p>
-                  <p className='text-sm text-gray-600'>
-                    Quantity: {item.quantity}
-                    {item.variant_size && (
-                      <span className='ml-2 text-gray-500'>
-                        • Size: {item.variant_size}
-                      </span>
-                    )}
-                  </p>
-                </div>
+        {items.map((item) => (
+          <div
+            key={item.id}
+            className='flex items-center justify-between border-b border-gray-200 py-4 last:border-b-0'
+          >
+            <div className='flex items-center'>
+              <div
+                className='mr-4 flex h-16 w-16 items-center justify-center rounded-lg bg-green-50 text-green-900'
+                aria-hidden
+              >
+                <Package className='h-8 w-8' />
               </div>
 
-              <p className='font-semibold text-green-900'>
-                {formatCurrency(item.price)}
-              </p>
+              <div>
+                <p className='font-semibold text-green-900'>
+                  {item.product_name}
+                </p>
+                <p className='text-sm text-gray-600'>
+                  Quantity: {item.quantity}
+                  {item.variant_size && (
+                    <span className='ml-2 text-gray-500'>
+                      • Size: {item.variant_size}
+                    </span>
+                  )}
+                </p>
+              </div>
             </div>
-          );
-        })}
+
+            <p className='font-semibold text-green-900'>
+              {formatCurrency(item.price)}
+            </p>
+          </div>
+        ))}
       </div>
 
       <div className='mt-6 space-y-2 border-t border-gray-200 pt-6'>

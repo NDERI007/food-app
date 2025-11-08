@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@utils/hooks/useAuth';
 import { api } from '@utils/hooks/apiUtils';
-
 import type { OrderData } from '@utils/schemas/order';
 import { ConfirmDeliveryCard } from './components/confirmationCard';
 import { DeliveryAddressCard } from './components/deliveryAddrcard';
@@ -15,28 +14,37 @@ import { OrderStatusCard } from './components/orderStatus';
 import { SuccessHeader } from './components/successHeader';
 import axios from 'axios';
 import { ConfirmModal } from '@components/confirmModal';
-import { supabase } from '@utils/supabase/Client';
+import { io, type Socket } from 'socket.io-client';
 
 const MAX_WAIT_TIME = 60;
+const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:8787';
+
+type ConnectionStatus = 'connecting' | 'connected' | 'error';
 
 const OrderConfirmation = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
-  const [connectionStatus, setConnectionStatus] = useState<
-    'connecting' | 'connected' | 'error'
-  >('connecting');
+
+  // Connection & Order State
+  const [connectionStatus, setConnectionStatus] =
+    useState<ConnectionStatus>('connecting');
   const [orderData, setOrderData] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [waitingTime, setWaitingTime] = useState(0);
+
+  // Delivery Confirmation State
   const [confirmingDelivery, setConfirmingDelivery] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Refs
+  const socketRef = useRef<Socket | null>(null);
+  const timeoutTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isMountedRef = useRef(true);
   const orderID = searchParams.get('orderID');
 
-  // Auth redirect
+  // Auth redirect - separate effect
   useEffect(() => {
     if (authLoading) return;
     if (!isAuthenticated) {
@@ -44,167 +52,172 @@ const OrderConfirmation = () => {
     }
   }, [isAuthenticated, authLoading, navigate]);
 
-  // Main order fetching and Supabase Realtime logic
-  useEffect(() => {
-    if (!orderID || !isAuthenticated || authLoading) {
-      if (!orderID && !authLoading) {
-        setError('Missing order ID');
+  // Memoized cleanup functions
+  const stopTimers = useCallback(() => {
+    if (timeoutTimerRef.current) {
+      clearTimeout(timeoutTimerRef.current);
+      timeoutTimerRef.current = null;
+    }
+  }, []);
+
+  const cleanupSocket = useCallback(() => {
+    if (socketRef.current) {
+      socketRef.current.removeAllListeners();
+      socketRef.current.emit('untrack:order', orderID);
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
+  }, [orderID]);
+
+  // Fetch order details
+  const fetchOrderDetails = useCallback(async () => {
+    if (!orderID || !isMountedRef.current) return true;
+
+    try {
+      const statusResponse = await api.get(
+        `/api/orders/${orderID}/payment-status`,
+      );
+
+      if (!isMountedRef.current) return true;
+
+      if (statusResponse.data.has_failed) {
+        setError(
+          `Payment ${statusResponse.data.payment_status}. Please try again or contact support.`,
+        );
         setLoading(false);
+        stopTimers();
+        return true;
       }
+
+      if (statusResponse.data.is_complete) {
+        const orderResponse = await api.get(`/api/orders/${orderID}`);
+        if (!isMountedRef.current) return true;
+
+        setOrderData(orderResponse.data.order);
+        setLoading(false);
+        stopTimers();
+        return true;
+      }
+
+      return false;
+    } catch (err) {
+      if (!isMountedRef.current) return true;
+
+      console.error('Error fetching order details:', err);
+      setError('Failed to load order details');
+      setLoading(false);
+      stopTimers();
+      return true;
+    }
+  }, [orderID, stopTimers]);
+
+  // Setup socket connection
+  const setupSocketConnection = useCallback(() => {
+    if (!orderID || socketRef.current?.connected) return;
+
+    const socket = io(`${SOCKET_URL}/customer`, {
+      withCredentials: true,
+      transports: ['websocket'],
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      timeout: 10000,
+    });
+
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      if (!isMountedRef.current) return;
+      setConnectionStatus('connected');
+      socket.emit('track:order', orderID);
+    });
+
+    socket.on('disconnect', () => {
+      if (!isMountedRef.current) return;
+      setConnectionStatus('connecting');
+    });
+
+    socket.on('connect_error', (err) => {
+      if (!isMountedRef.current) return;
+      console.error('⚠️ Socket connection error:', err.message);
+      setConnectionStatus('error');
+    });
+
+    socket.on('payment:confirmed', async (notification) => {
+      if (!isMountedRef.current) return;
+
+      if (notification.data.orderId === orderID) {
+        stopTimers();
+
+        try {
+          const orderResponse = await api.get(`/api/orders/${orderID}`);
+          if (!isMountedRef.current) return;
+
+          setOrderData(orderResponse.data.order);
+          setLoading(false);
+        } catch (err) {
+          if (!isMountedRef.current) return;
+
+          console.error('Error fetching order after payment:', err);
+          setError('Failed to load order details');
+          setLoading(false);
+        }
+
+        cleanupSocket();
+      }
+    });
+
+    return socket;
+  }, [orderID, stopTimers, cleanupSocket]);
+
+  // Main initialization effect
+  useEffect(() => {
+    if (!orderID) {
+      setError('Missing order ID');
+      setLoading(false);
       return;
     }
 
-    let timeoutId: NodeJS.Timeout;
-    let waitingInterval: NodeJS.Timeout;
-    let isMounted = true;
+    if (authLoading || !isAuthenticated) return;
 
-    const fetchOrderDetails = async () => {
-      try {
-        const statusResponse = await api.get(
-          `/api/orders/${orderID}/payment-status`,
-        );
-        if (!isMounted) return true;
-
-        if (statusResponse.data.has_failed) {
-          setError(
-            `Payment ${statusResponse.data.payment_status}. Please try again or contact support.`,
-          );
-          setLoading(false);
-          return true;
-        }
-
-        if (statusResponse.data.is_complete) {
-          const orderResponse = await api.get(`/api/orders/${orderID}`);
-          if (!isMounted) return true;
-          setOrderData(orderResponse.data.order);
-          setLoading(false);
-          return true;
-        }
-
-        return false;
-      } catch (err) {
-        console.error('Error fetching order details:', err);
-        if (!isMounted) return false;
-        setError('Failed to load order details');
-        setLoading(false);
-        return false;
-      }
-    };
-
-    const setupRealtimeSubscription = () => {
-      console.log('✅ Setting up Supabase Realtime subscription');
-      setConnectionStatus('connected');
-
-      // Subscribe to changes on the orders table for this specific order
-      const channel = supabase
-        .channel(`order:${orderID}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'orders',
-            filter: `id=eq.${orderID}`,
-          },
-          async (payload) => {
-            console.log('📦 Received order update from Supabase:', payload);
-
-            const updatedOrder = payload.new as any;
-
-            // Check if payment status changed to paid
-            if (updatedOrder.payment_status === 'paid') {
-              clearTimeout(timeoutId);
-              clearInterval(waitingInterval);
-
-              // Fetch complete order details
-              const orderResponse = await api.get(`/api/orders/${orderID}`);
-              setOrderData(orderResponse.data.order);
-              setLoading(false);
-              return;
-            }
-
-            // Handle failed/cancelled payments
-            if (
-              updatedOrder.payment_status === 'failed' ||
-              updatedOrder.payment_status === 'cancelled'
-            ) {
-              clearTimeout(timeoutId);
-              clearInterval(waitingInterval);
-              setError(
-                `Payment ${updatedOrder.payment_status}. Please try again or contact support.`,
-              );
-              setLoading(false);
-              return;
-            }
-
-            // Update with partial data for other changes
-            setOrderData((prev) =>
-              prev ? { ...prev, ...updatedOrder } : null,
-            );
-          },
-        )
-        .subscribe((status) => {
-          console.log('Supabase subscription status:', status);
-          if (status === 'SUBSCRIBED') {
-            setConnectionStatus('connected');
-          } else if (status === 'CHANNEL_ERROR') {
-            setConnectionStatus('error');
-            console.error('❌ Supabase subscription error');
-          }
-        });
-
-      return channel;
-    };
+    isMountedRef.current = true;
 
     const initialize = async () => {
       const isResolved = await fetchOrderDetails();
 
-      if (!isResolved && isMounted) {
-        const channel = setupRealtimeSubscription();
+      if (!isResolved && isMountedRef.current) {
+        // Order not yet complete, setup socket and timeout
+        setupSocketConnection();
 
-        waitingInterval = setInterval(() => {
-          if (isMounted) {
-            setWaitingTime((prev) => prev + 1);
-          }
-        }, 1000);
+        timeoutTimerRef.current = setTimeout(() => {
+          if (!isMountedRef.current) return;
 
-        timeoutId = setTimeout(() => {
-          clearInterval(waitingInterval);
-          if (isMounted) {
-            setError(
-              'Payment verification is taking longer than expected. Please check your email or contact support.',
-            );
-            setLoading(false);
-          }
+          setError(
+            'Payment verification is taking longer than expected. Please check your email or contact support.',
+          );
+          setLoading(false);
+          cleanupSocket();
         }, MAX_WAIT_TIME * 1000);
-
-        // Store channel for cleanup
-        return channel;
-      } else if (isResolved && isMounted) {
-        // Still subscribe even after order is loaded for real-time updates
-        return setupRealtimeSubscription();
       }
     };
 
-    let channelCleanup: any;
-    initialize().then((channel) => {
-      channelCleanup = channel;
-    });
+    initialize();
 
     return () => {
-      isMounted = false;
-      if (timeoutId) clearTimeout(timeoutId);
-      if (waitingInterval) clearInterval(waitingInterval);
-
-      // Cleanup Supabase subscription
-      if (channelCleanup) {
-        supabase.removeChannel(channelCleanup);
-        console.log('👋 Unsubscribed from Supabase Realtime');
-      }
+      isMountedRef.current = false;
+      stopTimers();
+      cleanupSocket();
     };
-  }, [orderID, isAuthenticated, authLoading]);
+  }, [
+    orderID,
+    isAuthenticated,
+    authLoading,
+    fetchOrderDetails,
+    setupSocketConnection,
+    stopTimers,
+    cleanupSocket,
+  ]);
 
-  const handleConfirmDelivery = async () => {
+  const handleConfirmDelivery = useCallback(async () => {
     if (!orderData) return;
     setConfirmingDelivery(true);
     setErrorMessage(null);
@@ -215,8 +228,6 @@ const OrderConfirmation = () => {
       );
 
       if (res.data.success) {
-        // Supabase Realtime will handle the update automatically
-        // But we can optimistically update the UI
         setOrderData((prev) =>
           prev
             ? {
@@ -239,7 +250,7 @@ const OrderConfirmation = () => {
     } finally {
       setConfirmingDelivery(false);
     }
-  };
+  }, [orderData]);
 
   if (authLoading) {
     return <LoadingScreen message='Loading...' />;
@@ -252,8 +263,6 @@ const OrderConfirmation = () => {
       <LoadingScreen
         message='Confirming Your Payment'
         description='Please wait while we verify your M-PESA payment...'
-        waitingTime={waitingTime}
-        maxWaitTime={MAX_WAIT_TIME}
         connectionStatus={connectionStatus}
       />
     );

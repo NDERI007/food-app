@@ -1,13 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import {
-  Clock,
-  MapPin,
-  Package,
-  Phone,
-  X,
-  AlertCircle,
-  RefreshCw,
-} from 'lucide-react';
+import { X, AlertCircle, RefreshCw } from 'lucide-react';
 import { useOrderDetails } from '@utils/hooks/useOrderDetails';
 import { useUpdateOrderStatus } from '@utils/hooks/updateStatus';
 
@@ -42,11 +34,21 @@ export default function OrderDetailsDrawer({
 
   const CLOSE_THRESHOLD = 120;
 
-  const formatTime = (dateString: string) =>
-    new Date(dateString).toLocaleTimeString('en-KE', {
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const diffMins = Math.floor((Date.now() - date.getTime()) / 60000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}min ago`;
+    if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h ago`;
+
+    return date.toLocaleDateString('en-KE', {
+      month: 'short',
+      day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
 
   const handleComplete = async () => {
     await updateOrderStatus(orderID, 'complete');
@@ -140,7 +142,7 @@ export default function OrderDetailsDrawer({
 
   return (
     <div
-      className='fixed inset-0 z-[9999] flex bg-black/50 backdrop-blur-sm md:justify-end'
+      className='fixed inset-0 top-14 z-[9999] flex bg-black/60 backdrop-blur-sm md:justify-end'
       onClick={onClose}
       aria-modal='true'
       role='dialog'
@@ -150,46 +152,51 @@ export default function OrderDetailsDrawer({
         ref={sheetRef}
         onClick={(e) => e.stopPropagation()}
         style={sheetStyle}
-        className={
-          'flex h-full w-full max-w-full flex-col rounded-t-2xl border-t border-gray-800 bg-gray-900 text-gray-100 shadow-2xl ' +
-          'pt-16 md:max-w-[420px] md:rounded-none md:border-l md:pt-0'
-        }
+        className='flex h-full w-full max-w-full flex-col rounded-t-2xl border-t border-gray-700 bg-gradient-to-b from-gray-900 to-gray-800 text-gray-100 shadow-2xl md:max-w-[420px] md:rounded-none md:border-l'
       >
         {/* Mobile drag handle */}
-        <div className='flex justify-center md:hidden'>
-          <div className='mt-2 mb-1 h-1 w-12 rounded-full bg-gray-700' />
+        <div className='flex justify-center pt-2 md:hidden'>
+          <div className='mb-3 h-1 w-12 rounded-full bg-gray-600' />
         </div>
 
         {/* Header */}
-        <div className='bg-gray-850 flex items-center justify-between border-b border-gray-800 px-4 py-3 md:py-4'>
-          <h2 className='text-lg font-bold text-gray-200'>Order Receipt</h2>
+        <div className='flex items-center justify-between border-b border-gray-700 bg-gradient-to-r from-gray-800 to-gray-900 px-4 py-4'>
+          <div className='flex items-center gap-3'>
+            <div className='rounded-lg border border-purple-500/30 bg-purple-500/20 p-2 shadow-sm'></div>
+            <div>
+              <h2 className='text-lg font-bold text-white'>Order Details</h2>
+              <p className='text-xs text-gray-400'>#{orderID.slice(0, 10)}</p>
+            </div>
+          </div>
 
           <button
             onClick={onClose}
             aria-label='Close'
-            className='rounded-lg p-2 text-gray-400 hover:bg-gray-800 hover:text-gray-200'
+            className='rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-700 hover:text-white'
           >
             <X className='h-5 w-5' />
           </button>
         </div>
 
         {/* Content */}
-        <div className='flex-1 space-y-5 overflow-y-auto p-4 text-sm'>
+        <div className='flex-1 space-y-4 overflow-y-auto p-4'>
           {isLoading && (
             <div className='flex flex-col items-center justify-center py-16 text-gray-400'>
-              <div className='mb-4 h-8 w-8 animate-spin rounded-full border-b-2 border-purple-400' />
-              Loading order details...
+              <div className='mb-4 h-10 w-10 animate-spin rounded-full border-4 border-gray-700 border-t-purple-500' />
+              <p className='text-sm font-medium'>Loading order details...</p>
             </div>
           )}
 
           {isError && (
-            <div className='space-y-4 py-14 text-center text-gray-300'>
+            <div className='space-y-4 rounded-xl border border-red-500/30 bg-red-500/10 p-6 text-center'>
               <AlertCircle className='mx-auto h-12 w-12 text-red-400' />
-              <div className='font-semibold text-gray-200'>Failed to Load</div>
-              <p className='text-xs text-gray-400'>{error?.message}</p>
+              <div>
+                <div className='font-semibold text-red-300'>Failed to Load</div>
+                <p className='mt-1 text-xs text-red-400'>{error?.message}</p>
+              </div>
               <button
                 onClick={() => refetch()}
-                className='inline-flex items-center gap-2 rounded-lg bg-purple-700 px-4 py-2 text-white hover:bg-purple-600'
+                className='inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-500'
               >
                 <RefreshCw className='h-4 w-4' /> Retry
               </button>
@@ -198,79 +205,123 @@ export default function OrderDetailsDrawer({
 
           {order && (
             <>
-              {/* Timestamp + ID */}
-              <div className='flex items-center justify-between text-xs text-gray-400'>
+              {/* Time Badge */}
+              <div className='flex items-center justify-between rounded-xl border border-gray-700 bg-gray-800 p-3'>
                 <div className='flex items-center gap-2'>
-                  <Clock className='h-4 w-4 text-purple-400' />
-                  {formatTime(order.created_at)}
+                  <span className='text-sm font-medium text-gray-300'>
+                    {formatTime(order.created_at)}
+                  </span>
                 </div>
-                <span className='text-gray-500'>#{order.id.slice(0, 10)}</span>
+                <span className='rounded-md border border-green-500/30 bg-green-500/20 px-2 py-1 text-xs font-medium text-green-400'>
+                  Paid
+                </span>
               </div>
 
-              {/* Delivery */}
-              <div className='space-y-2 border-y border-gray-800 py-3'>
-                <div className='flex items-center gap-2 font-semibold text-gray-200'>
-                  <MapPin className='h-4 w-4 text-purple-400' />
-                  {(order.delivery_type || '').toUpperCase()}
+              {/* Delivery Info */}
+              <div className='space-y-3 rounded-xl border border-gray-700 bg-gray-800 p-4'>
+                <div className='flex items-center gap-2'>
+                  <span className='text-sm font-semibold tracking-wide text-gray-200 uppercase'>
+                    {order.delivery_type || ''}
+                  </span>
                 </div>
+
                 {order.address && (
-                  <p className='pl-6 text-xs text-gray-400'>{order.address}</p>
+                  <div className='space-y-1'>
+                    <p className='text-sm text-gray-300'>{order.address}</p>
+                  </div>
                 )}
+
                 {order.instructions && (
-                  <p className='pl-6 text-xs text-gray-500 italic'>
-                    Note: {order.instructions}
-                  </p>
+                  <div className='ml-6 rounded-lg border border-gray-700 bg-gray-900 p-3'>
+                    <p className='text-xs text-gray-400 italic'>
+                      <span className='font-medium text-gray-300'>Note:</span>{' '}
+                      {order.instructions}
+                    </p>
+                  </div>
                 )}
               </div>
 
-              {/* Items */}
-              <div>
-                <h3 className='flex items-center gap-2 font-semibold text-gray-200'>
-                  <Package className='h-4 w-4 text-purple-400' />
-                  Items ({order.items?.length ?? 0})
-                </h3>
-                <div className='mt-2 space-y-1 pl-6 text-sm text-gray-300'>
+              {/* Items List */}
+              <div className='space-y-3 rounded-xl border border-gray-700 bg-gray-800 p-4'>
+                <div className='flex items-center justify-between'>
+                  <div className='flex items-center gap-2'>
+                    <h3 className='text-sm font-semibold text-gray-200'>
+                      Order Items
+                    </h3>
+                  </div>
+                  <span className='rounded-md bg-gray-700 px-2 py-1 text-xs font-medium text-gray-300'>
+                    {order.items?.length ?? 0} items
+                  </span>
+                </div>
+
+                <div className='space-y-2 border-t border-gray-700 pt-3'>
                   {(order.items ?? []).map((item, i) => (
-                    <div key={i} className='flex justify-between'>
-                      <span>
-                        {item.quantity}× {item.name}
-                        {item.variant_size && (
-                          <span className='ml-1 text-xs text-gray-500'>
-                            ({item.variant_size})
-                          </span>
-                        )}
-                      </span>
+                    <div
+                      key={i}
+                      className='flex items-center justify-between rounded-lg bg-gray-900 p-3'
+                    >
+                      <div className='flex items-center gap-3'>
+                        <div className='flex h-8 w-8 items-center justify-center rounded-lg border border-purple-500/30 bg-purple-500/10 text-sm font-bold text-purple-400'>
+                          {item.quantity}×
+                        </div>
+                        <div>
+                          <p className='text-sm font-medium text-gray-200'>
+                            {item.name}
+                          </p>
+                          {item.variant_size && (
+                            <p className='text-xs text-gray-500'>
+                              {item.variant_size}
+                            </p>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Payment */}
-              <div className='space-y-1 border-y border-gray-800 py-3'>
-                <div className='flex items-center gap-2 text-gray-200'>
-                  <Phone className='h-4 w-4 text-purple-400' />
-                  {order.mpesa_phone ?? 'N/A'}
+              {/* Payment Info */}
+              <div className='space-y-3 rounded-xl border border-gray-700 bg-gray-800 p-4'>
+                <div className='flex items-center gap-2'>
+                  <h3 className='text-sm font-semibold text-gray-200'>
+                    Payment Details
+                  </h3>
                 </div>
-                <p className='pl-6 text-xs text-gray-500'>
-                  Ref: {order.payment_reference ?? 'Pending'}
-                </p>
+
+                <div className='space-y-2 border-t border-gray-700 pt-3'>
+                  <div className='flex items-center justify-between'>
+                    <span className='text-xs text-gray-500'>Phone Number</span>
+                    <span className='font-mono text-sm font-medium text-gray-300'>
+                      {order.mpesa_phone ?? 'N/A'}
+                    </span>
+                  </div>
+                  <div className='flex items-center justify-between'>
+                    <span className='text-xs text-gray-500'>Reference</span>
+                    <span className='font-mono text-sm font-medium text-purple-400'>
+                      {order.payment_reference ?? 'Pending'}
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              {/* Totals */}
-              <div className='pt-2'>
-                <div className='flex justify-between text-sm text-gray-400'>
-                  <span>Total Items</span>
-                  <span>
-                    {(order.items ?? []).reduce(
-                      (sum, i) => sum + (i.quantity ?? 0),
-                      0,
-                    )}
-                  </span>
-                </div>
-
-                <div className='flex justify-between border-t border-gray-800 pt-3 text-lg font-bold text-gray-100'>
-                  <span>Total</span>
-                  <span>KSh {order.total_amount?.toLocaleString() ?? '0'}</span>
+              {/* Total */}
+              <div className='rounded-xl border border-purple-500/30 bg-gradient-to-br from-purple-500/10 to-purple-600/5 p-4'>
+                <div className='flex items-center justify-between'>
+                  <div>
+                    <p className='text-xs text-gray-400'>Total Amount</p>
+                    <p className='mt-1 text-xs text-gray-500'>
+                      {(order.items ?? []).reduce(
+                        (sum, i) => sum + (i.quantity ?? 0),
+                        0,
+                      )}{' '}
+                      items total
+                    </p>
+                  </div>
+                  <div className='text-right'>
+                    <p className='text-2xl font-bold text-white'>
+                      KSh {order.total_amount?.toLocaleString() ?? '0'}
+                    </p>
+                  </div>
                 </div>
               </div>
             </>
@@ -279,21 +330,21 @@ export default function OrderDetailsDrawer({
 
         {/* Action Footer */}
         {order && (
-          <div className='sticky bottom-0 flex gap-3 border-t border-gray-800 bg-gray-900 p-4'>
+          <div className='sticky bottom-0 flex gap-3 border-t border-gray-700 bg-gradient-to-t from-gray-900 to-gray-800 p-4'>
             <button
               onClick={handleComplete}
               disabled={isUpdating}
-              className='flex-1 rounded-lg bg-green-600 py-2 text-sm font-medium transition hover:bg-green-500 disabled:opacity-50'
+              className='flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-600 py-3 text-sm font-semibold text-white transition-all hover:bg-green-500 hover:shadow-lg hover:shadow-green-500/50 disabled:cursor-not-allowed disabled:opacity-50'
             >
-              {isUpdating ? 'Processing...' : 'Mark as Completed'}
+              {isUpdating ? 'Processing...' : 'Complete'}
             </button>
 
             <button
               onClick={handleCancel}
               disabled={isUpdating}
-              className='flex-1 rounded-lg bg-red-600 py-2 text-sm font-medium transition hover:bg-red-500 disabled:opacity-50'
+              className='flex flex-1 items-center justify-center gap-2 rounded-lg bg-red-600 py-3 text-sm font-semibold text-white transition-all hover:bg-red-500 hover:shadow-lg hover:shadow-red-500/50 disabled:cursor-not-allowed disabled:opacity-50'
             >
-              {isUpdating ? 'Processing...' : 'Cancel Order'}
+              {isUpdating ? 'Processing...' : 'Cancel'}
             </button>
           </div>
         )}

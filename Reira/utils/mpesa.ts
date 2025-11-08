@@ -1,5 +1,6 @@
 import fetch from "node-fetch";
 import dotenv from "dotenv";
+import { processPaymentCallback } from "routes/callbackMpesa";
 
 dotenv.config();
 
@@ -17,7 +18,7 @@ const {
   MPESA_PASSKEY,
   MPESA_SHORTCODE,
   NODE_ENV,
-  SIMULATE_SUCCESS, // Add this to .env for easy toggle
+  SIMULATE_SUCCESS,
 } = process.env;
 
 // =====================================================
@@ -46,9 +47,52 @@ export async function getAccessToken(): Promise<string> {
 }
 
 // =====================================================
+// Process Simulated Callback (Direct - No HTTP)
+// =====================================================
+async function processSimulatedCallback(
+  checkoutRequestId: string,
+  orderId: string,
+  amount: number,
+  phone: string
+): Promise<void> {
+  console.log("🟡 Processing simulated callback for order:", orderId);
+
+  const fakeTransactionReference = `FAKE${Math.random()
+    .toString(36)
+    .substring(2, 12)
+    .toUpperCase()}`;
+
+  const fakeTransactionDate = new Date()
+    .toISOString()
+    .replace(/[-:TZ.]/g, "")
+    .slice(0, 14);
+
+  await processPaymentCallback({
+    checkoutRequestId,
+    resultCode: 0, // Success
+    resultDesc: "The service request is processed successfully.",
+    transactionReference: fakeTransactionReference,
+    phoneNumber: phone,
+    amount: amount,
+    transactionDate: fakeTransactionDate,
+    rawResponse: {
+      simulated: true,
+      note: "This is a fake transaction for development",
+      orderId: orderId,
+    },
+  });
+
+  console.log("🎉 Simulated payment processing complete");
+}
+
+// =====================================================
 // Send STK Push Request (with dev simulation)
 // =====================================================
-export async function stkPush(phone: string, amount: number, orderId: string) {
+export async function stkPush(
+  phone: string,
+  amount: number,
+  orderId: string
+): Promise<STKPushResponse> {
   // 🧪 DEV MODE: Simulate successful payment immediately
   if (NODE_ENV === "development" || SIMULATE_SUCCESS === "true") {
     console.log("🧪 DEV MODE: Simulating successful M-PESA payment");
@@ -69,37 +113,23 @@ export async function stkPush(phone: string, amount: number, orderId: string) {
       CustomerMessage: "Success. Request accepted for processing",
     };
 
-    // Simulate the callback after 3 seconds (mimics M-PESA delay)
+    // ⚡ KEY FIX: Process callback directly (no HTTP request)
     setTimeout(async () => {
       try {
         console.log(
-          `🧪 Auto-triggering successful payment callback for order ${orderId}`
+          `🔄 Auto-processing simulated payment for order ${orderId}`
         );
 
-        // Call your own callback endpoint to simulate success
-        const callbackResponse = await fetch(
-          `${process.env.BACKEND_URL}/api/mpesa/callback-simulate`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              checkoutRequestId: fakeCheckoutRequestId,
-            }),
-          }
+        await processSimulatedCallback(
+          fakeCheckoutRequestId,
+          orderId,
+          amount,
+          phone
         );
-
-        if (!callbackResponse.ok) {
-          const errorText = await callbackResponse.text();
-          throw new Error(
-            `Callback failed: ${callbackResponse.status} - ${errorText}`
-          );
-        }
 
         console.log(`✅ Simulated payment completed for order ${orderId}`);
       } catch (error) {
-        console.error("❌ Failed to trigger simulated callback:", error);
+        console.error("❌ Failed to process simulated callback:", error);
       }
     }, 3000); // 3 second delay
 
@@ -109,16 +139,22 @@ export async function stkPush(phone: string, amount: number, orderId: string) {
   // 🎯 PRODUCTION: Real M-PESA call
   const token = await getAccessToken();
 
+  // Generate proper timestamp
+  const timestamp = new Date()
+    .toISOString()
+    .replace(/[-:TZ.]/g, "")
+    .slice(0, 14);
+
   const payload = {
     BusinessShortCode: MPESA_SHORTCODE,
     Password: MPESA_PASSKEY,
-    Timestamp: "20160216165627",
+    Timestamp: timestamp,
     TransactionType: "CustomerPayBillOnline",
     Amount: amount,
     PartyA: phone,
     PartyB: MPESA_SHORTCODE,
     PhoneNumber: phone,
-    CallBackURL: "https://83ed26bf415d.ngrok-free.app/api/mpesa/callback",
+    CallBackURL: `${process.env.BASE_URL}/api/mpesa/callback`,
     AccountReference: orderId,
     TransactionDesc: `Order ${orderId}`,
   };
