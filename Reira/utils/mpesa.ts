@@ -17,7 +17,6 @@ const {
   MPESA_CONSUMER_SECRET,
   MPESA_PASSKEY,
   MPESA_SHORTCODE,
-  NODE_ENV,
   SIMULATE_SUCCESS,
 } = process.env;
 
@@ -94,7 +93,7 @@ export async function stkPush(
   orderId: string
 ): Promise<STKPushResponse> {
   // 🧪 DEV MODE: Simulate successful payment immediately
-  if (NODE_ENV === "development" || SIMULATE_SUCCESS === "true") {
+  if (SIMULATE_SUCCESS === "true") {
     console.log("🧪 DEV MODE: Simulating successful M-PESA payment");
 
     const fakeCheckoutRequestId = `ws_CO_${Date.now()}${Math.random()
