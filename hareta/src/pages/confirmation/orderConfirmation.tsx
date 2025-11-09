@@ -193,7 +193,7 @@ const OrderConfirmation = () => {
     if (!orderID || realtimeRef.current) return;
 
     try {
-      const channel = supabase.channel(`order-${orderID}`).on(
+      const channel = supabase.channel('order-confirmation').on(
         'postgres_changes',
         {
           event: 'UPDATE',
