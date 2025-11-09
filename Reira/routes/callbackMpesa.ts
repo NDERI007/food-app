@@ -1,6 +1,5 @@
 import supabase from "@config/supabase";
 import { notificationService } from "@services/adminnotification";
-import { customerNotificationService } from "@services/clientnotification";
 import express from "express";
 
 const router = express.Router();
@@ -101,15 +100,6 @@ export async function processPaymentCallback(params: {
         amount: amount,
         phone_number: phoneNumber,
       });
-
-      // Notify customer
-      await customerNotificationService.notifyPaymentConfirmed({
-        orderId: order.id,
-        userId: order.user_id,
-        paymentReference: transactionReference || "N/A",
-        amount: order.total_amount,
-      });
-
       console.log("🔔 Notifications sent successfully");
     }
   }

@@ -5,7 +5,6 @@ import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import { socketAuthMiddleware } from "middleware/socketauth";
 import { notificationService } from "@services/adminnotification";
-import { customerNotificationService } from "@services/clientnotification";
 
 dotenv.config();
 
@@ -75,55 +74,6 @@ const setupAdminNamespace = (io: Server) => {
 };
 
 // =====================================================
-// CUSTOMER NAMESPACE SETUP
-// =====================================================
-const setupCustomerNamespace = (io: Server) => {
-  const customerNamespace = io.of("/customer");
-
-  // Apply middleware - authenticate customers
-  customerNamespace.use(wrap(cookieParser()));
-  customerNamespace.use(socketAuthMiddleware("user")); // or just "user"
-
-  // Subscribe to payment confirmations from Redis
-  customerNotificationService.subscribeToRedis((notification) => {
-    const { userId, orderId } = notification.data;
-
-    // Emit to specific user's room
-    customerNamespace
-      .to(`user:${userId}`)
-      .emit("payment:confirmed", notification);
-
-    console.log(`💳 Payment confirmation sent to user for order ${orderId}`);
-  });
-
-  // Handle customer socket connections
-  customerNamespace.on("connection", async (socket) => {
-    const user = socket.data.user;
-    console.log(`👤 Customer connected: ${user.email} (${socket.id})`);
-
-    // Join user-specific room for targeted notifications
-    socket.join(`user:${user.userID}`);
-
-    // Optional: Join order-specific room if they're tracking an order
-    socket.on("track:order", (orderId: string) => {
-      socket.join(`order:${orderId}`);
-      console.log(`📦 User tracking order ${orderId}`);
-    });
-
-    socket.on("untrack:order", (orderId: string) => {
-      socket.leave(`order:${orderId}`);
-      console.log(`📦 User stopped tracking order ${orderId}`);
-    });
-
-    socket.on("disconnect", () => {
-      console.log(`👋 Customer disconnected: ${socket.id}`);
-    });
-  });
-
-  return customerNamespace;
-};
-
-// =====================================================
 // MAIN INITIALIZATION
 // =====================================================
 export const initializeSocket = (httpServer: HTTPServer) => {
@@ -136,7 +86,6 @@ export const initializeSocket = (httpServer: HTTPServer) => {
 
   // Setup namespaces
   setupAdminNamespace(io);
-  setupCustomerNamespace(io);
 
   console.log(
     "✅ Socket.IO server initialized with admin and customer namespaces"
