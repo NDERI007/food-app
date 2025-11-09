@@ -40,6 +40,11 @@ const setupAdminNamespace = (io: Server) => {
       adminNamespace.to("admins").emit("admin:notifications:new", notification);
     } else if (action === "removed") {
       adminNamespace.to("admins").emit("admin:notifications:removed", orderId);
+    } else if (action === "shared") {
+      // NEW: Broadcast shared event to all admins
+      adminNamespace
+        .to("admins")
+        .emit("admin:notifications:shared", notification);
     }
   });
 

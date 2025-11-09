@@ -193,7 +193,7 @@ router.get("/:orderID", async (req, res) => {
     const userID = req.user?.userID;
     const { orderID } = req.params;
 
-    console.log("📋 Fetching order:", { orderID, userID });
+    console.log("📋 Fetching order:", { orderID });
 
     if (!userID) {
       return res.status(401).json({ message: "Unauthorized" });
@@ -214,9 +214,7 @@ router.get("/:orderID", async (req, res) => {
       return res.status(404).json({ message: "Order not found" });
     }
 
-    console.log("✅ Order data fetched:", data);
-    console.log("📦 Transformed order:", data);
-
+    console.log("✅ Order data fetched:");
     res.json({ order: data });
   } catch (error) {
     console.error("❌ Error fetching order:", error);

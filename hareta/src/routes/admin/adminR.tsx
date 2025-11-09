@@ -6,8 +6,8 @@ import ProtectedRoute from 'contexts/protectedRoutes';
 
 const AdminDashboard = lazy(() => import('@admin/dashboard/dashboard'));
 const ProductsPage = lazy(() => import('@admin/products/products'));
-//const ProductDetail = lazy(() => import('@admin/products/ProductDetail'));
 const CategoriesPage = lazy(() => import('@admin/category/category'));
+const AnalyticsDashboard = lazy(() => import('@admin/analytics/dashboard'));
 
 export const adminRoutes: RouteObject[] = [
   {
@@ -19,6 +19,7 @@ export const adminRoutes: RouteObject[] = [
     ), // <-- Wrap all admin pages
     children: [
       { index: true, element: <AdminDashboard /> },
+      { path: 'analytics', element: <AnalyticsDashboard /> },
       { path: 'products', element: <ProductsPage /> },
       { path: 'categories', element: <CategoriesPage /> },
       { path: 'orders', element: <OrderMonitor /> },

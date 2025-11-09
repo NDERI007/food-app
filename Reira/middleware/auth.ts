@@ -9,6 +9,7 @@ declare global {
     interface Request {
       user?: {
         userID: string;
+        email: string;
         sessionId: string;
         role: string;
         two_factor_enabled: false;
@@ -73,6 +74,7 @@ export function withAuth(requiredRoles?: string[]) {
     // Attach user to request
     req.user = {
       userID: sessionData.userID,
+      email: sessionData.email,
       sessionId,
       role: sessionData.role,
       two_factor_enabled: sessionData.two_factor_enabled,

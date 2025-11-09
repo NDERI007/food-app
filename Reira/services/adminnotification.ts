@@ -119,6 +119,15 @@ async function withLock<T>(
 /* -----------------------------
    Types
 ----------------------------- */
+export interface OrderSharedNotification {
+  type: "ORDER_SHARED";
+  data: {
+    id: string;
+    payment_reference: string;
+    shared_by: string; // admin email/name who shared it
+  };
+  timestamp: string;
+}
 
 export interface OrderNotification {
   type: "ORDER_CONFIRMED";
@@ -133,7 +142,7 @@ export interface OrderNotification {
 
 interface OutboxItem {
   id: string;
-  action: "new" | "removed";
+  action: "new" | "removed" | "shared";
   payload: any;
   channel: string;
   createdAt: number;
@@ -181,6 +190,60 @@ class NotificationService {
       await this.addToOutbox({
         id: `${data.id}-${Date.now()}`,
         action: "new",
+        payload: notification,
+        channel: this.channel,
+        createdAt: Date.now(),
+        retryCount: 0,
+      });
+    }
+  }
+
+  /**
+   * Mark order as shared with rider.
+   * Publishes event to grey out UI for all admins.
+   */
+  async notifyOrderShared(data: {
+    id: string;
+    payment_reference: string;
+    shared_by: string;
+  }): Promise<void> {
+    const notification: OrderSharedNotification = {
+      type: "ORDER_SHARED",
+      data,
+      timestamp: new Date().toISOString(),
+    };
+
+    try {
+      // Update the order in hash with shared flag
+      const existingOrder = await withRetry(() =>
+        redis.hget(this.hashKey, data.id)
+      );
+
+      if (existingOrder) {
+        const parsed = JSON.parse(existingOrder);
+        parsed.shared_with_rider = true;
+        parsed.shared_by = data.shared_by;
+        parsed.shared_at = new Date().toISOString();
+
+        await withRetry(() =>
+          redis.hset(this.hashKey, data.id, JSON.stringify(parsed))
+        );
+      }
+
+      // Publish to all connected admins
+      await withRetry(() =>
+        redis.publish(
+          this.channel,
+          JSON.stringify({ action: "shared", notification })
+        )
+      );
+
+      console.log(`📤 Order marked as shared: ${data.id} by ${data.shared_by}`);
+    } catch (err) {
+      console.error("❌ Failed to mark as shared — queued in outbox", err);
+      await this.addToOutbox({
+        id: `shared-${data.id}-${Date.now()}`,
+        action: "shared",
         payload: notification,
         channel: this.channel,
         createdAt: Date.now(),

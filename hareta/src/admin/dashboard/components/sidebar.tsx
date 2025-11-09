@@ -1,5 +1,5 @@
 import { useAuth } from '@utils/hooks/useAuth';
-import { X, Package, LogOut, List } from 'lucide-react';
+import { X, Package, LogOut, List, ChartSpline } from 'lucide-react';
 import type { ComponentType, SVGProps } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -138,6 +138,11 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                   icon={List}
                   label='Categories'
                   path='/admin/categories'
+                />
+                <NavButton
+                  icon={ChartSpline}
+                  label='Analytics'
+                  path='/admin/analytics'
                 />
               </div>
 

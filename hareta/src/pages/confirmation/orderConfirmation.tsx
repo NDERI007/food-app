@@ -12,12 +12,15 @@ import { OrderDetailsCard } from './components/orderDetails';
 import { OrderItemsCard } from './components/orderItemscard';
 import { OrderStatusCard } from './components/orderStatus';
 import { SuccessHeader } from './components/successHeader';
-import axios from 'axios';
 import { ConfirmModal } from '@components/confirmModal';
-import { io, type Socket } from 'socket.io-client';
+import axios from 'axios';
+import type {
+  RealtimeChannel,
+  RealtimePostgresUpdatePayload,
+} from '@supabase/supabase-js';
+import { supabase } from '@utils/supabase/Client';
 
 const MAX_WAIT_TIME = 60;
-const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:8787';
 
 type ConnectionStatus = 'connecting' | 'connected' | 'error';
 
@@ -26,25 +29,23 @@ const OrderConfirmation = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
 
-  // Connection & Order State
+  // State
   const [connectionStatus, setConnectionStatus] =
     useState<ConnectionStatus>('connecting');
   const [orderData, setOrderData] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Delivery Confirmation State
   const [confirmingDelivery, setConfirmingDelivery] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Refs
-  const socketRef = useRef<Socket | null>(null);
+  const realtimeRef = useRef<RealtimeChannel | null>(null);
   const timeoutTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
   const orderID = searchParams.get('orderID');
 
-  // Auth redirect - separate effect
+  // Auth redirect
   useEffect(() => {
     if (authLoading) return;
     if (!isAuthenticated) {
@@ -52,7 +53,7 @@ const OrderConfirmation = () => {
     }
   }, [isAuthenticated, authLoading, navigate]);
 
-  // Memoized cleanup functions
+  // Stop timers
   const stopTimers = useCallback(() => {
     if (timeoutTimerRef.current) {
       clearTimeout(timeoutTimerRef.current);
@@ -60,123 +61,168 @@ const OrderConfirmation = () => {
     }
   }, []);
 
-  const cleanupSocket = useCallback(() => {
-    if (socketRef.current) {
-      socketRef.current.removeAllListeners();
-      socketRef.current.emit('untrack:order', orderID);
-      socketRef.current.disconnect();
-      socketRef.current = null;
-    }
-  }, [orderID]);
-
-  // Fetch order details
-  const fetchOrderDetails = useCallback(async () => {
-    if (!orderID || !isMountedRef.current) return true;
-
+  // Clean up Supabase channel
+  const cleanupRealtime = useCallback(async () => {
+    console.log('[cleanupRealtime] start');
     try {
-      const statusResponse = await api.get(
-        `/api/orders/${orderID}/payment-status`,
-      );
+      if (!realtimeRef.current) return;
+      const channel = realtimeRef.current;
+      await channel.unsubscribe();
+      console.log('[cleanupRealtime] end');
+    } catch (err) {
+      console.warn('Failed to cleanup realtime subscription', err);
+    } finally {
+      realtimeRef.current = null;
+      setConnectionStatus('connecting');
+    }
+  }, []);
 
-      if (!isMountedRef.current) return true;
+  // Fetch order details manually
+  const fetchOrderDetails = useCallback(
+    async (suppressLoading = false) => {
+      if (!orderID || !isMountedRef.current) return true;
+      console.log('[fetchOrderDetails] running', { orderID });
 
-      if (statusResponse.data.has_failed) {
-        setError(
-          `Payment ${statusResponse.data.payment_status}. Please try again or contact support.`,
+      try {
+        if (!suppressLoading) setLoading(true);
+        const statusResponse = await api.get(
+          `/api/orders/${orderID}/payment-status`,
         );
-        setLoading(false);
-        stopTimers();
-        return true;
-      }
 
-      if (statusResponse.data.is_complete) {
-        const orderResponse = await api.get(`/api/orders/${orderID}`);
         if (!isMountedRef.current) return true;
 
-        setOrderData(orderResponse.data.order);
-        setLoading(false);
-        stopTimers();
-        return true;
-      }
+        if (statusResponse.data.has_failed) {
+          console.log('[fetchOrderDetails] terminal state detected', {
+            has_failed: statusResponse.data.has_failed,
+            is_complete: statusResponse.data.is_complete,
+          });
 
-      return false;
-    } catch (err) {
-      if (!isMountedRef.current) return true;
+          setError(
+            `Payment ${statusResponse.data.payment_status}. Please try again or contact support.`,
+          );
+          setLoading(false);
+          stopTimers();
+          await cleanupRealtime();
+          return true;
+        }
 
-      console.error('Error fetching order details:', err);
-      setError('Failed to load order details');
-      setLoading(false);
-      stopTimers();
-      return true;
-    }
-  }, [orderID, stopTimers]);
+        if (statusResponse.data.is_complete) {
+          console.log('[fetchOrderDetails] terminal state detected', {
+            has_failed: statusResponse.data.has_failed,
+            is_complete: statusResponse.data.is_complete,
+          });
 
-  // Setup socket connection
-  const setupSocketConnection = useCallback(() => {
-    if (!orderID || socketRef.current?.connected) return;
-
-    const socket = io(`${SOCKET_URL}/customer`, {
-      withCredentials: true,
-      transports: ['websocket'],
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-      timeout: 10000,
-    });
-
-    socketRef.current = socket;
-
-    socket.on('connect', () => {
-      if (!isMountedRef.current) return;
-      setConnectionStatus('connected');
-      socket.emit('track:order', orderID);
-    });
-
-    socket.on('disconnect', () => {
-      if (!isMountedRef.current) return;
-      setConnectionStatus('connecting');
-    });
-
-    socket.on('connect_error', (err) => {
-      if (!isMountedRef.current) return;
-      console.error('⚠️ Socket connection error:', err.message);
-      setConnectionStatus('error');
-    });
-
-    socket.on('payment:confirmed', async (notification) => {
-      if (!isMountedRef.current) return;
-
-      if (notification.data.orderId === orderID) {
-        stopTimers();
-
-        try {
           const orderResponse = await api.get(`/api/orders/${orderID}`);
-          if (!isMountedRef.current) return;
-
+          if (!isMountedRef.current) return true;
           setOrderData(orderResponse.data.order);
           setLoading(false);
-        } catch (err) {
-          if (!isMountedRef.current) return;
+          stopTimers();
+          await cleanupRealtime();
+          return true;
+        }
+        console.log('[fetchOrderDetails] done');
 
-          console.error('Error fetching order after payment:', err);
+        return false;
+      } catch (err) {
+        if (!isMountedRef.current) return true;
+        console.error('Error fetching order details:', err);
+        setError('Failed to load order details');
+        setLoading(false);
+        stopTimers();
+        await cleanupRealtime();
+        return true;
+      }
+    },
+    [orderID, stopTimers, cleanupRealtime],
+  );
+
+  // Handle realtime updates
+  const handleRealtimeUpdate = useCallback(
+    async (
+      payload: RealtimePostgresUpdatePayload<{
+        id: string;
+        status: string;
+        payment_status: string;
+        is_complete: boolean;
+        has_failed: boolean;
+      }>,
+    ) => {
+      console.log('[Realtime] payload', payload);
+
+      if (!payload?.new) return;
+      const newRow = payload.new;
+      if (String(newRow.id) !== String(orderID)) return;
+
+      const isSuccess =
+        newRow.status === 'confirmed' ||
+        newRow.payment_status === 'COMPLETED' ||
+        newRow.is_complete === true;
+
+      const isFailed =
+        newRow.status === 'failed' ||
+        newRow.payment_status === 'FAILED' ||
+        newRow.has_failed === true;
+
+      if (isSuccess || isFailed) {
+        console.log('[Realtime] terminal state received', {
+          isSuccess,
+          isFailed,
+        });
+
+        stopTimers();
+        try {
+          const orderResponse = await api.get(`/api/orders/${orderID}`);
+          if (orderResponse?.data?.order) {
+            setOrderData(orderResponse.data.order);
+            setLoading(false);
+          }
+        } catch (err) {
+          console.error('Failed to fetch order after realtime update', err);
           setError('Failed to load order details');
           setLoading(false);
         }
-
-        cleanupSocket();
+        await cleanupRealtime(); // ✅ Unsubscribe once resolved
+        console.log('[Realtime] cleanup done after terminal');
       }
-    });
+    },
+    [orderID, stopTimers, cleanupRealtime],
+  );
 
-    return socket;
-  }, [orderID, stopTimers, cleanupSocket]);
+  // Setup Supabase Realtime subscription
+  const setupRealtimeSubscription = useCallback(async () => {
+    if (!orderID || realtimeRef.current) return;
 
-  // Main initialization effect
+    try {
+      const channel = supabase.channel(`order-${orderID}`).on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `id=eq.${orderID}`,
+        },
+        handleRealtimeUpdate,
+      );
+
+      channel.subscribe((status: string) => {
+        if (status === 'SUBSCRIBED') setConnectionStatus('connected');
+        if (status === 'CHANNEL_ERROR') setConnectionStatus('error');
+      });
+
+      realtimeRef.current = channel;
+    } catch (err) {
+      console.error('Realtime subscribe failed', err);
+      setConnectionStatus('error');
+    }
+  }, [orderID, handleRealtimeUpdate]);
+
+  // Initialization effect
   useEffect(() => {
     if (!orderID) {
       setError('Missing order ID');
       setLoading(false);
       return;
     }
-
     if (authLoading || !isAuthenticated) return;
 
     isMountedRef.current = true;
@@ -185,18 +231,18 @@ const OrderConfirmation = () => {
       const isResolved = await fetchOrderDetails();
 
       if (!isResolved && isMountedRef.current) {
-        // Order not yet complete, setup socket and timeout
-        setupSocketConnection();
+        setupRealtimeSubscription();
 
         timeoutTimerRef.current = setTimeout(() => {
+          console.log('[Timeout] fired');
           if (!isMountedRef.current) return;
-
           setError(
             'Payment verification is taking longer than expected. Please check your email or contact support.',
           );
           setLoading(false);
-          cleanupSocket();
+          cleanupRealtime();
         }, MAX_WAIT_TIME * 1000);
+        console.log('[Timeout] created');
       }
     };
 
@@ -205,18 +251,19 @@ const OrderConfirmation = () => {
     return () => {
       isMountedRef.current = false;
       stopTimers();
-      cleanupSocket();
+      cleanupRealtime();
     };
   }, [
     orderID,
     isAuthenticated,
     authLoading,
     fetchOrderDetails,
-    setupSocketConnection,
+    setupRealtimeSubscription,
     stopTimers,
-    cleanupSocket,
+    cleanupRealtime,
   ]);
 
+  // Confirm delivery
   const handleConfirmDelivery = useCallback(async () => {
     if (!orderData) return;
     setConfirmingDelivery(true);
@@ -252,13 +299,11 @@ const OrderConfirmation = () => {
     }
   }, [orderData]);
 
-  if (authLoading) {
-    return <LoadingScreen message='Loading...' />;
-  }
-
+  // UI
+  if (authLoading) return <LoadingScreen message='Loading...' />;
   if (!isAuthenticated) return null;
 
-  if (loading) {
+  if (loading)
     return (
       <LoadingScreen
         message='Confirming Your Payment'
@@ -266,9 +311,8 @@ const OrderConfirmation = () => {
         connectionStatus={connectionStatus}
       />
     );
-  }
 
-  if (error) {
+  if (error)
     return (
       <ErrorScreen
         error={error}
@@ -276,7 +320,6 @@ const OrderConfirmation = () => {
         onViewOrders={() => navigate('/orders')}
       />
     );
-  }
 
   if (!orderData) return null;
 
@@ -299,7 +342,6 @@ const OrderConfirmation = () => {
               confirmingDelivery={confirmingDelivery}
               onConfirm={() => setShowConfirmModal(true)}
             />
-
             {errorMessage && (
               <p className='text-sm text-red-600'>{errorMessage}</p>
             )}

@@ -41,9 +41,6 @@ const PORT = parseInt(process.env.PORT || "8787", 10);
 // ✅ ONLY ONE listen() call
 httpServer.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`📦 BullMQ worker active`);
-  console.log(`🔍 Order poller running (60s interval)`);
-  console.log(`⏱️  Batch scheduler running (60s window)`);
   console.log(`🔌 Socket.IO ready for admin connections`);
 });
 

@@ -26,4 +26,27 @@ router.get("/today", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
+router.get("/analytics", withAuth(["admin"]), async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    // Call the analytics RPC
+    const { data, error } = await supabase.rpc("get_order_analytics", {
+      start_date: startDate || null,
+      end_date: endDate || null,
+    });
+
+    if (error) {
+      console.error("Supabase RPC error:", error);
+      return res.status(500).json({ error: "Failed to fetch analytics" });
+    }
+
+    return res.json(data);
+  } catch (err) {
+    console.error("Server error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 export default router;
