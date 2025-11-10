@@ -200,12 +200,7 @@ To request a refund:
 
 ### For M-Pesa Payments:
 - Approved refunds will be processed back to your M-Pesa number
-- Refunds take [3-7] business days to reflect in your account
 - M-Pesa transaction charges are non-refundable
-
-### For Cash on Delivery:
-- If you haven't paid yet, simply refuse the delivery
-- If already paid, refunds will be issued via M-Pesa to your registered number
 
 ## 5. Partial Refunds
 
@@ -237,13 +232,12 @@ For food quality issues:
 ## 9. Processing Time
 
 - Refund requests are reviewed within [24-48] hours
-- Approved refunds are processed within [3-7] business days
+- Approved refunds are processed within 1 business days
 - You will receive confirmation via whatsapp/email when refund is processed
 
 ## 10. Disputes
 
 If you disagree with our refund decision:
-- You may escalate to MANAGER
 - Provide additional evidence for reconsideration
 - Final decisions are at IuraFoods' discretion
 
@@ -251,7 +245,7 @@ If you disagree with our refund decision:
 
 For refund requests or questions:
 - Phone: 0723414134
-- Email: [YOUR EMAIL]
+- Email: eaterpumpkin062@gmail.com
 - Include order number in all communications
 
 ## 12. Policy Changes
@@ -282,7 +276,7 @@ Yes! You can specify dietary preferences and modifications in the special instru
 We deliver within a 5km radius from [SCHOOL CAMPUS NAME].
 
 **How long does delivery take?**
-Typical delivery time is [5-10] minutes, depending on your location and order complexity.
+Typical delivery time is [10-20] minutes, depending on your location and order complexity.
 
 **What if I'm not available when the delivery arrives?**
 Please ensure you're available during the estimated delivery window. Select the pickup option or contact us immediately at 0723414134 if you need to reschedule.
@@ -296,16 +290,16 @@ Just meet your rider at the entrance to pick up your order — it keeps things q
 ## Payment
 
 **What payment methods do you accept?**
-We accept M-Pesa and Cash on Delivery.
+We accept only M-Pesa
 
 **Is there a delivery fee?**
-[INSERT YOUR DELIVERY FEE POLICY]
+Yes, it's 20 bob
 
 **How does M-Pesa payment work?**
 After placing your order, you'll receive an STK push notification on your phone. Enter your M-Pesa PIN to complete the payment.
 
 **What if the M-Pesa payment fails?**
-You can retry the payment or choose Cash on Delivery. Contact us at 0723414134 if you continue experiencing issues.
+You can retry the payment or Contact us at 0723414134 if you continue experiencing issues.
 
 ---
 
@@ -339,9 +333,6 @@ Please inform us of any allergies in your order notes. Contact us at 0723414134 
 Tap “Sign Up” and enter your email address. We’ll send you a one-time verification code (OTP) to confirm it — no password needed!
 Once verified, your account is created instantly, and you can log in the same way anytime.
 
-
-**Can I save my favorite orders?**
-[YES/NO - depending on if you implement this feature]
 
 **The app/website isn't working. What should I do?**
 Try refreshing the page or clearing your browser cache. If issues persist, contact us at 0723414134.

@@ -12,32 +12,34 @@ const features = [
     text: 'Our meals are cooked daily with fresh, locally sourced ingredients.',
     img: veggieImg,
   },
-  //{
-  //title: 'Simple & convenient',
-  //text: 'Browse the menu, customize your meal, and check out in just a few taps.',
-  //img: '',
-  //},
 ];
 
 export default function Features() {
   return (
-    <section className='mx-auto max-w-6xl px-6 py-16'>
-      <div className='grid gap-8 md:grid-cols-3'>
+    /* THIS IS THE KEY: The entire section background is 'bg-white'.
+      This creates a high-contrast break from the cream hero and the dark green footer.
+    */
+    <section className='w-full bg-white py-16'>
+      {/* We use the same max-width container as the hero to keep alignment */}
+      <div className='mx-auto grid max-w-4xl gap-12 px-6 md:grid-cols-2'>
         {features.map((f, i) => (
-          <div
-            key={i}
-            className='overflow-hidden rounded-2xl bg-white shadow-md transition hover:shadow-lg'
-          >
+          /*
+            This 'div' is now just a layout container.
+            No card styles, no background, no shadow.
+            Just the image and text on the white section background.
+          */
+          <div key={i} className='flex flex-col text-left'>
             <img
               src={f.img}
               alt={f.title}
-              className='h-48 w-full object-cover'
+              className='h-64 w-full rounded-lg object-cover'
             />
-            <div className='p-6 text-center'>
-              <h3 className='mb-2 text-xl font-semibold text-gray-800'>
+            <div className='pt-4'>
+              <h3 className='mb-2 text-xl font-semibold text-green-900'>
                 {f.title}
               </h3>
-              <p className='text-gray-600'>{f.text}</p>
+              {/* Using your dark green with 80% opacity for the body text */}
+              <p className='text-green-900/80'>{f.text}</p>
             </div>
           </div>
         ))}

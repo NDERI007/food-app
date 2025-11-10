@@ -14,6 +14,7 @@ import { OrderStatusCard } from './components/orderStatus';
 import { SuccessHeader } from './components/successHeader';
 import { ConfirmModal } from '@components/confirmModal';
 import axios from 'axios';
+import { WhatsAppSupport } from './components/supportWhatsapp';
 
 const POLLING_INTERVAL = 3000; // every 3s
 const MAX_WAIT_TIME = 60; // seconds
@@ -294,7 +295,9 @@ const OrderConfirmation = () => {
           secondaryText={orderData.delivery_address_secondary_text}
           instructions={orderData.delivery_instructions}
         />
-
+        {orderData.status === 'confirmed' && (
+          <WhatsAppSupport orderData={orderData} />
+        )}
         <div className='flex gap-4'>
           <button
             onClick={() => navigate('/orders')}

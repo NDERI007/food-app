@@ -1,13 +1,13 @@
 import Features from './components/feature';
 import FeedbackButton from './components/feedback';
 import Footer from './components/footer';
-import Hero from './components/hero';
+import { HeroSection } from './components/heroo';
 import Navbar from './components/navbar';
 
 export default function Home() {
   return (
     <>
-      <Hero />
+      <HeroSection />
       <Features />
       <Navbar />
       <FeedbackButton />
