@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCartStore } from '@utils/hooks/useCrt';
-import { useDeliveryStore } from '@utils/hooks/deliveryStore';
+import {
+  FREE_DELIVERY_THRESHOLD,
+  useDeliveryStore,
+} from '@utils/hooks/deliveryStore';
 import { useAuth } from '@utils/hooks/useAuth';
 import {
   Plus,
@@ -42,6 +45,7 @@ export default function CheckoutPage() {
     setDeliveryAddress,
     changeLocation,
     clearDelivery,
+    getDeliveryFee,
   } = useDeliveryStore();
 
   // Local State
@@ -60,8 +64,14 @@ export default function CheckoutPage() {
     (sum, item) => sum + item.price * item.quantity,
     0,
   );
-  const deliveryFee = isDelivery ? 0 : 0;
+  const deliveryFee = getDeliveryFee(subtotal);
   const total = subtotal + deliveryFee;
+
+  const amountUntilFreeDelivery = Math.max(
+    0,
+    FREE_DELIVERY_THRESHOLD - subtotal,
+  );
+  const qualifiesForFreeDelivery = subtotal >= FREE_DELIVERY_THRESHOLD;
 
   // Restaurant info for pickup
   const restaurantInfo = {
@@ -512,8 +522,48 @@ export default function CheckoutPage() {
                   </div>
                   <div className='flex justify-between text-sm text-gray-600'>
                     <span>Delivery Fee</span>
-                    <span className='font-medium text-green-600'>Free</span>
+                    <span
+                      className={`font-medium ${deliveryFee === 0 ? 'text-green-600' : 'text-gray-900'}`}
+                    >
+                      {deliveryFee === 0
+                        ? 'Free'
+                        : `KES ${deliveryFee.toFixed(2)}`}
+                    </span>
                   </div>
+
+                  {/* Free Delivery Progress Banner */}
+                  {isDelivery &&
+                    !qualifiesForFreeDelivery &&
+                    amountUntilFreeDelivery > 0 &&
+                    amountUntilFreeDelivery <= 50 && (
+                      <div className='rounded-lg border border-amber-200 bg-amber-50 p-3'>
+                        <p className='text-xs text-amber-800'>
+                          Add{' '}
+                          <span className='font-bold'>
+                            KES {amountUntilFreeDelivery.toFixed(2)}
+                          </span>{' '}
+                          more for free delivery!
+                        </p>
+                        <div className='mt-2 h-2 w-full rounded-full bg-amber-200'>
+                          <div
+                            className='h-full rounded-full bg-amber-500 transition-all'
+                            style={{
+                              width: `${Math.min((subtotal / FREE_DELIVERY_THRESHOLD) * 100, 100)}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                  {/* Free Delivery Badge */}
+                  {isDelivery && qualifiesForFreeDelivery && (
+                    <div className='rounded-lg border border-green-200 bg-green-50 p-3'>
+                      <p className='flex items-center gap-1 text-xs font-semibold text-green-800'>
+                        <span className='text-base'>🎉</span> You've unlocked
+                        free delivery!
+                      </p>
+                    </div>
+                  )}
                   <div className='border-t border-gray-200 pt-3'>
                     <div className='flex justify-between'>
                       <span className='font-semibold text-gray-900'>Total</span>

@@ -1,27 +1,57 @@
 import { ConfirmModal } from '@components/confirmModal';
 import { getImageUrl } from '@utils/hooks/getImage';
 import { useCartStore } from '@utils/hooks/useCrt';
-import { X, Plus, Minus, Trash2, ShoppingCart, ArrowRight } from 'lucide-react';
+import {
+  useDeliveryStore,
+  FREE_DELIVERY_THRESHOLD,
+} from '@utils/hooks/deliveryStore';
+import {
+  X,
+  Plus,
+  Minus,
+  Trash2,
+  ShoppingCart,
+  ArrowRight,
+  TruckIcon,
+} from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export default function CartDrawer() {
   const navigate = useNavigate();
 
-  // Read all state directly from Zustand - no props needed!
+  // Cart store
   const isOpen = useCartStore((state) => state.isOpen);
   const closeCart = useCartStore((state) => state.closeCart);
   const items = useCartStore((state) => state.items);
   const updateQuantity = useCartStore((state) => state.updateQuantity);
   const removeItem = useCartStore((state) => state.removeItem);
   const clearCart = useCartStore((state) => state.clearCart);
+
+  // Delivery store
+  const deliveryOption = useDeliveryStore((state) => state.deliveryOption);
+  const getDeliveryFee = useDeliveryStore((state) => state.getDeliveryFee);
+
   const [showConfirm, setShowConfirm] = useState(false);
+
   // Calculate totals
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
-  const totalPrice = items.reduce(
+  const subtotal = items.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0,
   );
+  const deliveryFee = getDeliveryFee(subtotal);
+  const totalPrice = subtotal + deliveryFee;
+
+  // Free delivery calculations
+  const amountUntilFreeDelivery = Math.max(
+    0,
+    FREE_DELIVERY_THRESHOLD - subtotal,
+  );
+  const qualifiesForFreeDelivery = subtotal >= FREE_DELIVERY_THRESHOLD;
+  const isDelivery = deliveryOption === 'delivery';
+  const showFreeDeliveryPrompt =
+    isDelivery && !qualifiesForFreeDelivery && amountUntilFreeDelivery <= 50;
 
   const handleCheckout = () => {
     closeCart();
@@ -34,6 +64,7 @@ export default function CartDrawer() {
     clearCart();
     setShowConfirm(false);
   };
+
   return (
     <>
       {/* Backdrop */}
@@ -84,6 +115,36 @@ export default function CartDrawer() {
               </div>
             ) : (
               <div className='space-y-3'>
+                {/* Free Delivery Banner - Show at top of items */}
+                {showFreeDeliveryPrompt && (
+                  <div className='rounded-lg border-2 border-amber-300 bg-amber-50 p-3 shadow-sm'>
+                    <div className='flex items-start gap-2'>
+                      <TruckIcon className='h-5 w-5 flex-shrink-0 text-amber-600' />
+                      <div className='flex-1'>
+                        <p className='text-sm font-semibold text-amber-900'>
+                          Almost there!
+                        </p>
+                        <p className='text-xs text-amber-800'>
+                          Add{' '}
+                          <span className='font-bold'>
+                            KES {amountUntilFreeDelivery.toFixed(2)}
+                          </span>{' '}
+                          more for free delivery
+                        </p>
+                        <div className='mt-2 h-1.5 w-full rounded-full bg-amber-200'>
+                          <div
+                            className='h-full rounded-full bg-amber-500 transition-all duration-300'
+                            style={{
+                              width: `${Math.min((subtotal / FREE_DELIVERY_THRESHOLD) * 100, 100)}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Cart Items */}
                 {items.map((item) => {
                   const imageUrl = getImageUrl(item.image);
                   return (
@@ -163,16 +224,34 @@ export default function CartDrawer() {
           {/* Footer */}
           {items.length > 0 && (
             <div className='flex-shrink-0 border-t border-gray-200 bg-white p-4'>
+              {/* Free Delivery Success Badge */}
+              {isDelivery && qualifiesForFreeDelivery && (
+                <div className='mb-3 rounded-lg border border-green-200 bg-green-50 p-2.5'>
+                  <p className='flex items-center gap-1.5 text-xs font-semibold text-green-800'>
+                    <span className='text-base'>🎉</span>
+                    You've unlocked free delivery!
+                  </p>
+                </div>
+              )}
+
               <div className='mb-3 space-y-2 rounded-lg bg-gray-50 p-3'>
                 <div className='flex justify-between text-sm'>
                   <span className='text-gray-600'>Subtotal</span>
                   <span className='font-medium text-gray-900'>
-                    KES {totalPrice.toFixed(2)}
+                    KES {subtotal.toFixed(2)}
                   </span>
                 </div>
                 <div className='flex justify-between text-sm'>
                   <span className='text-gray-600'>Delivery</span>
-                  <span className='font-medium text-green-600'>Free</span>
+                  <span
+                    className={`font-medium ${
+                      deliveryFee === 0 ? 'text-green-600' : 'text-gray-900'
+                    }`}
+                  >
+                    {deliveryFee === 0
+                      ? 'Free'
+                      : `KES ${deliveryFee.toFixed(2)}`}
+                  </span>
                 </div>
                 <div className='flex justify-between border-t border-gray-200 pt-2'>
                   <span className='font-semibold text-gray-900'>Total</span>

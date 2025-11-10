@@ -258,6 +258,12 @@ export default function ReviewedDashboard() {
     };
   }, [handleOrderShared]);
 
+  useEffect(() => {
+    // Initial data load for both tables
+    loadOrders('out_for_delivery', 1);
+    loadOrders('declined', 1);
+  }, [loadOrders]);
+
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleString('en-KE', {
       year: 'numeric',

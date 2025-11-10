@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import Navbar from './components/dashNav';
 import Sidebar from './components/sideBar';
@@ -21,12 +21,7 @@ function Dashboard() {
     data: products,
     isLoading: isProductsLoading,
     error: productsError,
-    dataUpdatedAt,
   } = useMenuItems(activeCategory);
-  useEffect(() => {
-    console.log('📦 Products updated:', products?.length, 'items');
-    console.log('🕐 Last updated at:', new Date(dataUpdatedAt).toISOString());
-  }, [products, dataUpdatedAt]);
   // State management
   const toggleCart = useCartStore((state) => state.toggleCart);
   const totalItems = useCartStore((state) => state.totalItems());
