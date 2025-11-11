@@ -19,10 +19,10 @@ const legalPages: LegalPages = {
     content: `
 Last Updated: [DATE]
 
-Welcome to IuraFoods. By using our food ordering service, you agree to these Terms of Service.
+Welcome to Weddy's Kitchen. By using our food ordering service, you agree to these Terms of Service.
 
 ## 1. Service Description
-IuraFoods is a food ordering and delivery service operating within a 5km radius from Kirinyaga University. We prepare fresh meals and deliver them to your specified location.
+Weddy's Kitchen is a food ordering and delivery service operating within a 5km radius from Kirinyaga University. We prepare fresh meals and deliver them to your specified location.
 
 ## 2. Account Registration
 - You must provide accurate information during signup
@@ -63,13 +63,13 @@ You agree NOT to:
 - Share your account credentials with others
 
 ## 8. Liability
-- IuraFoods is not liable for any allergic reactions unless we were informed in advance
+- Weddy's Kitchen is not liable for any allergic reactions unless we were informed in advance
 - We are not responsible for items left unattended after delivery
 - Our liability is limited to the value of your order
 - We are not liable for delays caused by weather, traffic, or other unforeseen circumstances
 
 ## 9. Privacy
-Your use of IuraFoods is also governed by our Privacy Policy. We collect and store your email address and order information.
+Your use of Weddy's Kitchen is also governed by our Privacy Policy. We collect and store your email address and order information.
 
 ## 10. Changes to Terms
 We reserve the right to modify these terms at any time. Continued use of the service constitutes acceptance of modified terms.
@@ -86,7 +86,7 @@ These Terms are governed by the laws of Kenya.
     content: `
 Last Updated: [DATE]
 
-IuraFoods ("we," "our," or "us") respects your privacy. This Privacy Policy explains how we collect, use, and protect your personal information.
+Weddy's Kitchen ("we," "our," or "us") respects your privacy. This Privacy Policy explains how we collect, use, and protect your personal information.
 
 ## 1. Information We Collect
 
@@ -165,7 +165,7 @@ For privacy concerns or questions, contact us at:
     content: `
 Last Updated: 17-Oct-2025
 
-At IuraFoods, we strive for customer satisfaction. This Refund Policy outlines when and how refunds are issued.
+At Weddy's Kitchen, we strive for customer satisfaction. This Refund Policy outlines when and how refunds are issued.
 
 ## 1. Eligibility for Refunds
 
@@ -235,7 +235,7 @@ For food quality issues:
 
 If you disagree with our refund decision:
 - Provide additional evidence for reconsideration
-- Final decisions are at IuraFoods' discretion
+- Final decisions are at Weddy's Kitchen' discretion
 
 ## 11. Contact
 
@@ -358,7 +358,7 @@ Just tap the Feedback button floating on your screen to share your thoughts, or 
 Call or WhatsApp us at 0745340424/0727942764
 
 **What are your support hours?**
-[INSERT SUPPORT HOURS]
+9:00AM to 9:30PM
 
 ---
 
@@ -387,7 +387,7 @@ export default function Footer() {
             {/* Company Info */}
             <div>
               <h3 className='mb-4 text-lg font-semibold text-white'>
-                IuraFoods
+                Weddy's Kitchen
               </h3>
               <p className='mb-4 text-sm'>
                 Fresh meals delivered within a 5km radius from School Campus.
@@ -460,7 +460,7 @@ export default function Footer() {
 
           {/* Bottom Bar */}
           <div className='mt-8 border-t border-gray-800 pt-8 text-center text-sm'>
-            <p>&copy; 2025 IuraFoods. All rights reserved.</p>
+            <p>&copy; 2025 Weddy's Kitchen. All rights reserved.</p>
           </div>
         </div>
       </footer>

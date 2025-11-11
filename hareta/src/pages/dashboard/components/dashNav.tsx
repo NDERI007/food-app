@@ -35,7 +35,7 @@ export default function Navbar({
             to={'/'}
             className='text-lg font-bold text-green-600 sm:text-xl'
           >
-            Iura
+            Weddyskitchen
           </Link>
 
           <DeliveryPickupToggle />

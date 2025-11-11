@@ -77,10 +77,10 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         <div className='flex flex-shrink-0 items-center justify-between border-b border-gray-200 px-4 py-3 md:hidden'>
           <div className='flex items-center gap-2.5'>
             <div className='flex h-7 w-7 items-center justify-center rounded-lg bg-green-600 text-xs font-bold text-white'>
-              IF
+              WK
             </div>
             <span className='text-base font-semibold text-gray-900'>
-              IuraFoods
+              Weddyskitchen
             </span>
           </div>
           <button

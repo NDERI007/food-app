@@ -6,7 +6,7 @@ export default function Navbar() {
       <div className='mx-auto flex max-w-6xl items-center justify-between px-2 py-2'>
         {/* App name / logo */}
         <Link to={'/'} className='text-2xl font-bold text-green-900'>
-          Iura
+          Weddy's Kitchen
         </Link>
 
         {/* Login button */}
