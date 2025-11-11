@@ -75,7 +75,7 @@ Your use of IuraFoods is also governed by our Privacy Policy. We collect and sto
 We reserve the right to modify these terms at any time. Continued use of the service constitutes acceptance of modified terms.
 
 ## 11. Contact
-For questions about these Terms, contact us at 0723414134.
+For questions about these Terms, contact us at 0745340424/0727942764.
 
 ## 12. Governing Law
 These Terms are governed by the laws of Kenya.
@@ -134,7 +134,7 @@ You have the right to:
 - Opt-out of promotional communications
 - Withdraw consent for data processing
 
-To exercise these rights, contact us at 0723414134.
+To exercise these rights, contact us at 0745340424/0727942764.
 
 ## 6. Cookies
 
@@ -155,13 +155,9 @@ We may update this Privacy Policy periodically. Continued use of our service aft
 ## 10. Contact Us
 
 For privacy concerns or questions, contact us at:
-- Phone: 0723414134
-- Email: [YOUR EMAIL]
+- Phone: 0745340424/0727942764
+- Email: eaterpumpkin062@gmail.com
 
-## 11. Data Protection Officer
-
-[IF APPLICABLE - For compliance with Kenya Data Protection Act]
-For data protection inquiries: [CONTACT INFO]
     `,
   },
   refund: {
@@ -191,7 +187,7 @@ Refunds will NOT be issued if:
 ## 3. How to Request a Refund
 
 To request a refund:
-1. Contact us at 0723414134 within [24 hours] of delivery
+1. Contact us at 0745340424/0727942764 within [24 hours] of delivery
 2. Provide your order number and reason for refund
 3. Provide photo evidence if claiming food quality issues
 4. We will review your request within [24-48] hours
@@ -217,7 +213,7 @@ In some cases, we may offer:
 ## 7. Delivery Issues
 
 If your order doesn't arrive:
-- Contact us immediately at 0723414134
+- Contact us immediately at 0745340424/0727942764
 - We will attempt redelivery or issue a full refund
 - If you provided wrong address information, refunds may not apply
 
@@ -244,7 +240,7 @@ If you disagree with our refund decision:
 ## 11. Contact
 
 For refund requests or questions:
-- Phone: 0723414134
+- Phone: 0745340424/0727942764
 - Email: eaterpumpkin062@gmail.com
 - Include order number in all communications
 
@@ -262,7 +258,7 @@ We reserve the right to modify this Refund Policy at any time. Changes will be e
 Browse our menu, select your items, add them to cart, and proceed to checkout. You'll need to create an account if you haven't already.
 
 **What are your operating hours?**
-[INSERT YOUR OPERATING HOURS]
+From 9:00AM to 9:30PM
 
 
 **Can I customize my order?**
@@ -279,7 +275,7 @@ We deliver within a 5km radius from [SCHOOL CAMPUS NAME].
 Typical delivery time is [10-20] minutes, depending on your location and order complexity.
 
 **What if I'm not available when the delivery arrives?**
-Please ensure you're available during the estimated delivery window. Select the pickup option or contact us immediately at 0723414134 if you need to reschedule.
+Please ensure you're available during the estimated delivery window. Select the pickup option or contact us immediately at 0745340424/0727942764 if you need to reschedule.
 
 **Do you deliver to hostels/dorms?**
 Yes, we do! We deliver to hostels and dorms, but please note that our riders only deliver to the main entrance.
@@ -293,20 +289,20 @@ Just meet your rider at the entrance to pick up your order — it keeps things q
 We accept only M-Pesa
 
 **Is there a delivery fee?**
-Yes, it's 20 bob
+Yes, it's 10 bob
 
 **How does M-Pesa payment work?**
 After placing your order, you'll receive an STK push notification on your phone. Enter your M-Pesa PIN to complete the payment.
 
 **What if the M-Pesa payment fails?**
-You can retry the payment or Contact us at 0723414134 if you continue experiencing issues.
+You can retry the payment or Contact us at 0745340424/0727942764 if you continue experiencing issues.
 
 ---
 
 ## Order Changes & Cancellations
 
 **Can I modify my order after placing it?**
-Contact us immediately at 0723414134. If food preparation hasn't started, we can make changes.
+Contact us immediately at 0745340424/0727942764. If food preparation hasn't started, we can make changes.
 
 **Do I get a refund if I cancel?**
 Yes, if cancelled before preparation starts. See our Refund Policy for details.
@@ -323,7 +319,7 @@ Yes! All meals are prepared fresh daily with quality ingredients.
 
 
 **What if I have a food allergy?**
-Please inform us of any allergies in your order notes. Contact us at 0723414134 if you have severe allergies.
+Please inform us of any allergies in your order notes. Contact us at 0745340424/0727942764 if you have severe allergies.
 
 ---
 
@@ -335,20 +331,20 @@ Once verified, your account is created instantly, and you can log in the same wa
 
 
 **The app/website isn't working. What should I do?**
-Try refreshing the page or clearing your browser cache. If issues persist, contact us at 0723414134.
+Try refreshing the page or clearing your browser cache. If issues persist, contact us at 0745340424/0727942764.
 
 ---
 
 ## Problems & Support
 
 **My order is late. What should I do?**
-Contact us at 0723414134 for real-time order status.
+Contact us at 0745340424/0727942764 for real-time order status.
 
 **My order is wrong or missing items. What do I do?**
-Call us immediately at 0723414134. Take photos of what you received and we'll resolve it promptly.
+Call us immediately at 0745340424/0727942764. Take photos of what you received and we'll resolve it promptly.
 
 **The food quality isn't good. Can I get a refund?**
-Yes, contact us within 2 hours at 0723414134 with photos. See our Refund Policy for details.
+Yes, contact us within 2 hours at 0745340424/0727942764 with photos. See our Refund Policy for details.
 
 **How do I provide feedback?**
 We’d love to hear from you!
@@ -359,14 +355,14 @@ Just tap the Feedback button floating on your screen to share your thoughts, or 
 ## Contact
 
 **How can I reach customer support?**
-Call or WhatsApp us at 0723414134
+Call or WhatsApp us at 0745340424/0727942764
 
 **What are your support hours?**
 [INSERT SUPPORT HOURS]
 
 ---
 
-Still have questions? Contact us at 0723414134
+Still have questions? Contact us at 0745340424 or 0727942764
     `,
   },
 };
@@ -452,10 +448,10 @@ export default function Footer() {
                   <span className='font-medium text-white'>Contact Us:</span>
                   <br />
                   <a
-                    href='tel:0723414134'
+                    href='tel:0745340424/0727942764'
                     className='transition-colors hover:text-white'
                   >
-                    0723414134
+                    0745340424/0727942764
                   </a>
                 </li>
               </ul>

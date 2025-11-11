@@ -5,7 +5,7 @@ interface WhatsAppSupportProps {
   orderData: OrderData;
 }
 
-const SUPPORT_WHATSAPP = '254727922764'; // Replace with your support number
+const SUPPORT_WHATSAPP = '254745340424'; // Replace with your support number
 
 export const WhatsAppSupport = ({ orderData }: WhatsAppSupportProps) => {
   const handleContactSupport = () => {

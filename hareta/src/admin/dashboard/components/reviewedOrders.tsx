@@ -344,12 +344,8 @@ ${order.delivery_address_main_text}
 🗺️ *Google Maps:*
 ${mapsLink}
 
-💰 *Total Amount:* KSh ${order.total_amount.toLocaleString('en-KE', { minimumFractionDigits: 2 })}
-
 📋 *Items to Deliver:*
 ${itemsList}
-
-⏰ *Order Time:* ${formatDate(order.created_at)}
 
 Please confirm pickup and delivery.`;
 

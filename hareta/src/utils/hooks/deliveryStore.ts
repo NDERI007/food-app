@@ -17,7 +17,7 @@ interface DeliveryState {
   getDeliveryFee: (subtotal: number) => number;
 }
 
-const DELIVERY_FEE = 20;
+const DELIVERY_FEE = 10;
 const FREE_DELIVERY_THRESHOLD = 150;
 
 const getStorageKey = (userId: string) =>
@@ -77,7 +77,7 @@ export const useDeliveryStore = create<DeliveryState>()(
         if (subtotal >= FREE_DELIVERY_THRESHOLD) {
           return 0;
         }
-        // Otherwise charge 20
+        // Otherwise charge 10
         return DELIVERY_FEE;
       },
     }),

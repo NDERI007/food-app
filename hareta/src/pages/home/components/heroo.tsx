@@ -50,10 +50,10 @@ export function HeroSection() {
           {/* Info Block */}
           <div className='flex flex-col gap-1 text-green-900'>
             <p className='text-lg font-semibold'>
-              Open Daily: 9:00 AM - 10:00 PM
+              Open Daily: 9:00 AM - 9:30 PM
             </p>
             <p className='text-md text-green-900/80'>
-              Delivery within a 5km radius from School Campus.
+              Delivery within a 5km radius or available for pickup.
             </p>
           </div>
 

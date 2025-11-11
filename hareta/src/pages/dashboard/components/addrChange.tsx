@@ -24,8 +24,8 @@ const DeliveryPickupToggle: React.FC = () => {
   const restaurantInfo = {
     name: 'Junction Trade Centre',
     address: '123 Main Street, Downtown',
-    phone: '0727 922 764',
-    hours: '11:00 AM - 10:00 PM',
+    phone: '0745340424',
+    hours: '9:00 AM - 9:30 PM',
     mapUrl: 'https://maps.google.com/?q=Junction+Trade+Centre',
   };
 
