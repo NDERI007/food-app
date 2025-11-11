@@ -99,15 +99,15 @@ function ProductCard({ product }: ProductCardProps) {
 
   return (
     <>
-      {/* Minimalist Card Design */}
+      {/* Cardless Design - Image with info below */}
       <div
-        className={`group overflow-hidden rounded-2xl bg-white shadow-sm transition hover:shadow-md ${
+        className={`group ${
           product.available ? 'cursor-pointer' : 'cursor-not-allowed'
         }`}
         onClick={openModal}
       >
-        {/* Image Container */}
-        <div className='relative h-48 overflow-hidden bg-gray-100'>
+        {/* Image Container - No border, just rounded */}
+        <div className='relative mb-3 aspect-square overflow-hidden rounded-2xl bg-gray-100'>
           {/* LQIP blur placeholder */}
           {!error && imageData?.lqip && (
             <div
@@ -145,7 +145,7 @@ function ProductCard({ product }: ProductCardProps) {
                     loading='lazy'
                     onLoad={() => setLoaded(true)}
                     onError={() => setError(true)}
-                    className={`h-full w-full object-cover transition-all duration-500 ${
+                    className={`h-full w-full object-cover transition-all duration-500 group-hover:scale-105 ${
                       loaded ? 'scale-100 opacity-100' : 'scale-105 opacity-0'
                     }`}
                   />
@@ -157,7 +157,7 @@ function ProductCard({ product }: ProductCardProps) {
                   loading='lazy'
                   onLoad={() => setLoaded(true)}
                   onError={() => setError(true)}
-                  className={`h-full w-full object-cover transition-all duration-500 ${
+                  className={`h-full w-full object-cover transition-all duration-500 group-hover:scale-105 ${
                     loaded ? 'scale-100 opacity-100' : 'scale-105 opacity-0'
                   }`}
                 />
@@ -177,42 +177,35 @@ function ProductCard({ product }: ProductCardProps) {
               </span>
             </div>
           )}
-        </div>
 
-        {/* Content */}
-        <div className='p-4'>
-          {/* Title */}
-          <h3 className='mb-2 line-clamp-2 text-base font-bold text-gray-900'>
-            {product.name}
-          </h3>
-
-          {/* Price and Add Button Row */}
-          <div className='flex items-center justify-between'>
-            {/* Price */}
-            <span className='text-lg font-bold text-green-600'>
-              {displayPrice}
-            </span>
-            {/* Circular Add Button */}
+          {/* Add Button - Floating on hover */}
+          {product.available && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 openModal();
               }}
-              disabled={!product.available}
-              className={`group/btn relative flex items-center gap-1.5 overflow-hidden rounded-full px-4 py-2 font-medium transition-all duration-300 ${
-                product.available
-                  ? 'bg-emerald-50 text-emerald-700 shadow-sm hover:bg-emerald-100 hover:shadow-md active:scale-95'
-                  : 'cursor-not-allowed bg-gray-200 text-gray-400'
-              }`}
+              className='absolute right-3 bottom-3 flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-lg transition-all duration-200 hover:scale-110 active:scale-95'
               aria-label='Add to cart'
             >
-              <Plus className='h-5 w-5 transition-transform group-hover/btn:rotate-90' />
+              <Plus className='h-5 w-5 text-green-600' />
             </button>
-          </div>
+          )}
+        </div>
+
+        {/* Product Info Below */}
+        <div className='space-y-1 text-center'>
+          {/* Product Name */}
+          <h3 className='line-clamp-2 text-sm font-semibold text-gray-900'>
+            {product.name}
+          </h3>
+
+          {/* Price */}
+          <p className='text-base font-bold text-green-600'>{displayPrice}</p>
         </div>
       </div>
 
-      {/* Modal */}
+      {/* Modal - Keep the same */}
       {isOpen && (
         <div className='fixed inset-0 z-50 flex items-center justify-center p-4'>
           {/* Backdrop */}
@@ -366,6 +359,4 @@ function ProductCard({ product }: ProductCardProps) {
     </>
   );
 }
-
-// Custom comparison function - only re-render if these properties change
 export default ProductCard;

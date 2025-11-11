@@ -23,7 +23,7 @@ const menuItemSchema = z.object({
       return val;
     }),
   available: z.boolean().default(true),
-  category_id: z.string().optional().default(''),
+  category_id: z.uuid('Please select a valid category'),
   image: z
     .union([z.string(), z.instanceof(File)])
     .optional()

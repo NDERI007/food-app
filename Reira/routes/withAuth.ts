@@ -205,10 +205,11 @@ router.post("/verify-otp", authLimiter, async (req, res) => {
 
     const cookieOptions = {
       httpOnly: true,
-      secure: true, // ✅ Changed: Always true since Render uses HTTPS
-      sameSite: "none" as const, // ✅ Changed: Always "none" for cross-origin
+      secure: true,
+      sameSite: "lax" as const, // ✅ Changed: "lax" since same domain now!
       maxAge: SESSION_TTL * 1000,
       path: "/",
+      domain: ".weddyskitchen.com", // ✅ Added: Share cookies across subdomains
     };
 
     res.cookie("sessionId", sessionId, cookieOptions);
@@ -292,9 +293,10 @@ router.get("/context-verif", async (req, res) => {
     res.cookie("sessionId", sessionId, {
       httpOnly: true,
       secure: true,
-      sameSite: "none" as const,
+      sameSite: "lax" as const,
       maxAge: SESSION_TTL * 1000,
       path: "/",
+      domain: ".weddyskitchen.com",
     });
   } catch (err) {
     console.warn("Failed to refresh session TTL:", err);

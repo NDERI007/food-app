@@ -83,6 +83,7 @@ router.get("/menu-items", async (req, res) => {
     let query = supabase
       .from("menu_items")
       .select("*")
+      .is("deleted_at", null)
       .order("name", { ascending: true });
 
     if (category_id && category_id !== "all") {
@@ -125,7 +126,7 @@ router.post(
             price: parseFloat(price),
             image: imageData,
             available: available === "true",
-            category_id: category_id || null,
+            category_id: category_id,
           },
         ])
         .select()
@@ -235,7 +236,10 @@ router.delete("/menu-items/:id", withAuth(["admin"]), async (req, res) => {
       await deleteImageVariantS(item.image);
     }
 
-    const { error } = await supabase.from("menu_items").delete().eq("id", id);
+    const { error } = await supabase
+      .from("menu_items")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", id);
 
     if (error) throw error;
     res.status(204).send();
