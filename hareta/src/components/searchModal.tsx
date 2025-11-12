@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Search, MapPin, Home, Loader2 } from 'lucide-react';
+import { X, Search, MapPin, Home, Loader2, Edit3 } from 'lucide-react';
 import { usePlacesSearch } from '@utils/hooks/placeSearch';
 import type { SavedAddress } from '@utils/schemas/address';
 
@@ -9,6 +9,7 @@ interface AddressModalProps {
   onSelect: (address: SavedAddress) => void;
   savedAddresses: SavedAddress[];
   isLoading: boolean;
+  onFallbackOpen: () => void;
 }
 
 export default function AddressModal({
@@ -17,6 +18,7 @@ export default function AddressModal({
   onSelect,
   savedAddresses,
   isLoading,
+  onFallbackOpen,
 }: AddressModalProps) {
   const {
     query,
@@ -36,6 +38,11 @@ export default function AddressModal({
       onClose();
     },
   });
+
+  const handleFallbackClick = () => {
+    onFallbackOpen();
+    onClose(); // Close the address modal when opening fallback
+  };
 
   return (
     <AnimatePresence>
@@ -132,8 +139,50 @@ export default function AddressModal({
                           </div>
                         </button>
                       ))}
+
+                      {/* Can't find address option in search results */}
+                      <button
+                        onMouseDown={handleFallbackClick}
+                        className='flex w-full items-center gap-2 border-t border-gray-100 px-4 py-3 text-left hover:bg-gray-50'
+                      >
+                        <Edit3 size={16} className='text-green-600' />
+                        <div>
+                          <p className='font-medium text-green-600'>
+                            Can't find tha place?
+                          </p>
+                          <p className='text-sm text-gray-500'>
+                            Enter it manually
+                          </p>
+                        </div>
+                      </button>
                     </motion.div>
                   )}
+
+                  {/* No results - show fallback option */}
+                  {isOpen &&
+                    query.length >= 2 &&
+                    results.length === 0 &&
+                    !loading && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -5 }}
+                        className='mb-4 rounded-lg border border-gray-100 bg-white shadow'
+                      >
+                        <div className='px-4 py-3 text-center text-sm text-gray-500'>
+                          <p className='mb-2'>No addresses found</p>
+                        </div>
+                        <button
+                          onMouseDown={handleFallbackClick}
+                          className='flex w-full items-center justify-center gap-2 border-t border-gray-100 px-4 py-3 text-center hover:bg-gray-50'
+                        >
+                          <Edit3 size={16} className='text-green-600' />
+                          <p className='font-medium text-green-600'>
+                            Enter address manually
+                          </p>
+                        </button>
+                      </motion.div>
+                    )}
                 </AnimatePresence>
 
                 {/* Saved Addresses */}
@@ -181,6 +230,15 @@ export default function AddressModal({
                         </div>
                       )}
                     </div>
+
+                    {/* Manual entry option when not searching */}
+                    <button
+                      onClick={handleFallbackClick}
+                      className='mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-gray-200 px-4 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50'
+                    >
+                      <Edit3 size={16} />
+                      <span>Enter address manually</span>
+                    </button>
                   </div>
                 )}
               </div>

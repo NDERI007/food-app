@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { MapPin, ChevronDown, Home, Clock, Phone } from 'lucide-react';
 import { useDeliveryStore } from '@utils/hooks/deliveryStore';
 import AddressModal from '@components/searchModal';
+import FallbackModal from '@components/modal'; // Import FallbackModal
 import { toast } from 'sonner';
 import axios from 'axios';
+import { v4 as uuidv4 } from 'uuid'; // Import uuid
 import type { SavedAddress } from '@utils/schemas/address';
 
 const DeliveryPickupToggle: React.FC = () => {
@@ -17,13 +19,14 @@ const DeliveryPickupToggle: React.FC = () => {
 
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [showPickupInfo, setShowPickupInfo] = useState(false);
+  const [fallbackOpen, setFallbackOpen] = useState(false); // Add fallback modal state
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
   const [isLoadingAddresses, setIsLoadingAddresses] = useState(false);
 
   // Mock restaurant info — replace with your data
   const restaurantInfo = {
-    name: 'Junction Trade Centre',
-    address: '123 Main Street, Downtown',
+    name: "Weddy's Kitchen",
+    address: 'Moringa Centre, Near playstation',
     phone: '0745340424',
     hours: '9:00 AM - 9:30 PM',
     mapUrl: 'https://maps.google.com/?q=Junction+Trade+Centre',
@@ -115,6 +118,31 @@ const DeliveryPickupToggle: React.FC = () => {
         }}
         savedAddresses={savedAddresses}
         isLoading={isLoadingAddresses}
+        onFallbackOpen={() => setFallbackOpen(true)} // Pass callback to open fallback
+      />
+
+      {/* Fallback Modal */}
+      <FallbackModal
+        open={fallbackOpen}
+        onClose={() => setFallbackOpen(false)}
+        onSubmit={(data) => {
+          const customPlace = {
+            id: uuidv4(),
+            place_id: null,
+            secondary_text: data.landmark,
+            main_text: data.name,
+            source: 'manual',
+          };
+
+          // Save to store with properly formatted address
+          setDeliveryAddress(customPlace);
+
+          // Close both modals
+          setFallbackOpen(false);
+          setShowAddressModal(false);
+
+          toast.success('Custom address added!');
+        }}
       />
 
       {/* Pickup Info Modal */}

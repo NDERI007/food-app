@@ -269,7 +269,7 @@ Yes! You can specify dietary preferences and modifications in the special instru
 ## Delivery
 
 **Where do you deliver?**
-We deliver within a 5km radius from [SCHOOL CAMPUS NAME].
+We deliver within a 5km radius from Kirinyaga University.
 
 **How long does delivery take?**
 Typical delivery time is [10-20] minutes, depending on your location and order complexity.
