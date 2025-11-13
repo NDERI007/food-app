@@ -34,3 +34,29 @@ body {
   overflow-x: hidden;
   max-width: 100vw;
 }
+/* Ensure main content doesn't get cut off by sticky navbar */
+main {
+  padding-top: 1rem;
+}
+
+/* Custom scrollbar for category filter (optional - shows on desktop only) */
+@media (min-width: 768px) {
+  .scrollbar-hide:hover::-webkit-scrollbar {
+    display: block;
+    height: 4px;
+  }
+
+  .scrollbar-hide:hover::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+  }
+
+  .scrollbar-hide:hover::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 10px;
+  }
+
+  .scrollbar-hide:hover::-webkit-scrollbar-thumb:hover {
+    background: #555;
+  }
+}

@@ -11,14 +11,12 @@ import {
   Minus,
   Trash2,
   ShoppingBag,
-  CreditCard,
   AlertCircle,
   Clock,
   MapPin,
-  Store,
   Phone,
-  MessageSquare,
   LogIn,
+  Check,
 } from 'lucide-react';
 import type { SavedAddress } from '@utils/schemas/address';
 import AddressModal from '@components/searchModal';
@@ -26,6 +24,8 @@ import { getImageUrl } from '../../utils/hooks/getImage';
 import { api } from '@utils/hooks/apiUtils';
 import { toast } from 'sonner';
 import axios from 'axios';
+import FallbackModal from '@components/modal';
+import { v4 as uuidv4 } from 'uuid'; // Import uuid
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
@@ -42,6 +42,7 @@ export default function CheckoutPage() {
   const {
     deliveryOption,
     place,
+    setDeliveryOption,
     setDeliveryAddress,
     changeLocation,
     clearDelivery,
@@ -55,9 +56,18 @@ export default function CheckoutPage() {
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [orderNotes, setOrderNotes] = useState('');
+  const [fallbackOpen, setFallbackOpen] = useState(false); // Add fallback modal state
   const [isProcessing, setIsProcessing] = useState(false);
 
   const isDelivery = deliveryOption === 'delivery';
+
+  const restaurantInfo = {
+    name: "Weddy's Kitchen",
+    address: 'Moringa Centre, Near playstation',
+    phone: '0745340424',
+    hours: '9:00 AM - 9:30 PM',
+    mapUrl: 'https://maps.google.com/?q=Moringa+Centre',
+  };
 
   // Calculate totals
   const subtotal = items.reduce(
@@ -72,14 +82,6 @@ export default function CheckoutPage() {
     FREE_DELIVERY_THRESHOLD - subtotal,
   );
   const qualifiesForFreeDelivery = subtotal >= FREE_DELIVERY_THRESHOLD;
-
-  // Restaurant info for pickup
-  const restaurantInfo = {
-    name: 'FCL Restaurant',
-    address: '123 Main Street, Downtown',
-    phone: '0727922764',
-    hours: '11:00 AM – 10:00 PM',
-  };
 
   // ✅ Fixed auth check - only redirect after loading is complete
   useEffect(() => {
@@ -286,17 +288,73 @@ export default function CheckoutPage() {
         <div className='grid gap-6 lg:grid-cols-3'>
           {/* Left Column - Main Content */}
           <div className='space-y-6 lg:col-span-2'>
-            {/* Delivery Details */}
-            <div className='rounded-xl border border-gray-100 bg-white p-6 shadow-sm'>
+            {/* Delivery / Pickup Selection - NEW SECTION */}
+            <div className='rounded-xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6'>
+              <h2 className='mb-4 text-lg font-bold text-gray-900 sm:text-xl'>
+                How would you like to receive your order?
+              </h2>
+
+              <div className='grid gap-3 sm:grid-cols-2'>
+                {/* Delivery Option */}
+                <button
+                  onClick={() => setDeliveryOption('delivery')}
+                  disabled={isProcessing}
+                  className={`flex items-start gap-3 rounded-xl border-2 p-4 text-left transition sm:p-5 ${
+                    deliveryOption === 'delivery'
+                      ? 'border-green-600 bg-green-50'
+                      : 'border-gray-200 bg-white hover:border-gray-300'
+                  } disabled:opacity-50`}
+                >
+                  <div className='flex-1'>
+                    <h3 className='font-semibold text-gray-900'>Delivery</h3>
+                    <p className='mt-0.5 text-sm text-gray-600'>
+                      Get your order delivered to your doorstep
+                    </p>
+                    {deliveryOption === 'delivery' && (
+                      <div className='mt-2 flex items-center gap-1 text-xs font-medium text-green-700'>
+                        <Check className='h-3.5 w-3.5' />
+                        Selected
+                      </div>
+                    )}
+                  </div>
+                </button>
+
+                {/* Pickup Option */}
+                <button
+                  onClick={() => setDeliveryOption('pickup')}
+                  disabled={isProcessing}
+                  className={`flex items-start gap-3 rounded-xl border-2 p-4 text-left transition sm:p-5 ${
+                    deliveryOption === 'pickup'
+                      ? 'border-green-600 bg-green-50'
+                      : 'border-gray-200 bg-white hover:border-gray-300'
+                  } disabled:opacity-50`}
+                >
+                  <div className='flex-1'>
+                    <h3 className='font-semibold text-gray-900'>Pickup</h3>
+                    <p className='mt-0.5 text-sm text-gray-600'>
+                      Collect your order from our location
+                    </p>
+                    {deliveryOption === 'pickup' && (
+                      <div className='mt-2 flex items-center gap-1 text-xs font-medium text-green-700'>
+                        <Check className='h-3.5 w-3.5' />
+                        Selected
+                      </div>
+                    )}
+                  </div>
+                </button>
+              </div>
+            </div>
+            {/* 2️⃣ ADD THIS NEW SECTION - Shows address or pickup location */}
+            <div className='rounded-xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6'>
               <div className='mb-4 flex flex-wrap items-center justify-between gap-3'>
-                <h2 className='text-xl font-bold text-gray-900'>
-                  Delivery Details
+                <h2 className='text-lg font-bold text-gray-900 sm:text-xl'>
+                  {isDelivery ? 'Delivery Address' : 'Pickup Location'}
                 </h2>
               </div>
 
               {isDelivery ? (
                 <div className='flex items-start gap-3'>
-                  <MapPin className='mt-1 h-5 w-5 text-gray-500' />
+                  <MapPin className='mt-1 h-5 w-5 flex-shrink-0 text-gray-500' />
                   <div className='flex-1'>
                     {place ? (
                       <div>
@@ -318,14 +376,13 @@ export default function CheckoutPage() {
                   <button
                     onClick={handleChangeAddress}
                     disabled={isProcessing}
-                    className='rounded-lg bg-green-100 px-3 py-1.5 text-sm font-medium text-green-700 hover:bg-green-200 disabled:opacity-50'
+                    className='flex-shrink-0 rounded-lg bg-green-100 px-3 py-1.5 text-sm font-medium text-green-700 hover:bg-green-200 disabled:opacity-50'
                   >
                     {place ? 'Change' : 'Select'}
                   </button>
                 </div>
               ) : (
                 <div className='flex items-start gap-3'>
-                  <Store className='mt-1 h-5 w-5 text-gray-500' />
                   <div>
                     <p className='font-medium text-gray-900'>
                       {restaurantInfo.name}
@@ -341,11 +398,18 @@ export default function CheckoutPage() {
                       <Phone className='h-3 w-3' />
                       {restaurantInfo.phone}
                     </p>
+                    <button
+                      onClick={() =>
+                        window.open(restaurantInfo.mapUrl, '_blank')
+                      }
+                      className='mt-2 text-sm font-medium text-green-600 hover:text-green-700'
+                    >
+                      Get Directions →
+                    </button>
                   </div>
                 </div>
               )}
             </div>
-
             {/* Order Items */}
             <div className='rounded-xl border border-gray-100 bg-white p-6 shadow-sm'>
               <div className='mb-4 flex items-center justify-between'>
@@ -441,21 +505,19 @@ export default function CheckoutPage() {
                 })}
               </div>
             </div>
-
             {/* Order Notes */}
             <div className='rounded-xl border border-gray-100 bg-white p-6 shadow-sm'>
               <h2 className='mb-3 text-xl font-bold text-gray-900'>
                 Order Notes (Optional)
               </h2>
               <div className='relative'>
-                <MessageSquare className='absolute top-3 left-3 h-5 w-5 text-gray-400' />
                 <textarea
                   value={orderNotes}
                   onChange={(e) => setOrderNotes(e.target.value)}
                   disabled={isProcessing}
                   placeholder='Any special instructions for your order...'
                   rows={3}
-                  className='w-full rounded-lg border border-gray-300 py-2 pr-4 pl-10 focus:border-green-600 focus:ring-2 focus:ring-green-600 focus:outline-none disabled:bg-gray-50 disabled:opacity-50'
+                  className='w-full rounded-lg border border-gray-300 py-2 pr-4 pl-5 focus:border-green-600 focus:ring-2 focus:ring-green-600 focus:outline-none disabled:bg-gray-50 disabled:opacity-50'
                 />
               </div>
             </div>
@@ -471,9 +533,6 @@ export default function CheckoutPage() {
                 </h3>
 
                 <div className='mb-4 flex items-center gap-3 rounded-lg border-2 border-green-600 bg-green-50 p-3'>
-                  <div className='flex h-10 w-10 items-center justify-center rounded-full bg-green-600'>
-                    <CreditCard className='h-5 w-5 text-white' />
-                  </div>
                   <div className='flex-1 text-left'>
                     <div className='text-sm font-semibold text-gray-900'>
                       M-PESA
@@ -635,6 +694,31 @@ export default function CheckoutPage() {
         }}
         savedAddresses={savedAddresses}
         isLoading={isLoading}
+        onFallbackOpen={() => setFallbackOpen(true)}
+      />
+
+      {/* Fallback Modal - ADD THIS ENTIRE SECTION */}
+      <FallbackModal
+        open={fallbackOpen}
+        onClose={() => setFallbackOpen(false)}
+        onSubmit={(data) => {
+          const customPlace = {
+            id: uuidv4(),
+            place_id: null,
+            secondary_text: data.landmark,
+            main_text: data.name,
+            source: 'manual',
+          };
+
+          // Save to store with properly formatted address
+          setDeliveryAddress(customPlace);
+
+          // Close both modals
+          setFallbackOpen(false);
+          setShowModal(false);
+
+          toast.success('Custom address added!');
+        }}
       />
     </div>
   );

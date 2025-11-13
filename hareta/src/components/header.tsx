@@ -8,7 +8,7 @@ export function Header() {
           to='/dashboard'
           className='text-lg font-bold tracking-tight transition-colors hover:text-green-700'
         >
-          iura
+          Weddy's Kitchen
         </Link>
       </div>
     </header>

@@ -46,7 +46,7 @@ export default function CategoryFilter({
   };
 
   return (
-    <div className='relative'>
+    <div className='relative max-w-full overflow-hidden'>
       {/* Left Arrow */}
       {canScrollLeft && (
         <button
@@ -58,10 +58,10 @@ export default function CategoryFilter({
         </button>
       )}
 
-      {/* Scrollable categories */}
+      {/* Scrollable categories - FIXED: Added max-w-full to prevent overflow */}
       <div
         ref={scrollRef}
-        className='scrollbar-hide flex gap-2 overflow-x-auto scroll-smooth py-4 sm:gap-3 md:px-12'
+        className='scrollbar-hide flex max-w-full gap-2 overflow-x-auto scroll-smooth py-4 sm:gap-3 md:px-12'
         style={{
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
