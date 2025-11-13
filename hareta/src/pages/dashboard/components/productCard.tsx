@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useCartStore } from '@utils/hooks/useCrt';
-import { ImageOff, Plus, Loader2, Check } from 'lucide-react';
+import { ImageOff, Plus, Loader2, Check, X } from 'lucide-react';
 import { useProductVariants } from '@utils/hooks/productStore';
 import type { MenuItem, ProductVariant } from '@utils/schemas/menu';
 import QuantitySelector from './quantitySel';
@@ -205,9 +205,9 @@ function ProductCard({ product }: ProductCardProps) {
         </div>
       </div>
 
-      {/* Modal - Keep the same */}
+      {/* Modal - FIXED: Better mobile responsiveness */}
       {isOpen && (
-        <div className='fixed inset-0 z-50 flex items-center justify-center p-4'>
+        <div className='fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4'>
           {/* Backdrop */}
           <div
             className='absolute inset-0 bg-black/50 backdrop-blur-sm'
@@ -215,46 +215,49 @@ function ProductCard({ product }: ProductCardProps) {
             aria-hidden
           />
 
-          {/* Panel */}
-          <div className='relative z-10 mx-auto max-h-[90vh] w-full max-w-2xl overflow-auto rounded-2xl bg-white p-4 shadow-2xl sm:p-6'>
-            <div className='flex items-start justify-between'>
-              <h2 className='text-lg sm:text-xl'>{product.name}</h2>
+          {/* Panel - FIXED: Bottom sheet on mobile, centered modal on desktop */}
+          <div className='relative z-10 max-h-[85vh] w-full overflow-auto rounded-t-2xl bg-white sm:mx-auto sm:max-h-[90vh] sm:max-w-lg sm:rounded-2xl'>
+            {/* Header - FIXED: Sticky header with better mobile padding */}
+            <div className='sticky top-0 z-10 flex items-start justify-between border-b border-gray-100 bg-white p-4 sm:p-5'>
+              <h2 className='pr-8 text-base font-semibold text-gray-900 sm:text-lg'>
+                {product.name}
+              </h2>
               <button
                 onClick={closeModal}
                 aria-label='Close'
-                className='rounded-full p-1 text-gray-600 hover:bg-gray-100'
+                className='absolute top-4 right-4 rounded-full p-1.5 text-gray-600 hover:bg-gray-100'
               >
-                ✕
+                <X className='h-5 w-5' />
               </button>
             </div>
 
             {loadingDetails ? (
-              <div className='flex items-center justify-center py-8'>
+              <div className='flex items-center justify-center py-12'>
                 <Loader2 className='h-6 w-6 animate-spin text-green-600' />
                 <span className='ml-2 text-sm text-gray-600'>
                   Loading details...
                 </span>
               </div>
             ) : (
-              <div className='mt-4 grid gap-4 sm:gap-6 md:grid-cols-3'>
-                {/* Image */}
-                <div className='flex justify-center md:block'>
+              <div className='p-4 sm:p-5'>
+                {/* Image - FIXED: Centered and properly sized for mobile */}
+                <div className='mb-4 flex justify-center'>
                   {hasImageVariants ? (
                     <picture>
                       <source
-                        srcSet={`${imageData.variants.avif[800]} 800w, ${imageData.variants.avif[1200]} 1200w`}
+                        srcSet={`${imageData.variants.avif[400]} 400w, ${imageData.variants.avif[800]} 800w`}
                         type='image/avif'
-                        sizes='(max-width: 768px) 200px, 400px'
+                        sizes='(max-width: 640px) 280px, 400px'
                       />
                       <source
-                        srcSet={`${imageData.variants.jpg[800]} 800w, ${imageData.variants.jpg[1200]} 1200w`}
+                        srcSet={`${imageData.variants.jpg[400]} 400w, ${imageData.variants.jpg[800]} 800w`}
                         type='image/jpeg'
-                        sizes='(max-width: 768px) 200px, 400px'
+                        sizes='(max-width: 640px) 280px, 400px'
                       />
                       <img
-                        src={imageData.variants.jpg[800]}
+                        src={imageData.variants.jpg[400]}
                         alt={product.name}
-                        className='h-32 w-32 rounded-lg object-cover sm:h-40 sm:w-40 md:h-48 md:w-full'
+                        className='h-48 w-48 rounded-xl object-cover sm:h-56 sm:w-56'
                       />
                     </picture>
                   ) : (
@@ -263,93 +266,94 @@ function ProductCard({ product }: ProductCardProps) {
                         typeof product.image === 'string' ? product.image : ''
                       }
                       alt={product.name}
-                      className='h-32 w-32 rounded-lg object-cover sm:h-40 sm:w-40 md:h-48 md:w-full'
+                      className='h-48 w-48 rounded-xl object-cover sm:h-56 sm:w-56'
                     />
                   )}
                 </div>
 
-                <div className='flex flex-col gap-4 md:col-span-2'>
-                  {/* Variants Selection - Only show if product doesn't have direct price */}
-                  {!hasDirectPrice && hasVariants && (
-                    <div className='space-y-3'>
-                      <label className='text-sm font-medium text-gray-700'>
-                        Select Size
-                      </label>
-                      <div className='flex flex-wrap gap-2'>
-                        {variants.map((variant) => (
-                          <button
-                            key={variant.id}
-                            onClick={() => setSelectedVariant(variant)}
-                            disabled={!variant.is_available}
-                            className={`relative rounded-lg px-4 py-2 text-sm font-medium transition ${
-                              selectedVariant?.id === variant.id
-                                ? 'bg-green-600 text-white shadow-sm'
-                                : variant.is_available
-                                  ? 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-                                  : 'cursor-not-allowed border border-gray-200 bg-gray-50 text-gray-400 line-through'
-                            }`}
-                          >
-                            <span>{variant.size_name}</span>
-                            {selectedVariant?.id === variant.id && (
-                              <Check className='ml-1.5 inline-block h-4 w-4' />
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                      <div className='text-sm text-gray-600'>
-                        Price:{' '}
-                        <span className='font-semibold text-green-600'>
-                          KES {currentPrice.toFixed(2)}
-                        </span>
-                      </div>
+                {/* Variants Selection - FIXED: Better mobile layout */}
+                {!hasDirectPrice && hasVariants && (
+                  <div className='mb-4 space-y-3'>
+                    <label className='text-sm font-medium text-gray-700'>
+                      Select Size
+                    </label>
+                    <div className='flex flex-wrap gap-2'>
+                      {variants.map((variant) => (
+                        <button
+                          key={variant.id}
+                          onClick={() => setSelectedVariant(variant)}
+                          disabled={!variant.is_available}
+                          className={`relative rounded-lg px-3 py-2 text-sm font-medium transition sm:px-4 ${
+                            selectedVariant?.id === variant.id
+                              ? 'bg-green-600 text-white shadow-sm'
+                              : variant.is_available
+                                ? 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                                : 'cursor-not-allowed border border-gray-200 bg-gray-50 text-gray-400 line-through'
+                          }`}
+                        >
+                          <span>{variant.size_name}</span>
+                          {selectedVariant?.id === variant.id && (
+                            <Check className='ml-1 inline-block h-3.5 w-3.5 sm:h-4 sm:w-4' />
+                          )}
+                        </button>
+                      ))}
                     </div>
-                  )}
-
-                  {/* Show price directly for non-variant products */}
-                  {hasDirectPrice && (
                     <div className='text-sm text-gray-600'>
                       Price:{' '}
                       <span className='font-semibold text-green-600'>
-                        KES {product.price.toFixed(2)}
+                        KES {currentPrice.toFixed(2)}
                       </span>
                     </div>
-                  )}
+                  </div>
+                )}
 
-                  {/* Quantity + Price summary */}
-                  <div className='flex flex-col gap-3 border-t border-gray-200 pt-4 sm:flex-row sm:items-center sm:justify-between'>
+                {/* Show price directly for non-variant products */}
+                {hasDirectPrice && (
+                  <div className='mb-4 text-sm text-gray-600'>
+                    Price:{' '}
+                    <span className='font-semibold text-green-600'>
+                      KES {product.price.toFixed(2)}
+                    </span>
+                  </div>
+                )}
+
+                {/* Quantity + Price summary - FIXED: Stacked on mobile */}
+                <div className='mb-4 space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-3 sm:p-4'>
+                  <div className='flex items-center justify-between'>
+                    <span className='text-sm font-medium text-gray-700'>
+                      Quantity
+                    </span>
                     <QuantitySelector
                       quantity={quantity}
                       setQuantity={setQuantity}
                     />
-                    <div className='text-left sm:text-right'>
-                      <div className='text-xs text-gray-500 sm:text-sm'>
-                        Subtotal
-                      </div>
-                      <div className='text-lg font-bold text-green-600 sm:text-xl'>
-                        KES {subtotal.toFixed(2)}
-                      </div>
-                    </div>
                   </div>
-
-                  {/* Actions */}
-                  <div className='flex flex-col gap-2 sm:flex-row sm:gap-3'>
-                    <button
-                      onClick={handleAddFromModal}
-                      disabled={!hasDirectPrice && !selectedVariant}
-                      className='flex-1 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-gray-400 sm:text-base'
-                    >
-                      {!hasDirectPrice && !selectedVariant
-                        ? 'Select an option'
-                        : `Add ${quantity > 1 ? `${quantity} ` : ''}to cart`}
-                    </button>
-
-                    <button
-                      onClick={closeModal}
-                      className='rounded-lg border border-gray-300 px-4 py-2.5 text-sm transition hover:bg-gray-50 sm:text-base'
-                    >
-                      Cancel
-                    </button>
+                  <div className='flex items-center justify-between border-t border-gray-200 pt-3'>
+                    <span className='text-sm text-gray-600'>Subtotal</span>
+                    <span className='text-lg font-bold text-green-600 sm:text-xl'>
+                      KES {subtotal.toFixed(2)}
+                    </span>
                   </div>
+                </div>
+
+                {/* Actions - FIXED: Full width buttons on mobile */}
+                <div className='flex flex-col gap-2 sm:flex-row sm:gap-3'>
+                  <button
+                    onClick={handleAddFromModal}
+                    disabled={!hasDirectPrice && !selectedVariant}
+                    className='flex-1 rounded-lg bg-green-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-gray-400 sm:text-base'
+                  >
+                    {!hasDirectPrice && !selectedVariant
+                      ? 'Select an option'
+                      : `Add ${quantity > 1 ? `${quantity} ` : ''}to cart`}
+                  </button>
+
+                  <button
+                    onClick={closeModal}
+                    className='rounded-lg border border-gray-300 px-4 py-3 text-sm transition hover:bg-gray-50 sm:text-base'
+                  >
+                    Cancel
+                  </button>
                 </div>
               </div>
             )}

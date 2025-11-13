@@ -75,19 +75,21 @@ export default function CartDrawer() {
         />
       )}
 
-      {/* Drawer */}
+      {/* Drawer - FIXED: Reduced max-width for better mobile fit */}
       <div
-        className={`fixed inset-y-0 right-0 z-50 w-full max-w-md transform bg-white shadow-xl transition-transform duration-300 ${
+        className={`fixed inset-y-0 right-0 z-50 w-full max-w-sm transform bg-white shadow-xl transition-transform duration-300 sm:max-w-md ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
         <div className='flex h-full flex-col'>
           {/* Header */}
-          <div className='flex-shrink-0 border-b border-gray-200 bg-white p-4'>
+          <div className='flex-shrink-0 border-b border-gray-200 bg-white p-3 sm:p-4'>
             <div className='flex items-center justify-between'>
               <div>
-                <h2 className='text-xl font-bold text-gray-900'>Your Cart</h2>
-                <p className='text-sm text-gray-500'>
+                <h2 className='text-lg font-bold text-gray-900 sm:text-xl'>
+                  Your Cart
+                </h2>
+                <p className='text-xs text-gray-500 sm:text-sm'>
                   {totalItems} {totalItems === 1 ? 'item' : 'items'}
                 </p>
               </div>
@@ -101,8 +103,8 @@ export default function CartDrawer() {
             </div>
           </div>
 
-          {/* Items */}
-          <div className='flex-1 overflow-y-auto bg-[#fefaef] p-4'>
+          {/* Items - FIXED: Better mobile padding */}
+          <div className='flex-1 overflow-y-auto bg-[#fefaef] p-3 sm:p-4'>
             {items.length === 0 ? (
               <div className='flex h-full flex-col items-center justify-center text-center'>
                 <ShoppingCart className='mb-4 h-16 w-16 text-gray-300' />
@@ -115,13 +117,13 @@ export default function CartDrawer() {
               </div>
             ) : (
               <div className='space-y-3'>
-                {/* Free Delivery Banner - Show at top of items */}
+                {/* Free Delivery Banner */}
                 {showFreeDeliveryPrompt && (
-                  <div className='rounded-lg border-2 border-amber-300 bg-amber-50 p-3 shadow-sm'>
+                  <div className='rounded-lg border-2 border-amber-300 bg-amber-50 p-2.5 shadow-sm sm:p-3'>
                     <div className='flex items-start gap-2'>
-                      <TruckIcon className='h-5 w-5 flex-shrink-0 text-amber-600' />
+                      <TruckIcon className='h-4 w-4 flex-shrink-0 text-amber-600 sm:h-5 sm:w-5' />
                       <div className='flex-1'>
-                        <p className='text-sm font-semibold text-amber-900'>
+                        <p className='text-xs font-semibold text-amber-900 sm:text-sm'>
                           Almost there!
                         </p>
                         <p className='text-xs text-amber-800'>
@@ -144,7 +146,7 @@ export default function CartDrawer() {
                   </div>
                 )}
 
-                {/* Cart Items */}
+                {/* Cart Items - FIXED: Smaller image on mobile */}
                 {items.map((item) => {
                   const imageUrl = getImageUrl(item.image);
                   return (
@@ -152,20 +154,20 @@ export default function CartDrawer() {
                       key={item.cartItemId}
                       className='overflow-hidden rounded-xl bg-white shadow-sm transition hover:shadow-md'
                     >
-                      <div className='flex gap-3 p-3'>
+                      <div className='flex gap-2 p-2.5 sm:gap-3 sm:p-3'>
                         {imageUrl && (
                           <img
                             src={imageUrl}
                             alt={item.name}
-                            className='h-24 w-24 flex-shrink-0 rounded-lg object-cover'
+                            className='h-20 w-20 flex-shrink-0 rounded-lg object-cover sm:h-24 sm:w-24'
                           />
                         )}
                         <div className='flex min-w-0 flex-1 flex-col'>
-                          <h3 className='font-semibold text-gray-900'>
+                          <h3 className='text-sm font-semibold text-gray-900 sm:text-base'>
                             {item.name}
                           </h3>
                           <div className='mt-auto flex items-center justify-between pt-2'>
-                            <span className='text-lg font-bold text-green-600'>
+                            <span className='text-base font-bold text-green-600 sm:text-lg'>
                               KES {item.price.toFixed(2)}
                             </span>
                             <button
@@ -178,12 +180,12 @@ export default function CartDrawer() {
                           </div>
                         </div>
                       </div>
-                      <div className='border-t border-gray-100 bg-gray-50 px-3 py-2'>
+                      <div className='border-t border-gray-100 bg-gray-50 px-2.5 py-2 sm:px-3'>
                         <div className='flex items-center justify-between'>
-                          <span className='text-sm text-gray-600'>
+                          <span className='text-xs text-gray-600 sm:text-sm'>
                             Quantity
                           </span>
-                          <div className='flex items-center gap-3'>
+                          <div className='flex items-center gap-2 sm:gap-3'>
                             <button
                               onClick={() =>
                                 updateQuantity(
@@ -191,12 +193,12 @@ export default function CartDrawer() {
                                   item.quantity - 1,
                                 )
                               }
-                              className='rounded-md bg-white p-1.5 shadow-sm transition hover:bg-gray-100'
+                              className='rounded-md bg-white p-1 shadow-sm transition hover:bg-gray-100 sm:p-1.5'
                               aria-label='Decrease quantity'
                             >
-                              <Minus className='h-3.5 w-3.5 text-gray-700' />
+                              <Minus className='h-3 w-3 text-gray-700 sm:h-3.5 sm:w-3.5' />
                             </button>
-                            <span className='w-8 text-center font-medium text-gray-900'>
+                            <span className='w-6 text-center text-sm font-medium text-gray-900 sm:w-8'>
                               {item.quantity}
                             </span>
                             <button
@@ -206,10 +208,10 @@ export default function CartDrawer() {
                                   item.quantity + 1,
                                 )
                               }
-                              className='rounded-md bg-white p-1.5 shadow-sm transition hover:bg-gray-100'
+                              className='rounded-md bg-white p-1 shadow-sm transition hover:bg-gray-100 sm:p-1.5'
                               aria-label='Increase quantity'
                             >
-                              <Plus className='h-3.5 w-3.5 text-gray-700' />
+                              <Plus className='h-3 w-3 text-gray-700 sm:h-3.5 sm:w-3.5' />
                             </button>
                           </div>
                         </div>
@@ -221,9 +223,9 @@ export default function CartDrawer() {
             )}
           </div>
 
-          {/* Footer */}
+          {/* Footer - FIXED: Better mobile padding */}
           {items.length > 0 && (
-            <div className='flex-shrink-0 border-t border-gray-200 bg-white p-4'>
+            <div className='flex-shrink-0 border-t border-gray-200 bg-white p-3 sm:p-4'>
               {/* Free Delivery Success Badge */}
               {isDelivery && qualifiesForFreeDelivery && (
                 <div className='mb-3 rounded-lg border border-green-200 bg-green-50 p-2.5'>
@@ -234,14 +236,14 @@ export default function CartDrawer() {
                 </div>
               )}
 
-              <div className='mb-3 space-y-2 rounded-lg bg-gray-50 p-3'>
-                <div className='flex justify-between text-sm'>
+              <div className='mb-3 space-y-2 rounded-lg bg-gray-50 p-2.5 sm:p-3'>
+                <div className='flex justify-between text-xs sm:text-sm'>
                   <span className='text-gray-600'>Subtotal</span>
                   <span className='font-medium text-gray-900'>
                     KES {subtotal.toFixed(2)}
                   </span>
                 </div>
-                <div className='flex justify-between text-sm'>
+                <div className='flex justify-between text-xs sm:text-sm'>
                   <span className='text-gray-600'>Delivery</span>
                   <span
                     className={`font-medium ${
@@ -254,22 +256,24 @@ export default function CartDrawer() {
                   </span>
                 </div>
                 <div className='flex justify-between border-t border-gray-200 pt-2'>
-                  <span className='font-semibold text-gray-900'>Total</span>
-                  <span className='text-xl font-bold text-green-600'>
+                  <span className='text-sm font-semibold text-gray-900 sm:text-base'>
+                    Total
+                  </span>
+                  <span className='text-lg font-bold text-green-600 sm:text-xl'>
                     KES {totalPrice.toFixed(2)}
                   </span>
                 </div>
               </div>
               <button
                 onClick={handleCheckout}
-                className='mb-2 flex w-full items-center justify-center gap-2 rounded-lg bg-green-600 py-3 font-medium text-white transition hover:bg-green-700'
+                className='mb-2 flex w-full items-center justify-center gap-2 rounded-lg bg-green-600 py-2.5 text-sm font-medium text-white transition hover:bg-green-700 sm:py-3 sm:text-base'
               >
                 Checkout
                 <ArrowRight className='h-4 w-4' />
               </button>
               <button
                 onClick={handleClearCart}
-                className='w-full text-sm text-red-600 transition hover:text-red-700'
+                className='w-full text-xs text-red-600 transition hover:text-red-700 sm:text-sm'
               >
                 Clear Cart
               </button>
