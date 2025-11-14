@@ -8,6 +8,7 @@ const AdminDashboard = lazy(() => import('@admin/dashboard/dashboard'));
 const ProductsPage = lazy(() => import('@admin/products/products'));
 const CategoriesPage = lazy(() => import('@admin/category/category'));
 const AnalyticsDashboard = lazy(() => import('@admin/analytics/dashboard'));
+const FeedbackDashboard = lazy(() => import('@admin/feedback/feedbackDash'));
 
 export const adminRoutes: RouteObject[] = [
   {
@@ -23,7 +24,7 @@ export const adminRoutes: RouteObject[] = [
       { path: 'products', element: <ProductsPage /> },
       { path: 'categories', element: <CategoriesPage /> },
       { path: 'orders', element: <OrderMonitor /> },
-      // { path: 'products/:id', element: <ProductDetail /> },
+      { path: 'feedback', element: <FeedbackDashboard /> },
     ],
   },
 ];

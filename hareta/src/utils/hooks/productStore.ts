@@ -43,8 +43,6 @@ export function useMenuItems(categoryId?: string | null) {
   });
 
   useEffect(() => {
-    console.log('Setting up realtime subscription for menu items');
-
     const channel = supabase
       .channel('menu_items_changes')
       .on(
@@ -55,14 +53,10 @@ export function useMenuItems(categoryId?: string | null) {
           table: 'menu_items',
         },
         (payload) => {
-          console.log('🔄 Realtime: Menu item changed:', payload);
-
           // Get all query keys that match ['menu-items', ...]
           const queries = queryClient.getQueriesData<MenuItem[]>({
             queryKey: ['menu-items'],
           });
-
-          console.log('📊 Updating queries:', queries.length);
 
           // First: Update the cache immediately for instant UI feedback
           queries.forEach(([queryKey]) => {
@@ -76,7 +70,6 @@ export function useMenuItems(categoryId?: string | null) {
 
               if (payload.eventType === 'INSERT') {
                 const newItem = payload.new as MenuItem;
-                console.log('➕ Adding item:', newItem.id);
 
                 const exists = old.some((item) => item.id === newItem.id);
                 if (exists) return old;
@@ -95,12 +88,6 @@ export function useMenuItems(categoryId?: string | null) {
 
               if (payload.eventType === 'UPDATE') {
                 const updatedItem = payload.new as MenuItem;
-                console.log(
-                  '✏️ Updating item:',
-                  updatedItem.name,
-                  'available:',
-                  updatedItem.available,
-                );
 
                 return old.map((item) =>
                   item.id === updatedItem.id
@@ -120,12 +107,9 @@ export function useMenuItems(categoryId?: string | null) {
           });
         },
       )
-      .subscribe((status) => {
-        console.log('Realtime subscription status:', status);
-      });
+      .subscribe();
 
     return () => {
-      console.log('Cleaning up realtime subscription');
       supabase.removeChannel(channel);
     };
   }, [queryClient]);

@@ -15,7 +15,7 @@ export async function sendEmail(
   text: string
 ) {
   const { data, error } = await resend.emails.send({
-    from: "noreply@qualitechlabs.org",
+    from: "Weddy's Kitchen <team@support.weddyskitchen.com>", //The format "Display Name <email@domain.com>" is the standard RFC 5322 format that Resend expects!
     to,
     subject,
     html,
@@ -62,15 +62,15 @@ export async function sendOtpEmail(to: string, code: string) {
 
   const html = (await renderEmail("otp.ejs", {
     code,
-    companyName: "Iurafoods",
-    supportEmail: "support@myapp.com",
-    subject: "Your Iurafoods account verification code",
+    companyName: "Weddy's kitchen",
+    supportContact: "0727942764",
+    subject: "Your Weddy's kitchen account verification code",
     userName,
   })) as string;
 
   await sendEmail(
     to,
-    "Your Iurafoods account verification code",
+    "Your Weddy's kitchen account verification code",
     html,
     `Hello ${userName}, your login code is ${code}. It will expire in 5 minutes. If you didn't request it, ignore this email.`
   );

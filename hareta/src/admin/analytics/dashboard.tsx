@@ -215,7 +215,7 @@ export default function AnalyticsDashboard() {
   );
 
   return (
-    <div className='space-y-4 bg-gray-900 p-4 sm:space-y-6 sm:p-6'>
+    <div className='min-h-screen space-y-4 bg-gray-900 p-4 sm:space-y-6 sm:p-6'>
       {/* Header */}
       <div className='flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between'>
         <div>
